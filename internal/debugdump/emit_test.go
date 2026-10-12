@@ -346,3 +346,50 @@ func TestScrubbedEventsRenderRetentionState(t *testing.T) {
 		t.Fatal("retention legend shown with no scrubbed event")
 	}
 }
+
+// A run that fails before grounding provenance is recorded has no mirror rows: its requested
+// `--mirror-ref` overrides must still reach both the JSONL header and the index, or the dump reads like
+// a plain run of the tracked refs.
+func TestRequestedMirrorRefsSurviveFailedRunDump(t *testing.T) {
+	var full client.FullResponse
+	raw := []byte(`{"run":{"run_id":"c446011c-7e78-4a41-8848-46d92b61152a","status":"failed","kind":"prompt","trigger":"test","mirror_refs":{"app":"dev/x","billing":"dev/y"},"error":"assembly failed","grounding_sources":{"captured":false}}}`)
+	if err := json.Unmarshal(raw, &full); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := EmitJSONL(&out, &full); err != nil {
+		t.Fatalf("EmitJSONL: %v", err)
+	}
+	var header struct {
+		MirrorRefs map[string]string `json:"mirror_refs"`
+	}
+	if err := json.Unmarshal(bytes.SplitN(out.Bytes(), []byte("\n"), 2)[0], &header); err != nil {
+		t.Fatalf("decode JSONL header: %v", err)
+	}
+	if header.MirrorRefs["app"] != "dev/x" || header.MirrorRefs["billing"] != "dev/y" {
+		t.Fatalf("jsonl mirror_refs = %v, want app=dev/x billing=dev/y", header.MirrorRefs)
+	}
+
+	index := RenderIndex(&full)
+	for _, want := range []string{
+		"- **Mirror app:** dev/x · requested, not resolved",
+		"- **Mirror billing:** dev/y · requested, not resolved",
+	} {
+		if !strings.Contains(index, want) {
+			t.Fatalf("index missing %q:\n%s", want, index)
+		}
+	}
+
+	// Once resolved, the provenance row wins: no duplicate "requested" line.
+	full.Run.GroundingSources = &client.GroundingSources{Captured: true, Sources: []client.GroundingSource{
+		{Kind: "mirror", Name: "app", Ref: "dev/x", CommitSHA: "0123456789abcdef", Overridden: true},
+	}}
+	index = RenderIndex(&full)
+	if !strings.Contains(index, "- **Mirror app:** dev/x @ 0123456789ab · override") || strings.Contains(index, "Mirror app:** dev/x · requested") {
+		t.Fatalf("resolved mirror not rendered once as override:\n%s", index)
+	}
+	if !strings.Contains(index, "- **Mirror billing:** dev/y · requested, not resolved") {
+		t.Fatalf("unresolved mirror dropped once another resolved:\n%s", index)
+	}
+}

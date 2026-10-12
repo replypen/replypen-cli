@@ -58,6 +58,9 @@ func EmitJSONL(w io.Writer, full *client.FullResponse) error {
 		header["grounding_sources"] = r.GroundingSources
 		header["grounding_source_drift_count"] = digest.GroundingSourceDriftCount(r.GroundingSources)
 	}
+	if len(r.MirrorRefs) > 0 {
+		header["mirror_refs"] = r.MirrorRefs
+	}
 	if len(r.ProposedActions) > 0 {
 		header["proposed_actions"] = r.ProposedActions
 	}

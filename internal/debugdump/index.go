@@ -250,7 +250,7 @@ func anyScrubbed(events []decEvent) bool {
 }
 
 func renderProjectionInputs(r client.RunHeader) []string {
-	mirrors := mirrorInputs(r.GroundingSources)
+	mirrors := mirrorInputs(r.GroundingSources, r.MirrorRefs)
 	if r.BrainResolved == "" && r.Tenant == "" && r.TenantSettings == "" && r.TenantSettingsCurrent == "" && len(mirrors) == 0 {
 		return nil
 	}
@@ -288,15 +288,20 @@ func renderProjectionInputs(r client.RunHeader) []string {
 
 // mirrorInputs lists each mounted source mirror as `ref @ sha12`, next to the brain ref: together they are
 // the code the run saw. ` · override` flags a per-run `rc ask --mirror-ref` mount instead of the tracked ref.
-func mirrorInputs(gs *client.GroundingSources) []string {
-	if gs == nil {
-		return nil
-	}
+// A requested override with no resolved row (the run failed before provenance) is still listed, marked
+// unresolved: dropping it would make an override run read like a plain one.
+func mirrorInputs(gs *client.GroundingSources, requested map[string]string) []string {
 	var out []string
-	for _, s := range gs.Sources {
+	resolved := map[string]bool{}
+	var sources []client.GroundingSource
+	if gs != nil {
+		sources = gs.Sources
+	}
+	for _, s := range sources {
 		if s.Kind != "mirror" {
 			continue
 		}
+		resolved[s.Name] = true
 		at := s.Ref
 		if sha := shortSHA(s.CommitSHA); sha != "" && at != "" {
 			at += " @ " + sha
@@ -308,6 +313,16 @@ func mirrorInputs(gs *client.GroundingSources) []string {
 			line += " · override"
 		}
 		out = append(out, line)
+	}
+	names := make([]string, 0, len(requested))
+	for name := range requested {
+		if !resolved[name] {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		out = append(out, fmt.Sprintf("- **Mirror %s:** %s · requested, not resolved", name, orQ(requested[name])))
 	}
 	return out
 }

@@ -511,22 +511,25 @@ type GroundingSourceCurrent struct {
 // system_prompt, warm inputs (warm_start_digest/grounding_seed), egress, and metadata.trace_url.
 // Mirrors the server's `run` object field-for-field.
 type RunHeader struct {
-	RunID                 string `json:"run_id"`
-	Scenario              string `json:"scenario,omitempty"`
-	Project               string `json:"project,omitempty"`
-	Tenant                string `json:"tenant,omitempty"` // run's tenant SLUG ('' for a flat/cross-tenant run)
-	Status                string `json:"status"`
-	Kind                  string `json:"kind"`
-	Trigger               string `json:"trigger,omitempty"`
-	BrainRef              string `json:"brain_ref,omitempty"`
-	BrainResolved         string `json:"brain_resolved,omitempty"`
-	TenantSettings        string `json:"tenant_settings,omitempty"`
-	TenantSettingsCurrent string `json:"tenant_settings_current,omitempty"`
-	Error                 string `json:"error,omitempty"`
-	ThreadID              string `json:"thread_id,omitempty"`
-	SessionID             string `json:"session_id,omitempty"`
-	Topic                 string `json:"topic,omitempty"`
-	Question              string `json:"question,omitempty"`
+	RunID         string `json:"run_id"`
+	Scenario      string `json:"scenario,omitempty"`
+	Project       string `json:"project,omitempty"`
+	Tenant        string `json:"tenant,omitempty"` // run's tenant SLUG ('' for a flat/cross-tenant run)
+	Status        string `json:"status"`
+	Kind          string `json:"kind"`
+	Trigger       string `json:"trigger,omitempty"`
+	BrainRef      string `json:"brain_ref,omitempty"`
+	BrainResolved string `json:"brain_resolved,omitempty"`
+	// MirrorRefs is the run's requested per-mirror overrides (repo -> ref), as submitted. Unlike the
+	// grounding_sources mirror rows it survives a run that failed before provenance was recorded.
+	MirrorRefs            map[string]string `json:"mirror_refs,omitempty"`
+	TenantSettings        string            `json:"tenant_settings,omitempty"`
+	TenantSettingsCurrent string            `json:"tenant_settings_current,omitempty"`
+	Error                 string            `json:"error,omitempty"`
+	ThreadID              string            `json:"thread_id,omitempty"`
+	SessionID             string            `json:"session_id,omitempty"`
+	Topic                 string            `json:"topic,omitempty"`
+	Question              string            `json:"question,omitempty"`
 	// PriorMessages / PriorNotes are the conversation-so-far the brain was GIVEN this turn (the replayed
 	// webhook Message/Note arrays), raw so the shape stays the server's. null on a first turn or a run
 	// predating the column. `rc run trace --brief` keeps them: they are the context a READER needs.
