@@ -4368,7 +4368,7 @@ Usage:
 Available Commands:
   runs         Fleet digest of recent runs (flags, rates, worst offenders)
   actions      Find actions across recent runs with exact params and run URLs
-  health       Roll up project health (mirrors, brain boot checks, dead-letters); exits non-zero when unhealthy
+  health       Roll up project health (mirrors, brain boot checks, dead-letters, PII-proxy withheld columns); exits non-zero when unhealthy
   deploy-state Show the live host, brain, and mirror SHAs with their history
   patterns     Cluster recent failures and outbound endpoint patterns
 

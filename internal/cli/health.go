@@ -25,7 +25,7 @@ func newHealthCmd(e *env) *cobra.Command {
 	var all bool
 	cmd := &cobra.Command{
 		Use:   "health",
-		Short: "Roll up project health (mirrors, brain boot checks, dead-letters); exits non-zero when unhealthy",
+		Short: "Roll up project health (mirrors, brain boot checks, dead-letters, PII-proxy withheld columns); exits non-zero when unhealthy",
 		Long: "Fetch GET /api/v1/health and render the healthy/unhealthy sections (stale/failing mirrors, " +
 			"failed brain boot checks, dead-lettered runs). Exits non-zero when unhealthy, so it's usable in CI/cron. --all fans out " +
 			"across every project (all-projects token) and exits non-zero if ANY project is unhealthy; an " +
