@@ -3715,9 +3715,10 @@ $ rc dev mirror refresh --help
 Refresh mirrors and verify one repository at an exact commit (--tenant for a tenant's own mirror)
 
 Usage:
-  rc dev mirror refresh --repo <name> --expect-sha <commit> [flags]
+  rc dev mirror refresh --repo <name> --expect-sha <commit> [--accept-descendant] [flags]
 
 Flags:
+      --accept-descendant   also accept a newer tip that contains --expect-sha (ancestry checked with git in the current directory)
       --expect-sha string   exact full 40-character commit SHA expected after refresh
       --repo string         configured mirror name
 
