@@ -19,6 +19,9 @@ Follow-up subjects (last 7d) — 3 missing
   ! tenant de-kies: no_declaration=2
   ! tenant de-kies: sent_content_mismatch=1
 
+Data withheld from the model (proxy fail-closed, last 24h) — 0 column(s)
+  ok — no cells withheld
+
 note: alert + 'token source disabled' log inputs are not in this DB-backed view — check logs (support skill) for those.
 
 UNHEALTHY

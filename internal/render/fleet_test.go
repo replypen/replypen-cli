@@ -242,3 +242,33 @@ func TestMissingFollowUpSubjectDrivesHealthVerdict(t *testing.T) {
 		}
 	}
 }
+
+func TestPIIWithheldDrivesHealthVerdict(t *testing.T) {
+	withheld := &client.HealthResponse{
+		WindowHours: 24,
+		PIIWithheld: []client.HealthPIIWithheld{
+			{DSNEnv: "KA_DSN", SchemaName: "public", TableName: "people", ColumnName: "id", Detail: "typcategory U oid 2950", Count: 40, Runs: 3},
+			{DSNEnv: "KA_DSN", ColumnName: "row", Detail: "typcategory P oid 2249", Count: 1, Runs: 1},
+		},
+	}
+	if !HealthVerdict(&client.HealthResponse{WindowHours: 24}, testNow) {
+		t.Error("no withheld columns should be healthy")
+	}
+	if HealthVerdict(withheld, testNow) {
+		t.Error("a withheld column must make the verdict unhealthy")
+	}
+
+	var buf bytes.Buffer
+	if Health(&buf, withheld, testNow) {
+		t.Error("Health() returned healthy with withheld columns")
+	}
+	for _, want := range []string{
+		"Data withheld from the model (proxy fail-closed, last 24h) — 2 column(s)",
+		"  ! KA_DSN people.id (typcategory U oid 2950): cells=40 runs=3",
+		"  ! KA_DSN (computed).row (typcategory P oid 2249): cells=1 runs=1",
+	} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("missing %q in:\n%s", want, buf.String())
+		}
+	}
+}

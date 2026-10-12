@@ -75,6 +75,18 @@ type HealthFollowUpSubjectMissing struct {
 	Count  int64  `json:"count"`
 }
 
+// HealthPIIWithheld is one column whose cells the host's PII proxy nulled (fail closed) in the window:
+// a type its text pass cannot shield. Detail names the type ("typcategory U oid 2950"), never a value.
+type HealthPIIWithheld struct {
+	DSNEnv     string `json:"dsn_env"`
+	SchemaName string `json:"schema_name"`
+	TableName  string `json:"table_name"`
+	ColumnName string `json:"column_name"`
+	Detail     string `json:"detail"`
+	Count      int64  `json:"count"`
+	Runs       int64  `json:"runs"`
+}
+
 // HealthResponse is GET /api/v1/health — the RAW health inputs; the CLI decides healthy/unhealthy.
 type HealthResponse struct {
 	WindowHours               int                            `json:"window_hours"`
@@ -85,4 +97,5 @@ type HealthResponse struct {
 	Mailboxes                 []HealthMailbox                `json:"mailboxes"`
 	DeadLettered              []HealthDeadLetter             `json:"dead_lettered"`
 	FollowUpSubjectMissing    []HealthFollowUpSubjectMissing `json:"follow_up_subject_missing"`
+	PIIWithheld               []HealthPIIWithheld            `json:"pii_withheld"`
 }
