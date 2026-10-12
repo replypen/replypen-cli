@@ -78,6 +78,11 @@ func ActionHistory(w io.Writer, rows []client.ActionHistoryRow) {
 			duration, row.CreatedAt, orDash(row.CompletedAt, "-"))
 	}
 	_ = tw.Flush()
+	for _, row := range rows {
+		for _, warning := range row.Warnings {
+			_, _ = fmt.Fprintf(w, "! %s %s: %s\n", row.ID, row.ActionID, warning)
+		}
+	}
 }
 
 type endpointRollup struct {

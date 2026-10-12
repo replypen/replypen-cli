@@ -220,7 +220,10 @@ type ActionHistoryRow struct {
 	// executor_error, no_executor, no_runner_url, attachment_fetch); anything action-authored
 	// collapses to action_error server-side. The message stays off this endpoint.
 	ErrorClass string `json:"error_class,omitempty"`
-	raw        json.RawMessage
+	// Warnings are the preflight's approver caveats (e.g. an unverified sender); the server sends them
+	// only to a run-detail caller.
+	Warnings []string `json:"warnings,omitempty"`
+	raw      json.RawMessage
 }
 
 func (a *ActionHistoryRow) UnmarshalJSON(data []byte) error {

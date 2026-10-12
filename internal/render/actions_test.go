@@ -120,3 +120,11 @@ func TestActionsSurfacesSettledFailureClampedButClassed(t *testing.T) {
 		t.Fatalf("agent view should stay one line per item:\n%s", agent.String())
 	}
 }
+
+func TestActionHistoryPrintsPreflightWarnings(t *testing.T) {
+	var out bytes.Buffer
+	ActionHistory(&out, []client.ActionHistoryRow{{ID: "ar-1", ActionID: "notify_absence", Status: "proposed", Warnings: []string{"Deze mail kwam van homer@simpson.com."}}})
+	if !strings.Contains(out.String(), "! ar-1 notify_absence: Deze mail kwam van homer@simpson.com.") {
+		t.Fatalf("warning line missing:\n%s", out.String())
+	}
+}
