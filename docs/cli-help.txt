@@ -2639,7 +2639,7 @@ Usage:
 Available Commands:
   pull        Fetch the production grounding env and write ./.env (0600); prints NAMES + count, never values
   diff        Compare local ./.env to the server (NAMES-only drift); nonzero exit on drift
-  keys        List the key NAMES of the server's grounding env (log-safe, no values)
+  keys        List grounding env key NAMES (log-safe, no values); --tenant lists the tenant's own
   set         Upsert one env var (value from STDIN by default; never echoed)
   rm          Delete one env var
   reveal      Print one env var's value (sensitive, shown once)
@@ -2689,10 +2689,16 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rc project env keys --help
-List the key NAMES of the server's grounding env (log-safe, no values)
+List grounding env key NAMES (log-safe, no values).
+
+With --tenant this lists the tenant's OWN keys (what `set`/`rm --tenant` manage). --effective lists the
+merged project + tenant env a run sees instead (the same set `pull` writes).
 
 Usage:
-  rc project env keys [flags]
+  rc project env keys [--effective] [flags]
+
+Flags:
+      --effective   with --tenant: list the merged project + tenant env a run sees
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

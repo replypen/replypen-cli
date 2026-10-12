@@ -364,6 +364,13 @@ func stubServer(t *testing.T) *httptest.Server {
 		}
 		_, _ = w.Write([]byte(`{"project":"momentum-tools","keys":{"FEATURE_FLAG":"project","REGION":"eu","STRIPE_KEY":"sk_live_SECRET"}}`))
 	})
+	// The tenant's OWN grounding keys (names only): ACME_DSN + its FEATURE_FLAG override, never the
+	// project's REGION/STRIPE_KEY — so `env keys --tenant` vs `--effective` is distinguishable.
+	mux.HandleFunc("GET /api/v1/projects/{project}/tenants/{slug}/env_grounding", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"env_grounding":[{"id":"ACME_DSN","key":"ACME_DSN"},{"id":"FEATURE_FLAG","key":"FEATURE_FLAG"}]}`))
+	})
 	mux.HandleFunc("POST /api/v1/console/bash/run", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		body := readBody(t, r)

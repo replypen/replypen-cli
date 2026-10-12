@@ -540,7 +540,7 @@ help using `go test ./internal/cli -update`.
 | `rc project database` | Manage registered databases (list/read/update + access controls) |
 | `rc project egress` | Inspect outbound endpoints, volume, and unattributed traffic |
 | `rc project env diff` | Compare local ./.env to the server (NAMES-only drift); nonzero exit on drift |
-| `rc project env keys` | List the key NAMES of the server's grounding env (log-safe, no values) |
+| `rc project env keys` | List grounding env key NAMES (log-safe, no values); --tenant lists the tenant's own |
 | `rc project env pull` | Fetch the production grounding env and write ./.env (0600); prints NAMES + count, never values |
 | `rc project env reveal` | Print one env var's value (sensitive, shown once) |
 | `rc project env rm` | Delete one env var |
@@ -808,6 +808,7 @@ reads/writes `./.env`):
 
 ```bash
 rc project env keys                 # what keys exist (names only — safe to paste/log)
+rc project env keys --tenant acme   # the tenant's OWN keys (what set/rm --tenant manage); --effective = merged project + tenant
 rc project env pull                 # write ./.env at 0600 — then `brain-dev --live` can run grounding locally
 rc project env diff                 # has my local ./.env drifted from production? (names-only; exit≠0 on drift)
 printf %s "$SECRET_VALUE" | rc project env set key=FOO_API_TOKEN
@@ -820,7 +821,8 @@ rc project env reveal FOO_API_TOKEN # prints the value once; sensitive
 > secret value for copy/pipe use and audits the key name. The pulled `.env` holds **real production
 > secrets** on your laptop — treat it like a password file (it's gitignored in every brain repo). A
 > tenant-enabled bulk pull uses the tenant bound to your `rc auth login`, or requires `--tenant` when the
-> login is project-pinned.
+> login is project-pinned. `pull`/`diff` (and `keys --effective`) see the **merged** project + tenant env a
+> run sees; plain `keys` with a tenant scope lists only the tenant's own keys.
 
 **Adding a database:** there is no `rc project database add` — a database exists because a sealed
 grounding key named `<PROJECT>_<DBKEY>_DSN` exists. `printf %s "$DSN" | rc project env set

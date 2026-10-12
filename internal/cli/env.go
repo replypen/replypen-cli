@@ -177,31 +177,66 @@ func newEnvRevealCmd(e *env) *cobra.Command {
 	return cmd
 }
 
+// newEnvKeysCmd: `rc project env keys [--tenant <t>] [--effective]`. With a tenant scope it lists the
+// tenant's OWN names (the tenant env_grounding collection) — the ones `set`/`rm --tenant` manage. The
+// bulk pull is merged project + tenant (what a run sees), so it's only shown on --effective and labelled
+// as such; without a tenant both views are the project env.
 func newEnvKeysCmd(e *env) *cobra.Command {
+	var effective bool
 	cmd := &cobra.Command{
-		Use:   "keys",
-		Short: "List the key NAMES of the server's grounding env (log-safe, no values)",
-		Args:  cobra.NoArgs,
+		Use:   "keys [--effective]",
+		Short: "List grounding env key NAMES (log-safe, no values); --tenant lists the tenant's own",
+		Long: `List grounding env key NAMES (log-safe, no values).
+
+With --tenant this lists the tenant's OWN keys (what ` + "`set`/`rm --tenant`" + ` manage). --effective lists the
+merged project + tenant env a run sees instead (the same set ` + "`pull`" + ` writes).`,
+		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			c, err := e.newClient()
 			if err != nil {
 				return err
 			}
-			resp, err := c.Env(e.ctx(), e.scopeTenant(), e.scopeProject())
-			if err != nil {
-				return err
+			project, tenant := e.scopeProject(), e.scopeTenant()
+			var names []string
+			scope, label := "project", ""
+			if tenant != "" && !effective {
+				list, _, err := c.List(e.ctx(), "env_grounding", project, tenant)
+				if err != nil {
+					return err
+				}
+				for _, it := range list.Items {
+					var name string
+					if json.Unmarshal(it["key"], &name) == nil && name != "" {
+						names = append(names, name)
+					}
+				}
+				sort.Strings(names)
+				scope, label = "tenant", "tenant's own: "+project+"/"+tenant+"; --effective adds project keys"
+			} else {
+				resp, err := c.Env(e.ctx(), tenant, project)
+				if err != nil {
+					return err
+				}
+				names = sortedNames(resp.Keys)
+				project, tenant, label = resp.Project, resp.Tenant, scopeLabel(resp)
+				if resp.Tenant != "" {
+					scope, label = "effective", "effective: project + tenant, "+label
+				}
 			}
-			names := sortedNames(resp.Keys)
 			if render.IsJSON(e.mode(), e.out) {
-				return writeJSON(e, map[string]any{"project": resp.Project, "tenant": resp.Tenant, "keys": names, "count": len(names)})
+				if names == nil {
+					names = []string{}
+				}
+				return writeJSON(e, map[string]any{"project": project, "tenant": tenant, "scope": scope, "keys": names, "count": len(names)})
 			}
 			for _, n := range names {
 				_, _ = fmt.Fprintln(e.out, n)
 			}
-			_, _ = fmt.Fprintf(e.err, "%d keys (%s)\n", len(names), scopeLabel(resp))
+			_, _ = fmt.Fprintf(e.err, "%d keys (%s)\n", len(names), label)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&effective, "effective", false, "with --tenant: list the merged project + tenant env a run sees")
 	return cmd
 }
 

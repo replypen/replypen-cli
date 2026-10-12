@@ -17,11 +17,12 @@ func TestEnvKeys(t *testing.T) {
 	defer srv.Close()
 
 	cases := []struct {
-		name      string
-		output    string
-		args      []string
-		wantOut   []string // substrings expected on stdout
-		wantNoVal bool
+		name    string
+		output  string
+		args    []string
+		wantOut []string // substrings expected on stdout
+		wantNot []string // substrings that must NOT be on stdout
+		wantErr string   // substring expected on stderr (the scope label)
 	}{
 		{
 			name:    "table",
@@ -36,10 +37,32 @@ func TestEnvKeys(t *testing.T) {
 			wantOut: []string{`"keys"`, `"FEATURE_FLAG"`, `"count": 3`},
 		},
 		{
-			name:    "tenant",
+			name:    "tenant own",
 			output:  "table",
-			args:    []string{"project", "env", "keys", "--tenant", "acme"},
+			args:    []string{"project", "env", "keys", "--project", "alpha", "--tenant", "acme"},
+			wantOut: []string{"ACME_DSN", "FEATURE_FLAG"},
+			wantNot: []string{"REGION"},
+			wantErr: "2 keys (tenant's own: alpha/acme",
+		},
+		{
+			name:    "tenant own json",
+			output:  "json",
+			args:    []string{"project", "env", "keys", "--project", "alpha", "--tenant", "acme"},
+			wantOut: []string{`"scope": "tenant"`, `"ACME_DSN"`, `"count": 2`},
+			wantNot: []string{"REGION"},
+		},
+		{
+			name:    "tenant effective",
+			output:  "table",
+			args:    []string{"project", "env", "keys", "--project", "alpha", "--tenant", "acme", "--effective"},
 			wantOut: []string{"ACME_DSN", "FEATURE_FLAG", "REGION"},
+			wantErr: "3 keys (effective: project + tenant, momentum-tools/acme)",
+		},
+		{
+			name:    "tenant effective json",
+			output:  "json",
+			args:    []string{"project", "env", "keys", "--project", "alpha", "--tenant", "acme", "--effective"},
+			wantOut: []string{`"scope": "effective"`, `"REGION"`, `"count": 3`},
 		},
 	}
 	for _, tc := range cases {
@@ -53,6 +76,14 @@ func TestEnvKeys(t *testing.T) {
 				if !strings.Contains(got, want) {
 					t.Errorf("stdout missing %q\n--- got ---\n%s", want, got)
 				}
+			}
+			for _, not := range tc.wantNot {
+				if strings.Contains(got, not) {
+					t.Errorf("stdout has %q\n--- got ---\n%s", not, got)
+				}
+			}
+			if !strings.Contains(errb.String(), tc.wantErr) {
+				t.Errorf("stderr missing %q; got %q", tc.wantErr, errb.String())
 			}
 			assertNoSecret(t, out.String(), errb.String())
 		})
