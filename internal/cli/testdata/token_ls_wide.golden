@@ -1,0 +1,5 @@
+ID        LABEL          SUBJECT        TENANT  STATUS  CREATED     LAST USED  LAST IP       VIA                SCOPE           USER AGENT
+tok_aaaa  -              -              -       active  -           never      -             -                  config:read     -
+tok_eeee  never used     new@acme.test  -       active  2026-10-10  never      -             -                  read            -
+tok_dddd  -              old@acme.test  acme    active  2026-05-02  40d ago    198.51.100.4  POST /oauth/token  read            curl/8.4.0
+tok_cccc  ci deploy bot  bot@acme.test  -       active  2026-09-01  3h ago     203.0.113.7   GET /api/v1/runs   read runs:read  rc/1.2.3 (darwin/arm64)

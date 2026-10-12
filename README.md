@@ -271,6 +271,12 @@ capability; omit it when production database reads are not needed. Add `runs:tri
 or other scopes only when the agent actually uses those planes. Verify a fresh session with
 `rc auth status -o json` and one narrow read.
 
+Add `label=<text>` to `token mint` to name a credential. `rc project token ls` shows each token's last use
+(time, IP, route), least recently used first, active tokens only (`--include-revoked` adds revoked ones,
+`--wide` adds scope and user agent; `-o json` keeps the raw rows after the same filter and sort). Clean up stale
+credentials with `rc project token ls --unused-days 90`, then `rc project token revoke <id>`. "never" means no
+use since tracking began on 2026-10-12.
+
 ### Cloud setup
 
 The hosted setup script installs or updates `rc`, uv, and pnpm from checksum-verified, cloud-reachable
@@ -620,7 +626,7 @@ help using `go test ./internal/cli -update`.
 | `rc project tenant settings set` | Patch settings (nested; key= or --unset clears local override) |
 | `rc project tenant settings` | Read or edit nested tenant settings (persona/channel) |
 | `rc project tenant` | Manage tenants (sub-scopes below a project) and their settings |
-| `rc project token ls` | List tokens |
+| `rc project token ls` | List tokens with last-used info (active only, least recently used first) |
 | `rc project token mint` | Mint a new token (refresh token shown once) |
 | `rc project token revoke` | Revoke a token |
 | `rc project token` | Manage API tokens |

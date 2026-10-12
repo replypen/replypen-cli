@@ -343,7 +343,7 @@ func newMemberCmd(e *env) *cobra.Command {
 func newTokenCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "token", Short: "Manage API tokens"}
 	cmd.AddCommand(
-		listSubCmd(e, "tokens"),
+		tokenLsCmd(e),
 		tokenMintCmd(e),
 		tokenRevokeCmd(e),
 	)
@@ -351,12 +351,14 @@ func newTokenCmd(e *env) *cobra.Command {
 }
 
 // tokenMintCmd: POST /api/v1/tokens → {"refresh_token","scope","status"}. The refresh token is shown
-// ONCE; warn it's sensitive. Accepts k=v fields (e.g. scope=…) like add.
+// ONCE; warn it's sensitive. Accepts k=v fields (e.g. scope=…, label=…) like add.
 func tokenMintCmd(e *env) *cobra.Command {
 	return &cobra.Command{
 		Use:   "mint [k=v…]",
 		Short: "Mint a new token (refresh token shown once)",
-		Args:  cobra.ArbitraryArgs,
+		Long: "Mint a new token. The refresh token is shown once. Fields are k=v: email=…, scope='…', and\n" +
+			"label=<text> (a free-text name shown in `token ls`, e.g. label=\"ci deploy bot\").",
+		Args: cobra.ArbitraryArgs,
 		RunE: func(_ *cobra.Command, args []string) error {
 			body, err := parseItemArgs(args)
 			if err != nil {

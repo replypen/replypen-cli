@@ -1,0 +1,5 @@
+ID        LABEL       SUBJECT        TENANT  STATUS   CREATED     LAST USED  LAST IP       VIA
+tok_aaaa  -           -              -       active   -           never      -             -
+tok_bbbb  -           -              -       revoked  -           never      -             -
+tok_eeee  never used  new@acme.test  -       active   2026-10-10  never      -             -
+tok_dddd  -           old@acme.test  acme    active   2026-05-02  40d ago    198.51.100.4  POST /oauth/token

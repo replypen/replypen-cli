@@ -2451,7 +2451,7 @@ Usage:
   rc project token [command]
 
 Available Commands:
-  ls          List tokens
+  ls          List tokens with last-used info (active only, least recently used first)
   mint        Mint a new token (refresh token shown once)
   revoke      Revoke a token
 
@@ -2468,10 +2468,17 @@ Global Flags:
 Use "rc project token [command] --help" for more information about a command.
 
 $ rc project token ls --help
-List tokens
+List tokens, least recently used first. Active tokens only unless --include-revoked. "never" means no use
+since last-used tracking began (2026-10-12). Use --unused-days N to list stale credentials worth revoking.
+-o json keeps the server's raw items (scope, user agent, …) after the same filter and sort.
 
 Usage:
   rc project token ls [flags]
+
+Flags:
+      --include-revoked   include revoked tokens (default: active only)
+      --unused-days int   only tokens never used or last used more than N days ago
+      --wide              add SCOPE and USER AGENT columns
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -2484,7 +2491,8 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rc project token mint --help
-Mint a new token (refresh token shown once)
+Mint a new token. The refresh token is shown once. Fields are k=v: email=…, scope='…', and
+label=<text> (a free-text name shown in `token ls`, e.g. label="ci deploy bot").
 
 Usage:
   rc project token mint [k=v…] [flags]
