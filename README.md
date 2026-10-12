@@ -338,8 +338,9 @@ export ROOTCAUSE_BASE_URL=https://staging.your-rootcause-host
 
 **Profiles** are the token-store keys. The profile is resolved as: explicit `--profile <name>` >
 the brain marker's project if that token exists > `"default"`. `--profile` picks *which stored token*
-a command uses. Concurrent `rc` calls on one profile are safe: the token refresh runs under a file
-lock on the store, so parallel processes share one renewal instead of racing the single-use refresh token.
+a command uses. Concurrent `rc` calls on one profile are safe: the token refresh runs under a
+per-profile file lock, so parallel processes share one renewal instead of racing the single-use refresh
+token, and different profiles refresh independently.
 `--project <id-or-name>` is **not** a token selector — it's a **server-side scope**: it keeps the active
 token and names one project on supported endpoints (`?project=`), so an **all-projects admin token** can
 review a single project (`rc fleet runs --project momentum-tools`) or trigger one (`rc ask --project

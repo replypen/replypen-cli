@@ -8,10 +8,12 @@
 package token
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,9 +26,17 @@ const storeMode = 0o600
 
 var storeMu sync.Mutex
 
-// lockWait bounds how long a process waits for the store lock. It exceeds the OAuth client's 30s HTTP
-// timeout because Update holds the lock across a token refresh round-trip.
-const lockWait = 45 * time.Second
+// Two lock scopes, always taken in this order (profile, then store) and never the reverse:
+//   - the STORE lock (tokens.json.lock) covers one read-modify-write of the file — milliseconds, so a
+//     short wait suffices and a stuck holder surfaces quickly;
+//   - a PROFILE lock (tokens.json.<profile>.lock) covers Update's whole check → refresh → persist cycle
+//     for one profile. It is held across an OAuth round-trip, so its wait must exceed the OAuth client's
+//     30s HTTP timeout: a waiter outlasts one sibling's in-flight refresh, then adopts its result.
+//     Per-profile scoping keeps a slow refresh on one profile from queueing every other profile.
+const (
+	storeLockWait   = 5 * time.Second
+	profileLockWait = 45 * time.Second
+)
 
 // Token is one profile's stored credential. ExpiresAt is the access token's absolute expiry (computed
 // at mint/refresh time from the server's expires_in). RefreshToken is empty for a non-rotating machine
@@ -91,8 +101,14 @@ func Load(profile string) (Token, bool, error) {
 	return t, ok, nil
 }
 
-// Save writes (or replaces) the token for profile, preserving every other profile's entry, at 0600.
+// Save writes (or replaces) the token for profile, preserving every other profile's entry, at 0600. It
+// waits out an in-flight Update on the same profile so a refresh cannot overwrite a fresh login.
 func Save(profile string, t Token) error {
+	unlock, err := lockProfile(profile)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	return mutate(func(sf *storeFile) {
 		if sf.Profiles == nil {
 			sf.Profiles = map[string]Token{}
@@ -101,32 +117,39 @@ func Save(profile string, t Token) error {
 	})
 }
 
-// Update runs fn under the store's cross-process lock with profile's CURRENT token (ok=false if none)
-// and persists next when save is true. The whole read → fn → write cycle is one critical section, so fn
-// may do network I/O — the CLI's check-expiry → refresh → persist — without a sibling `rc` process
-// presenting the same single-use refresh token. fn must not call Load/Save/Delete (Save would deadlock).
+// Update runs fn under profile's cross-process lock with its CURRENT token (ok=false if none) and
+// persists next when save is true. The whole read → fn → write cycle is one critical section for that
+// profile, so fn may do network I/O — the CLI's check-expiry → refresh → persist — without a sibling `rc`
+// process presenting the same single-use refresh token. Other profiles are not blocked: only the final
+// write takes the store-wide lock, briefly. fn must not call Save/Delete for the same profile (it would
+// wait on the lock it is running under).
 func Update(profile string, fn func(cur Token, ok bool) (next Token, save bool, err error)) error {
-	var fnErr error
-	err := mutateIf(func(sf *storeFile) bool {
-		cur, ok := sf.Profiles[profile]
-		next, save, err := fn(cur, ok)
-		if err != nil {
-			fnErr = err
-			return false
-		}
-		if save {
-			sf.Profiles[profile] = next
-		}
-		return save
-	})
-	if fnErr != nil {
-		return fnErr
+	unlock, err := lockProfile(profile)
+	if err != nil {
+		return err
 	}
-	return err
+	defer unlock()
+	// A lockless read is safe: writers replace the file by rename, and this profile's entry only changes
+	// under the profile lock we hold.
+	sf, err := read()
+	if err != nil {
+		return err
+	}
+	cur, ok := sf.Profiles[profile]
+	next, save, err := fn(cur, ok)
+	if err != nil || !save {
+		return err
+	}
+	return mutate(func(sf *storeFile) { sf.Profiles[profile] = next })
 }
 
 // Delete removes the token for profile (a no-op if absent). Used by `rc auth logout`.
 func Delete(profile string) error {
+	unlock, err := lockProfile(profile)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	return mutate(func(sf *storeFile) { delete(sf.Profiles, profile) })
 }
 
@@ -162,16 +185,16 @@ func read() (storeFile, error) {
 	return sf, nil
 }
 
+// mutate is the store-locked read-modify-write of tokens.json.
 func mutate(change func(*storeFile)) error {
-	return mutateIf(func(sf *storeFile) bool { change(sf); return true })
-}
-
-// mutateIf is the locked read-modify-write; change returns whether the store needs writing.
-func mutateIf(change func(*storeFile) bool) error {
 	storeMu.Lock()
 	defer storeMu.Unlock()
 
-	unlock, err := acquireLock()
+	path, err := Path()
+	if err != nil {
+		return err
+	}
+	unlock, err := acquireLock(path+".lock", storeLockWait)
 	if err != nil {
 		return err
 	}
@@ -181,29 +204,43 @@ func mutateIf(change func(*storeFile) bool) error {
 	if err != nil {
 		return err
 	}
-	if !change(&sf) {
-		return nil
-	}
+	change(&sf)
 	return write(sf)
 }
 
-// acquireLock serializes cross-process read-modify-write with an advisory lock. The lock file is
-// intentionally persistent: the kernel releases the lock on close or process exit, so there is no
-// stale-file cleanup race.
-func acquireLock() (func(), error) {
+// lockProfile takes profile's cross-process refresh lock (see profileLockWait).
+func lockProfile(profile string) (func(), error) {
 	path, err := Path()
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	return acquireLock(path+"."+lockKey(profile)+".lock", profileLockWait)
+}
+
+// lockKey turns a profile name into a file-name-safe, collision-free key: a name of only [A-Za-z0-9_-]
+// is used as-is, anything else is hex-encoded behind "=" (a character the as-is form never contains).
+func lockKey(profile string) string {
+	safe := func(r rune) bool {
+		return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-'
+	}
+	if profile == "" || strings.IndexFunc(profile, func(r rune) bool { return !safe(r) }) >= 0 {
+		return "=" + hex.EncodeToString([]byte(profile))
+	}
+	return profile
+}
+
+// acquireLock takes an exclusive advisory lock on lockPath, polling for up to wait. The lock file is
+// intentionally persistent: the kernel releases the lock on close or process exit, so there is no
+// stale-file cleanup race.
+func acquireLock(lockPath string, wait time.Duration) (func(), error) {
+	if err := os.MkdirAll(filepath.Dir(lockPath), 0o700); err != nil {
 		return nil, fmt.Errorf("create config dir: %w", err)
 	}
-	lockPath := path + ".lock"
 	f, err := os.OpenFile(lockPath, os.O_WRONLY|os.O_CREATE, storeMode)
 	if err != nil {
 		return nil, fmt.Errorf("open token-store lock: %w", err)
 	}
-	deadline := time.Now().Add(lockWait)
+	deadline := time.Now().Add(wait)
 	for {
 		unlockFile, lockErr := tryLockFile(f)
 		if lockErr == nil {

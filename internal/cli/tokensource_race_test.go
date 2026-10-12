@@ -85,19 +85,98 @@ func TestConcurrentProcessesRefreshOnce(t *testing.T) {
 	}
 }
 
-// TestRefreshHelperProcess is the child half of TestConcurrentProcessesRefreshOnce: one `rc` process
-// asking its token source for a bearer. It inherits XDG_CONFIG_HOME, so all children share one store.
+// TestRefreshHelperProcess is the child half of the multi-process refresh tests: one `rc` process asking
+// its token source (profile RC_TEST_REFRESH_PROFILE, default "default") for a bearer. It inherits
+// XDG_CONFIG_HOME, so all children share one store.
 func TestRefreshHelperProcess(t *testing.T) {
 	url := os.Getenv("RC_TEST_REFRESH_URL")
 	if url == "" {
 		t.Skip("helper process for TestConcurrentProcessesRefreshOnce")
 	}
-	got, err := newLiveSource("default", url).Token(t.Context())
+	profile := os.Getenv("RC_TEST_REFRESH_PROFILE")
+	if profile == "" {
+		profile = "default"
+	}
+	got, err := newLiveSource(profile, url).Token(t.Context())
 	if err != nil {
 		fmt.Printf("ERR=%v\n", err)
 		return
 	}
 	fmt.Printf("TOKEN=%s\n", got)
+}
+
+// TestConcurrentProfilesRefreshInParallel: refresh serialization is per profile. Three processes on three
+// expired profiles must refresh concurrently — a slow OAuth round-trip on one profile may not queue the
+// others behind it (a store-wide lock made them take N× the latency, and time out once N× exceeded the
+// lock wait).
+func TestConcurrentProfilesRefreshInParallel(t *testing.T) {
+	isolatedConfig(t)
+
+	const latency = 2 * time.Second
+	var (
+		mu        sync.Mutex
+		refreshes = map[string]int{}
+	)
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /oauth/token", func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		rt := r.PostFormValue("refresh_token") // rcor_<profile>
+		mu.Lock()
+		refreshes[rt]++
+		mu.Unlock()
+		time.Sleep(latency)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"access_token":"rcoa_new_%s","refresh_token":"rcor_new_%s","token_type":"Bearer","expires_in":3600}`,
+			strings.TrimPrefix(rt, "rcor_"), strings.TrimPrefix(rt, "rcor_"))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	profiles := []string{"alpha", "beta", "gamma"}
+	for _, p := range profiles {
+		seedToken(t, p, token.Token{
+			AccessToken: "rcoa_stale", RefreshToken: "rcor_" + p,
+			ExpiresAt: time.Now().Add(-time.Hour), BaseURL: srv.URL,
+		})
+	}
+
+	outs := make([]string, len(profiles))
+	var wg sync.WaitGroup
+	start := time.Now()
+	for i, p := range profiles {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			cmd := exec.Command(os.Args[0], "-test.run=^TestRefreshHelperProcess$")
+			cmd.Env = append(os.Environ(), "RC_TEST_REFRESH_URL="+srv.URL, "RC_TEST_REFRESH_PROFILE="+p)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				outs[i] = fmt.Sprintf("exec: %v: %s", err, out)
+				return
+			}
+			outs[i] = string(out)
+		}()
+	}
+	wg.Wait()
+	elapsed := time.Since(start)
+	t.Logf("3 profiles refreshed in %s (one refresh = %s)", elapsed.Round(10*time.Millisecond), latency)
+
+	for i, p := range profiles {
+		if !strings.Contains(outs[i], "TOKEN=rcoa_new_"+p+"\n") {
+			t.Errorf("profile %s did not end with its renewed token:\n%s", p, outs[i])
+		}
+		stored, _, _ := token.Load(p)
+		if stored.AccessToken != "rcoa_new_"+p || stored.RefreshToken != "rcor_new_"+p {
+			t.Errorf("stored %s = %+v, want its rotated pair", p, stored)
+		}
+		if n := refreshes["rcor_"+p]; n != 1 {
+			t.Errorf("profile %s refresh requests = %d, want 1", p, n)
+		}
+	}
+	// Parallel: ~one latency plus process start-up. Serialized would be >= 3× latency.
+	if elapsed >= 2*latency {
+		t.Errorf("elapsed %s >= %s: profiles refreshed serially, not in parallel", elapsed, 2*latency)
+	}
 }
 
 // TestForcedRefreshSkipsWhenSiblingRenewed: a 401 forces a refresh of the token we handed out, unless

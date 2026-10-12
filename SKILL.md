@@ -151,8 +151,9 @@ opener runs and opener failure is non-fatal, so an agent can hand the URL to a h
 Tokens: `~/.config/rootcause/tokens.json`, 0600, per profile ([`internal/token`](internal/token/store.go)).
 Its stored `base_url` is diagnostic metadata only and never overrides transport.
 `liveSource` refreshes pre-emptively and once on a 401, persists the rotated pair, and turns a dead
-refresh into a "run `rc auth login`" prompt. Check → refresh → persist runs inside `token.Update` (the
-store's cross-process lock), so parallel processes on one profile spend the single-use refresh token once. The store lookup is the ONE seam `newClient` allows: tests
+refresh into a "run `rc auth login`" prompt. Check → refresh → persist runs inside `token.Update` (a
+per-profile cross-process lock; only the file write takes the store lock), so parallel processes on one
+profile spend the single-use refresh token once while other profiles refresh in parallel. The store lookup is the ONE seam `newClient` allows: tests
 swap `env.tokenSource` (a `tokenSourceFactory`) for a `client.StaticToken` source, and everything after it
 — machine-token check, tenant→project resolution, scope header, project validation, selector enforcement —
 runs in the same order as in production.

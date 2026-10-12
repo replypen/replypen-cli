@@ -55,12 +55,13 @@ func (s *liveSource) Refresh(ctx context.Context) (string, error) {
 	return s.refresh(ctx, true)
 }
 
-// refresh renews the access token inside the token store's cross-process lock. Must hold s.mu.
+// refresh renews the access token inside the profile's cross-process lock (token.Update). Must hold s.mu.
 //
 // Parallel `rc` processes on one profile all see the same expiring token, and the server's rotating
 // refresh token is single-use: an unserialized second refresh gets invalid_grant even though the login
-// is healthy. So check → refresh → persist is one token.Update critical section, and after acquiring
-// the lock we re-read: a sibling that renewed while we waited leaves a fresh token we simply adopt.
+// is healthy. So check → refresh → persist is one per-profile token.Update critical section (other
+// profiles refresh in parallel), and after acquiring the lock we re-read: a sibling that renewed while
+// we waited leaves a fresh token we simply adopt.
 // force (a 401 retry) skips the refresh only when the stored token differs from the rejected one.
 func (s *liveSource) refresh(ctx context.Context, force bool) (string, error) {
 	var out, presented string
