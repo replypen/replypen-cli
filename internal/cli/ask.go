@@ -21,6 +21,7 @@ import (
 // normally login-bound; the persistent --tenant remains an explicit override.
 type askFlags struct {
 	brainRef      string
+	mirrorRefs    []string
 	effort        string
 	scenario      string
 	from          string
@@ -43,8 +44,9 @@ const defaultAskFrom = "rc-ask@example.test"
 // newAskCmd builds `rc ask "<question>"` — the trigger verb. It POSTs the prompt to /api/v1/runs
 // (OAuth-authed, optionally ?project=-scoped), then by DEFAULT waits, polling /runs/{id} until the run
 // reaches a terminal status, and prints the same summary as `rc run show <id>`. --no-wait returns the run_id
-// immediately. --brain-ref runs the question against a non-main brain ref (a dev/* branch) — the project
-// dev's "test without pushing main" loop. The CLI stays thin: it triggers + polls + renders; all run
+// immediately. --brain-ref runs the question against a non-main brain ref (a dev/* branch) and --mirror-ref
+// mounts another ref of a source mirror for this run only — the project dev's "test without pushing main"
+// loop. The CLI stays thin: it triggers + polls + renders; all run
 // logic lives server-side.
 func newAskCmd(e *env) *cobra.Command {
 	var f askFlags
@@ -64,6 +66,10 @@ func newAskCmd(e *env) *cobra.Command {
 				return err
 			}
 			principal, err := principalFromFlags(f.principalKind, f.principalID, f.assertedBy, f.assurance)
+			if err != nil {
+				return err
+			}
+			mirrorRefs, err := parseMirrorRefs(f.mirrorRefs)
 			if err != nil {
 				return err
 			}
@@ -117,6 +123,7 @@ func newAskCmd(e *env) *cobra.Command {
 				SessionID:       f.session,
 				Tenant:          e.scopeTenant(),
 				BrainRef:        f.brainRef,
+				MirrorRefs:      mirrorRefs,
 				Simulation:      f.simulation,
 				ReasoningEffort: effort,
 				Sender:          sender,
@@ -169,6 +176,7 @@ func newAskCmd(e *env) *cobra.Command {
 	cmd.Flags().StringVar(&f.subject, "subject", "", "subject for --scenario email (default: compact prompt first line)")
 	cmd.Flags().StringVar(&f.effort, "effort", "", "reasoning effort override: default, pro, or max")
 	cmd.Flags().StringVar(&f.brainRef, "brain-ref", "", "run against a non-main brain ref (e.g. dev/refund-rework) — a test run")
+	cmd.Flags().StringArrayVar(&f.mirrorRefs, "mirror-ref", nil, "mount <repo>=<ref> (dev/* branch or SHA) of a source mirror for this run only — a test run; repeatable")
 	cmd.Flags().StringVar(&f.session, "session", "", "session id to thread the run onto")
 	cmd.Flags().StringVar(&f.principalKind, "principal-kind", "", "principal kind to scope the run's data (e.g. kampadmin_person); requires --principal-id")
 	cmd.Flags().StringVar(&f.principalID, "principal-id", "", "principal external id (the asserted identity); requires --principal-kind")
@@ -182,6 +190,28 @@ func newAskCmd(e *env) *cobra.Command {
 	cmd.Flags().BoolVar(&f.dryScope, "dry-scope", false, "resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)")
 	cmd.Flags().DurationVar(&f.timeout, "timeout", 5*time.Minute, "max time to wait for a terminal status")
 	return cmd
+}
+
+// parseMirrorRefs turns repeated --mirror-ref <repo>=<ref> values into the mirror_refs wire map. Shape
+// only (both halves non-empty, one ref per repo): whether the repo is configured and the ref exists is the
+// server's call (400 BAD_MIRROR_REF, or a failed run for a ref missing on origin).
+func parseMirrorRefs(vals []string) (map[string]string, error) {
+	if len(vals) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]string, len(vals))
+	for _, v := range vals {
+		repo, ref, ok := strings.Cut(v, "=")
+		repo, ref = strings.TrimSpace(repo), strings.TrimSpace(ref)
+		if !ok || repo == "" || ref == "" || strings.Contains(ref, "=") {
+			return nil, fmt.Errorf("--mirror-ref %q: want <repo>=<ref> (e.g. app=dev/my-branch)", v)
+		}
+		if _, dup := out[repo]; dup {
+			return nil, fmt.Errorf("--mirror-ref: repo %q given more than once", repo)
+		}
+		out[repo] = ref
+	}
+	return out, nil
 }
 
 // principalFromFlags validates the principal flag group and builds the optional principal. --principal-kind

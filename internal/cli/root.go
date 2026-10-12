@@ -485,6 +485,10 @@ func printErrorBody(w io.Writer, err error) {
 		if apiErr.Code == "BAD_BRAIN_REF" {
 			_, _ = fmt.Fprintln(w, "  push the ref to your project's brain first: git push origin <ref>")
 		}
+		// A rejected --mirror-ref names an unconfigured mirror or a malformed ref.
+		if apiErr.Code == "BAD_MIRROR_REF" {
+			_, _ = fmt.Fprintln(w, "  --mirror-ref takes <repo>=<ref>: a configured mirror name (rc project repo ls) and a branch or 40-char SHA")
+		}
 		// An unreachable promote SHA means the tested commit never reached the brain origin.
 		if apiErr.Code == "BRAIN_SHA_UNREACHABLE" {
 			_, _ = fmt.Fprintln(w, "  SHA not reachable from origin/main — did you `git push` the brain repo?")

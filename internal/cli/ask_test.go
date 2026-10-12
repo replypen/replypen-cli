@@ -127,6 +127,28 @@ func TestAskBrainRefForwarded(t *testing.T) {
 	}
 }
 
+// TestAskMirrorRefsForwarded asserts repeated --mirror-ref pairs ride as one mirror_refs map.
+func TestAskMirrorRefsForwarded(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"run_id":"r1","status":"done","status_url":"/api/v1/runs/r1","poll_after_ms":1}`))
+	}))
+	defer srv.Close()
+	e, _, _ := newTestEnv(t, srv, "json")
+	sha := "0123456789abcdef0123456789abcdef01234567"
+	if err := run(t, e, "ask", "q", "--mirror-ref", "app=dev/my-branch", "--mirror-ref", "billing="+sha, "--no-wait"); err != nil {
+		t.Fatalf("ask --mirror-ref: %v", err)
+	}
+	refs, _ := got["mirror_refs"].(map[string]any)
+	if len(refs) != 2 || refs["app"] != "dev/my-branch" || refs["billing"] != sha {
+		t.Errorf("mirror_refs = %v, want app=dev/my-branch billing=%s", got["mirror_refs"], sha)
+	}
+}
+
 func TestAskDefaultScenarioEmailFieldsForwarded(t *testing.T) {
 	var got map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

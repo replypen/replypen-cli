@@ -250,7 +250,8 @@ func anyScrubbed(events []decEvent) bool {
 }
 
 func renderProjectionInputs(r client.RunHeader) []string {
-	if r.BrainResolved == "" && r.Tenant == "" && r.TenantSettings == "" && r.TenantSettingsCurrent == "" {
+	mirrors := mirrorInputs(r.GroundingSources)
+	if r.BrainResolved == "" && r.Tenant == "" && r.TenantSettings == "" && r.TenantSettingsCurrent == "" && len(mirrors) == 0 {
 		return nil
 	}
 	var out []string
@@ -258,6 +259,7 @@ func renderProjectionInputs(r client.RunHeader) []string {
 	if r.BrainResolved != "" {
 		out = append(out, fmt.Sprintf("- **Brain resolved:** `%s`", backtickSafe(r.BrainResolved)))
 	}
+	out = append(out, mirrors...)
 	if r.Tenant != "" {
 		out = append(out, fmt.Sprintf("- **Tenant:** `%s`", backtickSafe(r.Tenant)))
 	}
@@ -281,6 +283,32 @@ func renderProjectionInputs(r client.RunHeader) []string {
 		}
 	}
 	out = append(out, "")
+	return out
+}
+
+// mirrorInputs lists each mounted source mirror as `ref @ sha12`, next to the brain ref: together they are
+// the code the run saw. ` · override` flags a per-run `rc ask --mirror-ref` mount instead of the tracked ref.
+func mirrorInputs(gs *client.GroundingSources) []string {
+	if gs == nil {
+		return nil
+	}
+	var out []string
+	for _, s := range gs.Sources {
+		if s.Kind != "mirror" {
+			continue
+		}
+		at := s.Ref
+		if sha := shortSHA(s.CommitSHA); sha != "" && at != "" {
+			at += " @ " + sha
+		} else if sha != "" {
+			at = sha
+		}
+		line := fmt.Sprintf("- **Mirror %s:** %s", s.Name, orQ(at))
+		if s.Overridden {
+			line += " · override"
+		}
+		out = append(out, line)
+	}
 	return out
 }
 

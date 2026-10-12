@@ -673,6 +673,11 @@ preserve exact full stdout.
 dev's "test without pushing main" loop. Push a `dev/*` branch to your brain first (`git push origin
 dev/<branch>`); the server runs the real loop against it and flags any actions/PRs as test.
 
+`rc ask --mirror-ref <repo>=<ref>` (repeatable) mounts that `dev/*` branch or SHA of a source mirror for this run
+only; like `--brain-ref` it makes a test run (journal suppressed). An unknown mirror name or malformed ref
+is a 400 `BAD_MIRROR_REF`; a ref missing on the mirror's origin fails the run. `rc run debug` lists each
+mirror's `ref @ sha` under Projection inputs, marked `override` for these mounts.
+
 `rc ask --simulation` is a **dress rehearsal**: the run rides the tenant's normal production brain and
 real grounding, but every side effect is fenced off — action autonomy is clamped to human (proposals
 only), the durable journal commit is suppressed and the result is never placed in a mailbox. Use it to

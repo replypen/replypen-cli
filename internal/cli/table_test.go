@@ -321,6 +321,10 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		// decisions take the full uuid and never guess.
 		{"SettingProposalApproveRejectsPrefix", []string{"--project", "alpha", "project", "settings", "proposals", "approve", "5a1f0c2e-1111"}, "full proposal id"},
 		{"SettingProposalRejectRejectsPrefix", []string{"--project", "alpha", "project", "settings", "proposals", "reject", "5a1f0c2e"}, "full proposal id"},
+		// --mirror-ref is <repo>=<ref>, one ref per repo: a malformed or duplicate pair never reaches the server.
+		{"AskRejectsMirrorRefWithoutRef", []string{"ask", "q", "--mirror-ref", "app="}, "want <repo>=<ref>"},
+		{"AskRejectsMirrorRefWithoutEquals", []string{"ask", "q", "--mirror-ref", "dev/x"}, "want <repo>=<ref>"},
+		{"AskRejectsDuplicateMirrorRef", []string{"ask", "q", "--mirror-ref", "app=dev/a", "--mirror-ref", "app=dev/b"}, "more than once"},
 		{"ConsoleBashRunRejectsHalfPrincipal", []string{"dev", "console", "bash", "run", "--principal-kind", "kampadmin_admin", "echo hi"}, "must be provided together"},
 		{"ConsoleDBQueryRejectsHalfPrincipal", []string{"dev", "console", "database", "query", "prod", "select 1", "--principal-id", "usr_1"}, "must be provided together"},
 		{"ConsoleDBSchemaRejectsHalfPrincipal", []string{"dev", "console", "database", "schema", "app", "--principal-kind", "kampadmin_admin"}, "must be provided together"},

@@ -12,6 +12,7 @@
 ## Projection inputs
 
 - **Brain resolved:** `dev/refund-rework @ abc123def456`
+- **Mirror app:** main @ abc123def456 · override
 - **Tenant:** `de-kies`
 - **Tenant settings:** source `cli` · synced_at `2026-06-22T10:00:00Z` · version `sha256:tenantabc`
 - **Branch selectors:** `newpatient_method=waitlist` · `existingpatient_method=book_via_link` · `reschedule_method=propose_options_confirm` · `booking_hygienist_dentist_interaction=hygienist_first`

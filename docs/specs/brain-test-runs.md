@@ -17,7 +17,8 @@ SSM/host access.
 push a `dev/*` branch (main untouched → not live), then ask against it. The server runs the real loop
 and flags any actions/PRs as test. A `BAD_BRAIN_REF` / "ref not found" surfaces via the typed-error path
 ([`internal/client/errors.go`](../../internal/client/errors.go)) — the fix is `git push origin <ref>`
-to the brain first.
+to the brain first. `--mirror-ref <repo>=<ref>` (repeatable, `mirror_refs` on the wire) does the same for
+a source mirror: that ref is mounted for this run only, as a test run.
 
 ## The stable seam
 

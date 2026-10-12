@@ -320,6 +320,9 @@ type SubmitRequest struct {
 	SessionID string `json:"session_id,omitempty"`
 	Tenant    string `json:"tenant,omitempty"`
 	BrainRef  string `json:"brain_ref,omitempty"`
+	// MirrorRefs overrides the ref mounted for named source mirrors on this run only (repo -> branch or
+	// SHA). Like BrainRef it makes the run a test run; the server 400s BAD_MIRROR_REF on an unknown repo.
+	MirrorRefs map[string]string `json:"mirror_refs,omitempty"`
 	// Simulation asks the server for a dress-rehearsal run: the tenant's normal production brain and
 	// grounding, but action autonomy clamped to human, no durable journal commit and no mailbox
 	// placement. The server rejects it together with attachments.
@@ -491,6 +494,8 @@ type GroundingSource struct {
 	Details       map[string]any          `json:"details,omitempty"`
 	Current       *GroundingSourceCurrent `json:"current,omitempty"`
 	Drift         []string                `json:"drift,omitempty"`
+	// Overridden marks a mirror mounted at a per-run ref (`rc ask --mirror-ref`) instead of its tracked one.
+	Overridden bool `json:"overridden,omitempty"`
 }
 
 // GroundingSourceCurrent is the current sync state for a historical grounding source.
