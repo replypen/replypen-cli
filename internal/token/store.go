@@ -24,9 +24,9 @@ const storeMode = 0o600
 
 var storeMu sync.Mutex
 
-const (
-	lockWait = 5 * time.Second
-)
+// lockWait bounds how long a process waits for the store lock. It exceeds the OAuth client's 30s HTTP
+// timeout because Update holds the lock across a token refresh round-trip.
+const lockWait = 45 * time.Second
 
 // Token is one profile's stored credential. ExpiresAt is the access token's absolute expiry (computed
 // at mint/refresh time from the server's expires_in). RefreshToken is empty for a non-rotating machine
@@ -101,6 +101,30 @@ func Save(profile string, t Token) error {
 	})
 }
 
+// Update runs fn under the store's cross-process lock with profile's CURRENT token (ok=false if none)
+// and persists next when save is true. The whole read → fn → write cycle is one critical section, so fn
+// may do network I/O — the CLI's check-expiry → refresh → persist — without a sibling `rc` process
+// presenting the same single-use refresh token. fn must not call Load/Save/Delete (Save would deadlock).
+func Update(profile string, fn func(cur Token, ok bool) (next Token, save bool, err error)) error {
+	var fnErr error
+	err := mutateIf(func(sf *storeFile) bool {
+		cur, ok := sf.Profiles[profile]
+		next, save, err := fn(cur, ok)
+		if err != nil {
+			fnErr = err
+			return false
+		}
+		if save {
+			sf.Profiles[profile] = next
+		}
+		return save
+	})
+	if fnErr != nil {
+		return fnErr
+	}
+	return err
+}
+
 // Delete removes the token for profile (a no-op if absent). Used by `rc auth logout`.
 func Delete(profile string) error {
 	return mutate(func(sf *storeFile) { delete(sf.Profiles, profile) })
@@ -139,6 +163,11 @@ func read() (storeFile, error) {
 }
 
 func mutate(change func(*storeFile)) error {
+	return mutateIf(func(sf *storeFile) bool { change(sf); return true })
+}
+
+// mutateIf is the locked read-modify-write; change returns whether the store needs writing.
+func mutateIf(change func(*storeFile) bool) error {
 	storeMu.Lock()
 	defer storeMu.Unlock()
 
@@ -152,7 +181,9 @@ func mutate(change func(*storeFile)) error {
 	if err != nil {
 		return err
 	}
-	change(&sf)
+	if !change(&sf) {
+		return nil
+	}
 	return write(sf)
 }
 

@@ -364,22 +364,24 @@ func TestRefreshOn401(t *testing.T) {
 	}
 }
 
-// TestRefreshConcurrentRotation: when a refresh gets invalid_grant because a SIBLING process already
-// rotated the token (parallel agents), we adopt the sibling's fresh access token instead of forcing a
-// spurious re-login. Simulated by having the stub write a fresh store entry as a side effect of the
-// invalid_grant response.
+// TestRefreshConcurrentRotation: when a refresh gets invalid_grant because a sibling OUTSIDE the store
+// lock (an older rc) already rotated the token, we re-read the store once and adopt the sibling's fresh
+// access token instead of forcing a spurious re-login. The stub plays that sibling: it rewrites
+// tokens.json directly (no lock) before rejecting the stale refresh.
 func TestRefreshConcurrentRotation(t *testing.T) {
 	isolatedConfig(t)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /oauth/token", func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
-		// The stale refresh is rejected — but, like a sibling that rotated first, we leave a fresh
-		// (unexpired) token in the store before responding.
-		_ = token.Save("default", token.Token{
+		path, _ := token.Path()
+		sibling, _ := json.Marshal(map[string]any{"profiles": map[string]token.Token{"default": {
 			AccessToken: "rcoa_sibling", RefreshToken: "rcor_sibling",
 			ExpiresAt: time.Now().Add(time.Hour), BaseURL: "http://stub",
-		})
+		}}})
+		if err := os.WriteFile(path, sibling, 0o600); err != nil {
+			t.Errorf("sibling write: %v", err)
+		}
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
 	})

@@ -21,7 +21,8 @@ type liveSource struct {
 	profile string
 	baseURL string
 	oauth   *oauth.Client
-	mu      sync.Mutex // serializes refresh so two goroutines don't double-rotate one refresh token
+	mu      sync.Mutex // serializes this source's Token/Refresh calls
+	last    string     // access token last handed out; a 401 on it means "renew unless a sibling already did"
 }
 
 // newLiveSource builds the token source for a profile against the issuer at baseURL.
@@ -40,71 +41,72 @@ func (s *liveSource) Token(ctx context.Context) (string, error) {
 	if !ok {
 		return "", reauthError(s.profile)
 	}
-	if t.Expired(time.Now(), refreshSkew) {
-		return s.refreshLocked(ctx, t)
+	if !t.Expired(time.Now(), refreshSkew) {
+		s.last = t.AccessToken
+		return t.AccessToken, nil
 	}
-	return t.AccessToken, nil
+	return s.refresh(ctx, false)
 }
 
 // Refresh forces a rotation after the server rejected the access token mid-flight (a 401).
 func (s *liveSource) Refresh(ctx context.Context) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t, ok, err := token.Load(s.profile)
-	if err != nil {
-		return "", err
-	}
-	if !ok {
-		return "", reauthError(s.profile)
-	}
-	return s.refreshLocked(ctx, t)
+	return s.refresh(ctx, true)
 }
 
-// refreshLocked exchanges the stored refresh token for a fresh access token and persists the result.
-// A dead/expired refresh (invalid_grant) surfaces as a "run `rc auth login`" prompt. Must hold s.mu.
+// refresh renews the access token inside the token store's cross-process lock. Must hold s.mu.
 //
-// Cross-process safety: the in-process mutex only serializes ONE liveSource. Two concurrent `rc`
-// processes (parallel agents on one machine) can both present the same refresh token; with a ROTATING
-// grant the server invalidates it on first use, so the slower process gets invalid_grant even though the
-// login is healthy. So on invalid_grant we re-read the store: if a sibling already rotated it (the stored
-// refresh differs), adopt its result rather than forcing a spurious re-login. Bounded to two attempts.
-func (s *liveSource) refreshLocked(ctx context.Context, t token.Token) (string, error) {
-	for attempt := 0; attempt < 2; attempt++ {
-		if t.RefreshToken == "" {
-			return "", reauthError(s.profile)
+// Parallel `rc` processes on one profile all see the same expiring token, and the server's rotating
+// refresh token is single-use: an unserialized second refresh gets invalid_grant even though the login
+// is healthy. So check → refresh → persist is one token.Update critical section, and after acquiring
+// the lock we re-read: a sibling that renewed while we waited leaves a fresh token we simply adopt.
+// force (a 401 retry) skips the refresh only when the stored token differs from the rejected one.
+func (s *liveSource) refresh(ctx context.Context, force bool) (string, error) {
+	var out, presented string
+	err := token.Update(s.profile, func(cur token.Token, ok bool) (token.Token, bool, error) {
+		if !ok {
+			return cur, false, reauthError(s.profile)
 		}
-		res, err := s.oauth.Refresh(ctx, t.RefreshToken)
-		if err == nil {
-			next := token.Token{
-				AccessToken:     res.AccessToken,
-				RefreshToken:    t.RefreshToken, // a non-rotating grant returns none → keep the one we have
-				ExpiresAt:       time.Now().Add(time.Duration(res.ExpiresIn) * time.Second),
-				BaseURL:         s.baseURL,
-				MachineTokenEnv: t.MachineTokenEnv,
-			}
-			if res.RefreshToken != "" {
-				next.RefreshToken = res.RefreshToken // rotating grant: store the new refresh
-			}
-			if serr := token.Save(s.profile, next); serr != nil {
-				return "", serr
-			}
-			return next.AccessToken, nil
+		renewed := !force || (s.last != "" && cur.AccessToken != s.last)
+		if renewed && !cur.Expired(time.Now(), refreshSkew) {
+			out = cur.AccessToken
+			return cur, false, nil
 		}
-		if !oauth.IsInvalidGrant(err) {
-			return "", fmt.Errorf("refresh access token: %w", err)
+		if cur.RefreshToken == "" {
+			return cur, false, reauthError(s.profile)
 		}
-		// invalid_grant — maybe a sibling process already rotated this refresh token. Re-read the store.
-		fresh, ok, lerr := token.Load(s.profile)
-		if lerr != nil {
-			return "", lerr
+		presented = cur.RefreshToken
+		res, err := s.oauth.Refresh(ctx, cur.RefreshToken)
+		if err != nil {
+			return cur, false, fmt.Errorf("refresh access token: %w", err)
 		}
-		if !ok || fresh.RefreshToken == t.RefreshToken {
-			return "", reauthError(s.profile) // genuinely dead, not a race
+		next := token.Token{
+			AccessToken:     res.AccessToken,
+			RefreshToken:    cur.RefreshToken, // a non-rotating grant returns none → keep the one we have
+			ExpiresAt:       time.Now().Add(time.Duration(res.ExpiresIn) * time.Second),
+			BaseURL:         s.baseURL,
+			MachineTokenEnv: cur.MachineTokenEnv,
 		}
-		if !fresh.Expired(time.Now(), refreshSkew) {
-			return fresh.AccessToken, nil // the sibling already minted a usable access token
+		if res.RefreshToken != "" {
+			next.RefreshToken = res.RefreshToken // rotating grant: store the new refresh
 		}
-		t = fresh // rotated but already near expiry → retry once with the sibling's newer refresh
+		out = next.AccessToken
+		return next, true, nil
+	})
+	if err == nil {
+		s.last = out
+		return out, nil
+	}
+	if !oauth.IsInvalidGrant(err) {
+		return "", err
+	}
+	// invalid_grant: re-read once before declaring the session dead — a sibling outside our lock (an older
+	// rc) may have rotated the refresh token we presented.
+	if fresh, ok, lerr := token.Load(s.profile); lerr == nil && ok &&
+		fresh.RefreshToken != presented && !fresh.Expired(time.Now(), refreshSkew) {
+		s.last = fresh.AccessToken
+		return fresh.AccessToken, nil
 	}
 	return "", reauthError(s.profile)
 }
