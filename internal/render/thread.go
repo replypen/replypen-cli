@@ -39,6 +39,13 @@ func ThreadTrace(w io.Writer, t *client.ThreadTrace) {
 			if hint := channelThreadHint(th); hint != "" {
 				_, _ = fmt.Fprintf(w, "\nPipeline (%s): %s\n", th.LocalThreadID, hint)
 			}
+			// Run-attributed drafts already print under their run; only a zero-run thread needs its own list.
+			if len(t.Runs) == 0 && len(th.Drafts) > 0 {
+				_, _ = fmt.Fprintf(w, "\nDrafts (%s):\n", th.LocalThreadID)
+				for _, d := range th.Drafts {
+					renderDraftLine(w, d, true)
+				}
+			}
 		}
 	}
 
@@ -98,11 +105,7 @@ func renderThreadAttribution(w io.Writer, runs []client.RunSummary) {
 			_, _ = fmt.Fprintf(w, "  trigger message%s: %s\n", plural(len(a.TriggerMessageIDs)), strings.Join(a.TriggerMessageIDs, ", "))
 		}
 		for _, d := range a.Drafts {
-			_, _ = fmt.Fprintf(w, "  draft %s [%s]", d.DraftID, d.Status)
-			if d.SentMessageID != "" {
-				_, _ = fmt.Fprintf(w, " → sent message %s", d.SentMessageID)
-			}
-			_, _ = fmt.Fprintln(w)
+			renderDraftLine(w, d, false)
 		}
 		if a.Feedback != nil {
 			score := "unscored"
@@ -116,6 +119,18 @@ func renderThreadAttribution(w io.Writer, runs []client.RunSummary) {
 			_, _ = fmt.Fprintln(w)
 		}
 	}
+}
+
+// renderDraftLine prints one draft. Under a run, origin is noise unless it differs from the agent default.
+func renderDraftLine(w io.Writer, d client.RunAttributionDraft, alwaysOrigin bool) {
+	_, _ = fmt.Fprintf(w, "  draft %s [%s]", d.DraftID, d.Status)
+	if alwaysOrigin || (d.Origin != "" && d.Origin != "agent") {
+		_, _ = fmt.Fprintf(w, " origin=%s", orDash(d.Origin, "agent"))
+	}
+	if d.SentMessageID != "" {
+		_, _ = fmt.Fprintf(w, " → sent message %s", d.SentMessageID)
+	}
+	_, _ = fmt.Fprintln(w)
 }
 
 func plural(n int) string {
@@ -162,8 +177,11 @@ func channelThreadHint(t client.ThreadTraceThread) string {
 	case "processor_failed":
 		return "processing failed after enqueue; inspect the linked run and processor failure"
 	case "new":
-		if t.Outcome == "processing_off" {
+		switch t.Outcome {
+		case "processing_off":
 			return "mailbox processing was off, so no run was expected"
+		case "outbound":
+			return "outbound message (originated via the API / partner), no inbound turn, so no run was expected"
 		}
 		return "the channel pipeline has not reached a terminal outcome"
 	case "declined":

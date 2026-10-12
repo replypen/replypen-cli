@@ -30,6 +30,9 @@ type ThreadTraceThread struct {
 	// before any agent run (status injection_blocked), so no run row exists. Content-free enum, mirrors
 	// the server's threadSecurityBlock; the corpus-runner asserts on it via `-o json`.
 	SecurityBlock *ThreadSecurityBlock `json:"security_block,omitempty"`
+	// Drafts lists every draft on the thread, so an outbound thread (originated/partner-prepared, never
+	// in the pipeline, no run) still shows what was placed. Older servers omit it.
+	Drafts []RunAttributionDraft `json:"drafts,omitempty"`
 }
 
 // ThreadSecurityBlock mirrors the server's content-free security-block enum (stage names the checkpoint,

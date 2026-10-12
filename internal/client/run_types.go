@@ -64,6 +64,8 @@ type RunAttributionDraft struct {
 	DraftID       string `json:"draft_id"`
 	Status        string `json:"status"`
 	SentMessageID string `json:"sent_message_id,omitempty"`
+	// Origin is agent|originate|compose; older servers omit it (read as agent).
+	Origin string `json:"origin,omitempty"`
 }
 
 type RunAttributionFeedback struct {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
 	"github.com/rootcause-org/rootcause-cli/internal/digest"
@@ -57,4 +58,42 @@ func TestTranscriptGolden(t *testing.T) {
 	var out bytes.Buffer
 	Transcript(&out, tr)
 	assertGolden(t, "transcript.golden", out.String())
+}
+
+// An outbound thread (originated, never in the pipeline) lists its own drafts with origin; under a run,
+// origin shows only when it is not the agent default.
+func TestThreadTraceDraftOriginGolden(t *testing.T) {
+	at := time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)
+	outbound := &client.ThreadTrace{
+		ID: "thr-out", ResolvedBy: "local_thread",
+		Threads: []client.ThreadTraceThread{{
+			LocalThreadID: "11111111-aaaa", Provider: "gmail", Status: "new", Outcome: "outbound",
+			MessageCount: 1, DraftCount: 1, Subject: "Your quote", CreatedAt: at, UpdatedAt: at,
+			Drafts: []client.RunAttributionDraft{{DraftID: "d-orig", Status: "sent", Origin: "originate", SentMessageID: "m-sent"}},
+		}},
+	}
+	agent := &client.ThreadTrace{
+		ID: "thr-in", ResolvedBy: "local_thread",
+		Threads: []client.ThreadTraceThread{{
+			LocalThreadID: "22222222-bbbb", Provider: "gmail", Status: "drafted", Outcome: "answered",
+			MessageCount: 2, DraftCount: 2, Subject: "Refund?", CreatedAt: at, UpdatedAt: at,
+			Drafts: []client.RunAttributionDraft{{DraftID: "d-agent", Status: "placed", Origin: "agent"}},
+		}},
+		Runs: []client.RunSummary{{
+			RunID: "run-1", Kind: "email", Status: "done", Outcome: "answered", Category: "billing",
+			CreatedAt: "2026-10-12T09:00:00Z", HasDraft: true,
+			Attribution: &client.RunAttribution{
+				LocalThreadID: "22222222-bbbb", ThreadID: "gm-1", TriggerMessageIDs: []string{"m-in"},
+				Drafts: []client.RunAttributionDraft{
+					{DraftID: "d-agent", Status: "placed", Origin: "agent"},
+					{DraftID: "d-comp", Status: "sent", Origin: "compose", SentMessageID: "m-out"},
+				},
+			},
+		}},
+	}
+	var out bytes.Buffer
+	ThreadTrace(&out, outbound)
+	out.WriteString("\n=====\n\n")
+	ThreadTrace(&out, agent)
+	assertGolden(t, "thread_draft_origin.golden", out.String())
 }

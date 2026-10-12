@@ -1,0 +1,33 @@
+Thread: thr-out
+Resolved by: rootcause thread id
+
+1 channel thread(s):
+LOCAL     PROVIDER  TENANT  STATUS  OUTCOME   MSG  DRAFT  NOTE  UPDATED               SUBJECT
+11111111  gmail     -       new     outbound  1    1      0     2026-10-12T09:00:00Z  Your quote
+
+Pipeline (11111111-aaaa): outbound message (originated via the API / partner), no inbound turn, so no run was expected
+
+Drafts (11111111-aaaa):
+  draft d-orig [sent] origin=originate → sent message m-sent
+
+No run was enqueued for this channel thread.
+
+=====
+
+Thread: thr-in
+Resolved by: rootcause thread id
+
+1 channel thread(s):
+LOCAL     PROVIDER  TENANT  STATUS   OUTCOME   MSG  DRAFT  NOTE  UPDATED               SUBJECT
+22222222  gmail     -       drafted  answered  2    2      0     2026-10-12T09:00:00Z  Refund?
+
+1 run(s), newest first:
+RUN    KIND   STATUS  OUTCOME   CATEGORY  HEALTH  PLACED  CREATED               TOPIC
+run-1  email  done    answered  billing   -       draft   2026-10-12T09:00:00Z  -
+
+Exact linkage (full stable ids):
+- run run-1 (original turn)
+  conversation 22222222-bbbb · provider thread gm-1 · session -
+  trigger message: m-in
+  draft d-agent [placed]
+  draft d-comp [sent] origin=compose → sent message m-out
