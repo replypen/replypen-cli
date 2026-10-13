@@ -693,6 +693,16 @@ show a customer how their configuration would answer. Attachments are refused on
 a thread on the tenant's live mailbox). The API echoes `simulation` on `GET /api/v1/runs/{id}` and on
 each run of `GET /api/v1/runs`, which also accepts `?simulation=true|false`.
 
+`rc ask --replay-chat-run <run id|run link> [question]` replays one stored **in-app chat turn** (a
+`kind=chat` run) with its real chat framing, prior turns, hidden context and verified principal, as a
+simulation; the original conversation is untouched (no transcript write, no hot container, no cards).
+A question replaces that turn's message ("what if they had asked it like this"). Pair it with
+`--brain-ref` / `--mirror-ref` to test a fix against the exact turn. It needs the grant `rc run debug`
+needs on that run (project admin, or the developer who created it); `--principal-*`, `--file`,
+`--scenario`, `--from`, `--subject` and `--session` are refused. `rc run show` / `run debug` print
+`Replay of: <run id>`. Errors: 404 `UNKNOWN_RUN` (not visible), 403 `FORBIDDEN` (no full-trace grant),
+409 `NOT_REPLAYABLE` (not a chat turn, a "Set up & improve" turn, or its input/conversation expired).
+
 `rc ask` defaults to `--scenario email`: it sends an explicit `scenario=email` to the Prompt API and
 wraps the prompt as one synthetic inbound message from `--from` with `--subject` (or a compact prompt
 first line). Use this for high-fidelity brain-dev checks: tone, notes, actions, PR proposals, and

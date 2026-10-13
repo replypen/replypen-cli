@@ -45,7 +45,8 @@ func AskEmail(w io.Writer, r *client.RunDetail, full *client.FullResponse) {
 	renderMetadata(w, askMetadata(r, full))
 }
 
-// AskRaw renders `rc ask --scenario raw`: one direct Markdown answer plus machine/action affordances.
+// AskRaw renders `rc ask --scenario raw` and a chat replay: one direct Markdown answer plus
+// machine/action affordances.
 func AskRaw(w io.Writer, r *client.RunDetail) {
 	renderAskHeader(w, r, "raw")
 	answer := strings.TrimSpace(r.AnswerMarkdown)
@@ -153,6 +154,9 @@ func renderAskHeader(w io.Writer, r *client.RunDetail, scenario string) {
 		_, _ = fmt.Fprintf(tw, "Outcome:\t%s\n", oc)
 	}
 	_, _ = fmt.Fprintf(tw, "Kind:\t%s\n", r.Kind)
+	if r.ReplayOfRunID != "" {
+		_, _ = fmt.Fprintf(tw, "Replay of:\t%s\n", r.ReplayOfRunID)
+	}
 	_, _ = fmt.Fprintf(tw, "Created:\t%s\n", r.CreatedAt)
 	if r.FinishedAt != "" {
 		_, _ = fmt.Fprintf(tw, "Finished:\t%s\n", r.FinishedAt)

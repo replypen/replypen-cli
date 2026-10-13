@@ -36,6 +36,7 @@ type askFlags struct {
 	noWait        bool
 	simulation    bool
 	dryScope      bool
+	replayChatRun string
 	timeout       time.Duration
 }
 
@@ -51,11 +52,26 @@ const defaultAskFrom = "rc-ask@example.test"
 func newAskCmd(e *env) *cobra.Command {
 	var f askFlags
 	cmd := &cobra.Command{
-		Use:   "ask <question>",
+		Use:   "ask [question]",
 		Short: "Trigger a run from a question and wait for the answer",
-		Args:  cobra.ExactArgs(1),
+		Long: "Trigger a run from a question and wait for the answer (--no-wait returns the run id).\n\n" +
+			"--replay-chat-run <run id|run link> replays one stored in-app chat turn with its real chat framing, " +
+			"prior turns and principal as a test run (a simulation: no action executes, nothing is placed or " +
+			"committed); the original conversation is untouched. The question becomes optional: given, it replaces " +
+			"that turn's message. Combine with --brain-ref / --mirror-ref to test a fix. Needs the developer grant " +
+			"that `rc run debug` needs on that run. Refuses --principal-*, --file, --scenario, --from, --subject " +
+			"and --session (the replay keeps the turn's own).",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if strings.TrimSpace(f.replayChatRun) != "" {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode := render.IsJSON(e.mode(), e.out)
+			if strings.TrimSpace(f.replayChatRun) != "" {
+				return runAskReplay(e, cmd, &f, args, jsonMode)
+			}
 
 			effort, err := normalizeAskEffort(f.effort, cmd.Flags().Changed("effort"))
 			if err != nil {
@@ -188,8 +204,89 @@ func newAskCmd(e *env) *cobra.Command {
 	cmd.Flags().BoolVar(&f.simulation, "simulation", false, "dress rehearsal: real brain + grounding, but no action executes, no journal commit and nothing is placed in a mailbox (attachments are refused)")
 	cmd.Flags().BoolVar(&f.noWait, "no-wait", false, "submit and print the run_id immediately, without waiting")
 	cmd.Flags().BoolVar(&f.dryScope, "dry-scope", false, "resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)")
+	cmd.Flags().StringVar(&f.replayChatRun, "replay-chat-run", "", "replay one stored in-app chat turn (run id or run link) as a side-effect-free test run; the question becomes an optional override")
 	cmd.Flags().DurationVar(&f.timeout, "timeout", 5*time.Minute, "max time to wait for a terminal status")
 	return cmd
+}
+
+// askReplayConflicts are the flags a chat replay refuses: the turn's identity, framing and session are
+// the stored ones, so each would silently mean something else.
+var askReplayConflicts = []string{"principal-kind", "principal-id", "asserted-by", "assurance", "file", "attach", "scenario", "from", "subject", "session"}
+
+// runAskReplay is `rc ask --replay-chat-run`: replay a stored chat turn as a simulation, then wait and
+// print the chat answer like a raw ask. --simulation is implied (accepted, never needed).
+func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMode bool) error {
+	for _, name := range askReplayConflicts {
+		if cmd.Flags().Changed(name) {
+			return fmt.Errorf("--%s cannot be combined with --replay-chat-run: the replay keeps the original turn's principal, framing and conversation", name)
+		}
+	}
+	target, err := parseRunTarget(f.replayChatRun, "")
+	if err != nil {
+		return fmt.Errorf("--replay-chat-run: %w", err)
+	}
+	effort, err := normalizeAskEffort(f.effort, cmd.Flags().Changed("effort"))
+	if err != nil {
+		return err
+	}
+	mirrorRefs, err := parseMirrorRefs(f.mirrorRefs)
+	if err != nil {
+		return err
+	}
+	var override string
+	if len(args) == 1 {
+		override = args[0]
+	}
+	c, err := e.newClient()
+	if err != nil {
+		return err
+	}
+	req := client.SubmitRequest{
+		Prompt:          override,
+		ReplayChatRun:   target.runID,
+		Tenant:          e.scopeTenant(),
+		BrainRef:        f.brainRef,
+		MirrorRefs:      mirrorRefs,
+		Simulation:      true,
+		ReasoningEffort: effort,
+		Project:         e.scopeProject(),
+	}
+	if f.dryScope {
+		preview, raw, err := c.DryScope(e.ctx(), req)
+		if err != nil {
+			return err
+		}
+		if jsonMode {
+			return render.JSON(e.out, raw)
+		}
+		render.AskDryScope(e.out, preview)
+		return nil
+	}
+	sub, raw, err := c.Submit(e.ctx(), req)
+	if err != nil {
+		return err
+	}
+	if f.noWait {
+		if jsonMode {
+			return render.JSON(e.out, raw)
+		}
+		_, _ = fmt.Fprintln(e.out, sub.RunID)
+		_, _ = fmt.Fprintf(e.err, "submitted — poll with: rc run show %s\n", sub.RunID)
+		return nil
+	}
+	detail, err := waitForRun(e, c, sub, f.timeout)
+	if err != nil {
+		return err
+	}
+	if jsonMode {
+		_, raw, err := c.RunWithRaw(e.ctx(), detail.RunID, e.scopeProject(), e.scopeTenant())
+		if err != nil {
+			return err
+		}
+		return render.JSON(e.out, raw)
+	}
+	render.AskRaw(e.out, detail)
+	return nil
 }
 
 // parseMirrorRefs turns repeated --mirror-ref <repo>=<ref> values into the mirror_refs wire map. Shape

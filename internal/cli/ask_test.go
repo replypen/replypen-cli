@@ -725,3 +725,82 @@ func TestAskTimeout(t *testing.T) {
 		t.Errorf("expected timeout error, got: %v", err)
 	}
 }
+
+// TestAskReplayChatRun: --replay-chat-run takes a run id or a pasted run link, sends replay_chat_run with
+// the simulation implied and no email/scenario framing, makes the question an optional override, and
+// renders the chat answer with its "Replay of" link back.
+func TestAskReplayChatRun(t *testing.T) {
+	const orig = "22222222-2222-2222-2222-222222222222"
+	var bodies []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var got map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatalf("decode request: %v", err)
+			}
+			bodies = append(bodies, got)
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write([]byte(`{"run_id":"r1","status":"running","status_url":"/api/v1/runs/r1","poll_after_ms":1}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"run_id":"r1","status":"done","kind":"prompt","scenario":"chat","category":"answered","replay_of_run_id":"` + orig + `","answer_markdown":"You have 9 paid members.","attachments":[]}`))
+	}))
+	defer srv.Close()
+
+	e, out, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, "ask", "--replay-chat-run", "https://app.replypen.com/runs/"+orig+"?t=share-tok", "--brain-ref", "dev/fix"); err != nil {
+		t.Fatalf("ask --replay-chat-run: %v", err)
+	}
+	got := bodies[0]
+	if got["replay_chat_run"] != orig || got["simulation"] != true || got["brain_ref"] != "dev/fix" {
+		t.Errorf("replay body = %v", got)
+	}
+	for _, key := range []string{"scenario", "sender", "subject", "session_id", "principal", "attachments"} {
+		if _, ok := got[key]; ok {
+			t.Errorf("replay body carries %s: %v", key, got)
+		}
+	}
+	if p, _ := got["prompt"].(string); p != "" {
+		t.Errorf("prompt = %q, want empty (replay the original turn)", p)
+	}
+	if s := out.String(); !strings.Contains(s, "Replay of:") || !strings.Contains(s, orig) || !strings.Contains(s, "You have 9 paid members.") {
+		t.Errorf("replay output missing link/answer:\n%s", s)
+	}
+
+	e, _, _ = newTestEnv(t, srv, "json")
+	if err := run(t, e, "ask", "What if I ask it like this?", "--replay-chat-run", orig, "--simulation", "--no-wait"); err != nil {
+		t.Fatalf("ask override: %v", err)
+	}
+	if bodies[1]["prompt"] != "What if I ask it like this?" {
+		t.Errorf("override prompt = %v", bodies[1]["prompt"])
+	}
+}
+
+// TestAskReplayChatRunRejectsConflicts: every flag that would override the stored turn's identity,
+// framing or conversation is a usage error naming the conflict, before any request.
+func TestAskReplayChatRunRejectsConflicts(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+	}))
+	defer srv.Close()
+	for _, extra := range [][]string{
+		{"--principal-kind", "kampadmin_person", "--principal-id", "p-1"},
+		{"--file", "x.txt"},
+		{"--scenario", "raw"},
+		{"--from", "a@b.test"},
+		{"--subject", "s"},
+		{"--session", "s-1"},
+	} {
+		t.Run(extra[0], func(t *testing.T) {
+			e, _, _ := newTestEnv(t, srv, "table")
+			err := run(t, e, append([]string{"ask", "--replay-chat-run", "22222222-2222-2222-2222-222222222222"}, extra...)...)
+			if err == nil || !strings.Contains(err.Error(), extra[0]+" cannot be combined with --replay-chat-run") {
+				t.Fatalf("err = %v, want a conflict naming %s", err, extra[0])
+			}
+		})
+	}
+	e, _, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, "ask"); err == nil {
+		t.Fatal("ask without a question or --replay-chat-run must be a usage error")
+	}
+}

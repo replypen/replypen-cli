@@ -262,6 +262,8 @@ type RunDetail struct {
 	Error         string         `json:"error,omitempty"`
 	Debug         *RunDebug      `json:"debug,omitempty"`
 	Metadata      map[string]any `json:"metadata,omitempty"`
+	// ReplayOfRunID is the chat run this run replays (rc ask --replay-chat-run); "" otherwise.
+	ReplayOfRunID string `json:"replay_of_run_id,omitempty"`
 }
 
 // RunFile is one file the run generated and shipped (server runfile.Attachment): metadata plus a
@@ -318,7 +320,7 @@ type EventsResponse struct {
 // Project is the ?project= selector for all-projects admin tokens, never JSON.
 type SubmitRequest struct {
 	Prompt    string `json:"prompt"`
-	Scenario  string `json:"scenario"`
+	Scenario  string `json:"scenario,omitempty"`
 	SessionID string `json:"session_id,omitempty"`
 	Tenant    string `json:"tenant,omitempty"`
 	BrainRef  string `json:"brain_ref,omitempty"`
@@ -336,8 +338,12 @@ type SubmitRequest struct {
 	Attachments     []Attachment `json:"attachments,omitempty"`
 	// DryScope resolves and returns the principal scope this run WOULD get, then stops — no agent loop, no
 	// LLM spend, no run row. The response is a ScopePreview, not a SubmitResponse.
-	DryScope bool   `json:"dry_scope,omitempty"`
-	Project  string `json:"-"`
+	DryScope bool `json:"dry_scope,omitempty"`
+	// ReplayChatRun re-runs one stored in-app chat turn (a kind=chat run id) with its real chat framing as
+	// a simulation; Prompt, when set, replaces that turn's message. Scenario/session/sender/subject,
+	// principal and attachments must stay empty (the server 400s).
+	ReplayChatRun string `json:"replay_chat_run,omitempty"`
+	Project       string `json:"-"`
 }
 
 // ScopePreview is the 200 body of a POST /api/v1/runs {dry_scope:true} request: the resolved principal
@@ -532,6 +538,8 @@ type RunHeader struct {
 	SessionID             string            `json:"session_id,omitempty"`
 	Topic                 string            `json:"topic,omitempty"`
 	Question              string            `json:"question,omitempty"`
+	// ReplayOfRunID is the chat run this run replays (rc ask --replay-chat-run); "" otherwise.
+	ReplayOfRunID string `json:"replay_of_run_id,omitempty"`
 	// PriorMessages / PriorNotes are the conversation-so-far the brain was GIVEN this turn (the replayed
 	// webhook Message/Note arrays), raw so the shape stays the server's. null on a first turn or a run
 	// predating the column. `rc run trace --brief` keeps them: they are the context a READER needs.

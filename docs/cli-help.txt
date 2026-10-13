@@ -52,10 +52,12 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rc ask --help
-Trigger a run from a question and wait for the answer
+Trigger a run from a question and wait for the answer (--no-wait returns the run id).
+
+--replay-chat-run <run id|run link> replays one stored in-app chat turn with its real chat framing, prior turns and principal as a test run (a simulation: no action executes, nothing is placed or committed); the original conversation is untouched. The question becomes optional: given, it replaces that turn's message. Combine with --brain-ref / --mirror-ref to test a fix. Needs the developer grant that `rc run debug` needs on that run. Refuses --principal-*, --file, --scenario, --from, --subject and --session (the replay keeps the turn's own).
 
 Usage:
-  rc ask <question> [flags]
+  rc ask [question] [flags]
 
 Flags:
       --asserted-by string       who asserted the principal (default server-side); requires the --principal-kind/--principal-id pair
@@ -69,6 +71,7 @@ Flags:
       --no-wait                  submit and print the run_id immediately, without waiting
       --principal-id string      principal external id (the asserted identity); requires --principal-kind
       --principal-kind string    principal kind to scope the run's data (e.g. kampadmin_person); requires --principal-id
+      --replay-chat-run string   replay one stored in-app chat turn (run id or run link) as a side-effect-free test run; the question becomes an optional override
       --scenario string          answer shape: email or raw (default "email")
       --session string           session id to thread the run onto
       --simulation               dress rehearsal: real brain + grounding, but no action executes, no journal commit and nothing is placed in a mailbox (attachments are refused)

@@ -61,6 +61,13 @@ func EmitJSONL(w io.Writer, full *client.FullResponse) error {
 	if len(r.MirrorRefs) > 0 {
 		header["mirror_refs"] = r.MirrorRefs
 	}
+	// A raw or chat-replay run's reply is its answer, not a draft.
+	if r.AnswerMarkdown != "" {
+		header["answer_markdown"] = r.AnswerMarkdown
+	}
+	if r.ReplayOfRunID != "" {
+		header["replay_of_run_id"] = r.ReplayOfRunID
+	}
 	if len(r.ProposedActions) > 0 {
 		header["proposed_actions"] = r.ProposedActions
 	}

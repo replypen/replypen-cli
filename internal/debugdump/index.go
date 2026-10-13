@@ -50,6 +50,9 @@ func RenderIndex(full *client.FullResponse) string {
 			"are not served to this token — the sections below are incomplete, not evidence of a quiet run.", "")
 	}
 	add(fmt.Sprintf("- **Run ID:** `%s`", r.RunID))
+	if r.ReplayOfRunID != "" {
+		add(fmt.Sprintf("- **Replay of:** `%s` (chat turn replayed by `rc ask --replay-chat-run`)", r.ReplayOfRunID))
+	}
 	if r.BrainRef != "" || r.Trigger == "test" {
 		add(fmt.Sprintf("- **Test run** · brain_ref `%s` · trigger `%s` — side-effect-free",
 			orMain(r.BrainRef), orQ(r.Trigger)))
@@ -616,7 +619,7 @@ func joinNonEmpty(parts []string, sep string) string {
 // renderOutcome shows the draft gist (first 8 lines), action proposals, the FULL note bodies, or a "no
 // callback" marker.
 func renderOutcome(r client.RunHeader) []string {
-	if r.Draft == "" && len(r.Notes) == 0 && len(r.ProposedActions) == 0 && len(r.Metadata) == 0 {
+	if r.Draft == "" && r.AnswerMarkdown == "" && len(r.Notes) == 0 && len(r.ProposedActions) == 0 && len(r.Metadata) == 0 {
 		return []string{"_(no stored callback — run errored or never produced one)_"}
 	}
 	var out []string
@@ -645,6 +648,13 @@ func renderOutcome(r client.RunHeader) []string {
 			g = strings.Join(lines[:8], "\n") + fmt.Sprintf("\n… (%d lines total — full text in the .jsonl run header)", len(lines))
 		}
 		out = append(out, fmt.Sprintf("**Draft** (%d lines):", len(lines)), "", fence(g, ""), "")
+	} else if r.AnswerMarkdown != "" {
+		lines := strings.Split(strings.TrimSpace(r.AnswerMarkdown), "\n")
+		g := strings.Join(lines, "\n")
+		if len(lines) > 8 {
+			g = strings.Join(lines[:8], "\n") + fmt.Sprintf("\n… (%d lines total — full text in the .jsonl run header)", len(lines))
+		}
+		out = append(out, fmt.Sprintf("**Answer** (%d lines):", len(lines)), "", fence(g, ""), "")
 	} else {
 		out = append(out, "**Draft:** none", "")
 	}

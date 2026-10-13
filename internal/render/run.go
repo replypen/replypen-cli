@@ -29,6 +29,9 @@ func Run(w io.Writer, r *client.RunDetail) {
 		_, _ = fmt.Fprintf(tw, "Session:\t%s\n", r.SessionID)
 	}
 	_, _ = fmt.Fprintf(tw, "Kind:\t%s\n", r.Kind)
+	if r.ReplayOfRunID != "" {
+		_, _ = fmt.Fprintf(tw, "Replay of:\t%s\n", r.ReplayOfRunID)
+	}
 	_, _ = fmt.Fprintf(tw, "Status:\t%s\n", r.Status)
 	if r.Category != "" {
 		_, _ = fmt.Fprintf(tw, "Category:\t%s\n", r.Category)
@@ -173,6 +176,9 @@ func Full(w io.Writer, f *client.FullResponse) {
 		}
 	}
 	_, _ = fmt.Fprintf(tw, "Kind:\t%s\n", r.Kind)
+	if r.ReplayOfRunID != "" {
+		_, _ = fmt.Fprintf(tw, "Replay of:\t%s\n", r.ReplayOfRunID)
+	}
 	if outbound := outboundEmailLabel(r.OutboundEmail); outbound != "" {
 		_, _ = fmt.Fprintf(tw, "Outbound:\t%s\n", outbound)
 	}
