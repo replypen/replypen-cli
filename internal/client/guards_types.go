@@ -20,8 +20,48 @@ type GuardsView struct {
 	// OutputJudge is the semantic output judge. Absent unless the judge ran; a set Error means fail-open
 	// (the turn shipped UNJUDGED).
 	OutputJudge *GuardsOutputJudge `json:"output_judge,omitempty"`
+	// BlockedTurn is the chat turn the confidentiality floor WITHHELD, kept for false-positive review.
+	// Project-level admins only (never the own-run tier or a share link); absent when nothing was blocked.
+	BlockedTurn *GuardsBlockedTurn `json:"blocked_turn,omitempty"`
 	// Final is the run's terminal disposition. Always present.
 	Final *GuardsFinal `json:"final,omitempty"`
+}
+
+// GuardsBlockedTurn is the withheld chat turn exactly as the guard/judge read it (PII-tokenized, secret
+// values masked), the action card it carried, and why it was withheld.
+type GuardsBlockedTurn struct {
+	Surface string             `json:"surface"`
+	Visible string             `json:"visible"`
+	Action  *GuardsBlockedCard `json:"action,omitempty"`
+	Verdict GuardsBlockedWhy   `json:"verdict"`
+	At      string             `json:"at"`
+}
+
+// GuardsBlockedCard is the pending action card as it would have shipped on that surface.
+type GuardsBlockedCard struct {
+	ActionID string `json:"action_id"`
+	Label    string `json:"label"`
+	Summary  string `json:"summary"`
+	Params   []struct {
+		Label string `json:"label"`
+		Value any    `json:"value"`
+	} `json:"params"`
+	PreviewSummary string         `json:"preview_summary"`
+	Observed       map[string]any `json:"observed"`
+}
+
+// GuardsBlockedWhy is the block verdict; Rationale/EvidenceQuote are set only for a judge block.
+type GuardsBlockedWhy struct {
+	Rules         []string `json:"rules"`
+	Detail        string   `json:"detail"`
+	Category      string   `json:"category"`
+	Confidence    float64  `json:"confidence"`
+	Rationale     string   `json:"rationale"`
+	EvidenceQuote string   `json:"evidence_quote"`
+	Files         []struct {
+		Filename string `json:"filename"`
+		MimeType string `json:"mime_type"`
+	} `json:"files"`
 }
 
 // GuardsInjection is the inbound prompt-injection scan verdict.

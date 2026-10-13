@@ -51,6 +51,26 @@
         "confidence": 0.91,
         "error": ""
       },
+      "blocked_turn": {
+        "surface": "",
+        "visible": "Attributes of the Registration model:\n\n| Attribute | Type |\n|---|---|\n| camp_id | bigint |\n\nCancel registration\nRegistration\n\"b03ccfe3-4966-48cb-92d4-2750c6b106cc\"",
+        "action": {
+          "action_id": "cancel_registration",
+          "label": "Cancel registration",
+          "summary": "Cancel the waiting-list spot",
+          "params": [{ "label": "Registration", "value": "b03ccfe3-4966-48cb-92d4-2750c6b106cc" }],
+          "preview_summary": "Ready"
+        },
+        "verdict": {
+          "rules": ["judge_verdict"],
+          "detail": "rules=judge_verdict hits=0 score=0",
+          "category": "schema_enumeration",
+          "confidence": 0.93,
+          "rationale": "lists the model's columns and types",
+          "evidence_quote": "| camp_id | bigint |"
+        },
+        "at": "2026-06-19T09:01:29Z"
+      },
       "final": {
         "outcome": "declined",
         "has_draft": false,

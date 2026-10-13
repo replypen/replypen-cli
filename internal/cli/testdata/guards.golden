@@ -5,3 +5,22 @@ egress           BLOCKED 3 allowed / 1 blocked  api.internal.example.com allow×
 output_guard     VIOLATED                       surface_guarded=true · rules=[no_pii_leak,no_external_link] · source_hits=2 · source_score=7
 output_judge     BLOCKED                        category=data_exfiltration · confidence=0.91 · reasons=[leaked another patient's balance]
 final            declined                       draft=no · note=yes · guardrail=output_judge · output judge blocked the turn
+
+BLOCKED TURN — withheld from the customer (surface=embed, 2026-06-19T09:01:29Z)
+verdict:   rules=[judge_verdict] · category=schema_enumeration · confidence=0.93
+rationale: lists the model's columns and types
+evidence:  | camp_id | bigint |
+card:      Cancel registration (cancel_registration)
+  summary: Cancel the waiting-list spot
+  Registration: b03ccfe3-4966-48cb-92d4-2750c6b106cc
+  preview: Ready
+--- text as the guard/judge read it ---
+Attributes of the Registration model:
+
+| Attribute | Type |
+|---|---|
+| camp_id | bigint |
+
+Cancel registration
+Registration
+"b03ccfe3-4966-48cb-92d4-2750c6b106cc"

@@ -185,6 +185,13 @@ sections, manifest/bootstrap turns, grounding snapshots and the two tenant-setti
 turn those are ~90% of the bytes), and without the event timeline. Use `--raw-output` or `rc run debug`
 the moment you are debugging rather than reading.
 
+`rc run guards <run_id>` is the security readback: one row per checkpoint (injection scan, principal
+scope, egress, output guard, output judge, final). When the chat confidentiality floor withheld the turn,
+a `BLOCKED TURN` section follows: the text exactly as the guard/judge read it (PII-tokenized), the action
+card it carried, and the judge's rationale + evidence quote — what you need to call a false positive. The
+customer never saw it and no model reads it back. Needs a project-level admin token; `-o json` carries it
+whole as `.blocked_turn`.
+
 (`rc run session <share-link>` is a different thing: the account-less dump of a conversation someone
 shared with you — see below.)
 

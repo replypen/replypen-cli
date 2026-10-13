@@ -47,6 +47,49 @@ func Guards(w io.Writer, g *client.GuardsView) {
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", r.name, r.verdict, orDash(r.detail, "-"))
 	}
 	_ = tw.Flush()
+	guardsBlockedTurn(w, g.BlockedTurn)
+}
+
+// guardsBlockedTurn prints the withheld chat turn under the table: why first, then the card, then the
+// text verbatim (it is what the false-positive call is made on, so it is never truncated here).
+func guardsBlockedTurn(w io.Writer, b *client.GuardsBlockedTurn) {
+	if b == nil {
+		return
+	}
+	p := func(format string, a ...any) { _, _ = fmt.Fprintf(w, format, a...) }
+	p("\nBLOCKED TURN — withheld from the customer (surface=%s, %s)\n", orDash(b.Surface, "embed"), b.At)
+	v := b.Verdict
+	p("verdict:   %s\n", orDash(joinNonEmpty(" · ", listDetail("rules", v.Rules), guardCat(v.Category), guardConf(v.Confidence)), "-"))
+	if v.Rationale != "" {
+		p("rationale: %s\n", v.Rationale)
+	}
+	if v.EvidenceQuote != "" {
+		p("evidence:  %s\n", v.EvidenceQuote)
+	}
+	for _, f := range v.Files {
+		p("file:      %s %s\n", f.Filename, f.MimeType)
+	}
+	if a := b.Action; a != nil {
+		p("card:      %s (%s)\n", orDash(a.Label, a.ActionID), a.ActionID)
+		if a.Summary != "" {
+			p("  summary: %s\n", a.Summary)
+		}
+		for _, param := range a.Params {
+			val, _ := json.Marshal(param.Value)
+			if s, ok := param.Value.(string); ok {
+				val = []byte(s)
+			}
+			p("  %s: %s\n", param.Label, val)
+		}
+		if a.PreviewSummary != "" {
+			p("  preview: %s\n", a.PreviewSummary)
+		}
+		if len(a.Observed) > 0 {
+			obs, _ := json.Marshal(a.Observed)
+			p("  observed: %s\n", obs)
+		}
+	}
+	p("--- text as the guard/judge read it ---\n%s\n", strings.TrimRight(b.Visible, "\n"))
 }
 
 func guardsInjection(s *client.GuardsInjection) (verdict, detail string) {
