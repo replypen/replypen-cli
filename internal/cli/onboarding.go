@@ -17,8 +17,9 @@ func newDevOnboardingCmd(e *env) *cobra.Command {
 		Use:   "goto",
 		Short: "Re-seed an onboarding world at a step and print the URL to open",
 		Long: "Re-seeds the world's project (every earlier step confirmed, pulls settled from fixtures) on the\n" +
-			"make dev server and prints its URL. Worlds: northwind (default), website-failed, empty-inbox,\n" +
-			"few-sent, sorting-failed. The dev url comes from --url, else ROOTCAUSE_BASE_URL.",
+			"make dev server and prints its URL. Worlds: northwind (default), website-failed, website-unreachable,\n" +
+			"website-partial, personal, empty-inbox, few-sent, sorting-failed (the server lists the current set\n" +
+			"on an unknown world). The dev url comes from --url, else ROOTCAUSE_BASE_URL.",
 		Example: "  rc dev onboarding goto --step 4\n  rc dev onboarding goto --step email_types --world sorting-failed --url http://localhost:24729",
 		Args:    cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {

@@ -4394,8 +4394,9 @@ Use "rc dev onboarding [command] --help" for more information about a command.
 
 $ rc dev onboarding goto --help
 Re-seeds the world's project (every earlier step confirmed, pulls settled from fixtures) on the
-make dev server and prints its URL. Worlds: northwind (default), website-failed, empty-inbox,
-few-sent, sorting-failed. The dev url comes from --url, else ROOTCAUSE_BASE_URL.
+make dev server and prints its URL. Worlds: northwind (default), website-failed, website-unreachable,
+website-partial, personal, empty-inbox, few-sent, sorting-failed (the server lists the current set
+on an unknown world). The dev url comes from --url, else ROOTCAUSE_BASE_URL.
 
 Usage:
   rc dev onboarding goto [flags]
