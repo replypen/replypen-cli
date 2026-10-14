@@ -3476,6 +3476,7 @@ Available Commands:
   api            Inspect the public API contract
   tools          Use local provider and identifier utilities
   context-export Render a project's full opening context offline (needs a rootcause host checkout)
+  onboarding     Drive onboarding worlds on a local make dev server
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -4358,6 +4359,55 @@ Flags:
       --kb-mount string    override the suite's knowledge mount path
       --out string         output directory (default: ./.rootcause/context-export)
       --suite string       grounding suite: a bare project name or a path (default: this brain's project)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .rootcause/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .rootcause.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rc dev onboarding --help
+Drive onboarding worlds on a local make dev server
+
+Usage:
+  rc dev onboarding [flags]
+  rc dev onboarding [command]
+
+Available Commands:
+  goto        Re-seed an onboarding world at a step and print the URL to open
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .rootcause/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .rootcause.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+Use "rc dev onboarding [command] --help" for more information about a command.
+
+$ rc dev onboarding goto --help
+Re-seeds the world's project (every earlier step confirmed, pulls settled from fixtures) on the
+make dev server and prints its URL. Worlds: northwind (default), website-failed, empty-inbox,
+few-sent, sorting-failed. The dev url comes from --url, else ROOTCAUSE_BASE_URL.
+
+Usage:
+  rc dev onboarding goto [flags]
+
+Examples:
+  rc dev onboarding goto --step 4
+  rc dev onboarding goto --step email_types --world sorting-failed --url http://localhost:24729
+
+Flags:
+      --step string    step number 1-6 or key (inbox, website, tools, tone_profile, email_types, draft_example)
+      --url string     make dev url (default ROOTCAUSE_BASE_URL)
+      --world string   fixture world (default "northwind")
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
