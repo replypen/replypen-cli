@@ -62,6 +62,9 @@ func RenderIndex(full *client.FullResponse) string {
 	}
 	add(fmt.Sprintf("- **Thread / Session:** `%s` / `%s`", r.ThreadID, r.SessionID))
 	add(fmt.Sprintf("- **Created / Finished:** %s / %s", orQ(r.CreatedAt), orParen(r.FinishedAt, "unfinished")))
+	if line := promptContextProvenance(r); line != "" {
+		add("- **Prompt context:** " + line)
+	}
 	// A "0 main / 0 egress" count on a redacted bundle is a lie of omission — the counts were never served.
 	if redacted && len(events) == 0 {
 		add("- **Steps / Egress:** withheld")
@@ -336,6 +339,15 @@ func mirrorInputs(gs *client.GroundingSources, requested map[string]string) []st
 // would read as "the model got nothing", a different and false fact.
 func renderPromptContext(r client.RunHeader, jsonlName string) []string {
 	out := []string{"## Prompt context (what the model was handed)", ""}
+	if r.ContextCaptureOrigin == "inherited" && !r.ContextCaptured() {
+		reason := "unknown"
+		if r.GroundingSources != nil && r.GroundingSources.Reason != "" {
+			reason = r.GroundingSources.Reason
+		}
+		return append(out, fmt.Sprintf("- **Not captured** (`%s`) — a warm-container turn replays its origin "+
+			"run's prompt, and that origin's capture is missing or gone. The `system_prompt` in the JSONL is "+
+			"still the exact text this turn sent.", backtickSafe(reason)), "")
+	}
 	if !r.ContextCaptured() {
 		return append(out, "- **Not captured** — this run predates per-run context capture, or its context "+
 			"aged past the 14-day retention window. The `system_prompt` in the JSONL is still the joined "+
@@ -354,6 +366,13 @@ func renderPromptContext(r client.RunHeader, jsonlName string) []string {
 		r.ContextSchemaVersion, on, len(sections)))
 	out = append(out, fmt.Sprintf("- **Bootstrap turn:** %s · **Pre-selected turn:** %s",
 		turnSize(r.BootstrapTurn), turnSize(r.PreselectedTurn)))
+	if line := promptContextProvenance(r); line != "" {
+		out = append(out, "- **Origin:** "+line)
+	}
+	if r.PromptDecomposition == "unavailable" {
+		out = append(out, "- **Sections:** decomposition unavailable — the origin's sections did not reproduce this "+
+			"turn's exact system prompt; the one section below is that exact text, gates unknown.")
+	}
 
 	if secErr != nil {
 		out = append(out, fmt.Sprintf("- **Sections:** unreadable (`%s`)", backtickSafe(secErr.Error())))
@@ -384,6 +403,26 @@ func renderPromptContext(r client.RunHeader, jsonlName string) []string {
 			fmt.Sprintf(`jq -r '.preselected_turn // "(none)"' %s   # the pre-pass's pre-selected ranges`, jsonlName),
 		}, "\n"), "sh"), "")
 	return out
+}
+
+// promptContextProvenance says where a run's prompt context came from when it is not simply "rendered by
+// this run": a warm-container chat turn inherits its origin's capture, and a re-rendered prompt can run in
+// a container another run assembled. "" for an ordinary run.
+func promptContextProvenance(r client.RunHeader) string {
+	origin := r.ContextCaptureOriginRunID
+	switch {
+	case r.ContextCaptureOrigin == "inherited" && origin != "":
+		line := fmt.Sprintf("inherited from run `%s` (warm container)", backtickSafe(origin))
+		if r.ContextCapturedAt != "" {
+			line += fmt.Sprintf(", captured_at `%s`", backtickSafe(r.ContextCapturedAt))
+		}
+		return line
+	case r.ContextCaptureOrigin == "inherited":
+		return "inherited (warm container), origin unknown"
+	case origin != "":
+		return fmt.Sprintf("re-rendered this turn in the warm container of run `%s`", backtickSafe(origin))
+	}
+	return ""
 }
 
 // turnSize describes one orientation turn without printing it: "" is a real state (the turn is not
@@ -477,6 +516,10 @@ func renderGroundingSources(gs *client.GroundingSources) []string {
 	}
 	out = append(out, fmt.Sprintf("- **Captured:** yes · captured_at `%s` · current_checked_at `%s`",
 		backtickSafe(orQ(gs.CapturedAt)), backtickSafe(orQ(gs.CurrentCheckedAt))))
+	if gs.InheritedFromRunID != "" {
+		out = append(out, fmt.Sprintf("- **Inherited:** the warm container's mounts, captured by run `%s` at its assembly",
+			backtickSafe(gs.InheritedFromRunID)))
+	}
 	driftCount := digest.GroundingSourceDriftCount(gs)
 	attention := digest.GroundingSourceAttentionCount(gs)
 	if driftCount > 0 || attention > 0 {
@@ -495,7 +538,7 @@ func renderGroundingSources(gs *client.GroundingSources) []string {
 		}
 		out = append(out, fmt.Sprintf("- **Snapshot:** %s", groundingSnapshot(s)))
 		out = append(out, fmt.Sprintf("- **Sync:** %s", groundingSync(s)))
-		out = append(out, fmt.Sprintf("- **Current drift:** %s", groundingCurrentDrift(s)))
+		out = append(out, fmt.Sprintf("- **Current drift (checked now, not at execution):** %s", groundingCurrentDrift(s)))
 	}
 	out = append(out, "")
 	return out

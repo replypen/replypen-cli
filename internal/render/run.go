@@ -300,6 +300,9 @@ func groundingSummary(gs *client.GroundingSources) string {
 		return "not captured"
 	}
 	parts := []string{fmt.Sprintf("%d sources", len(gs.Sources))}
+	if gs.InheritedFromRunID != "" {
+		parts = append(parts, "inherited from run "+gs.InheritedFromRunID)
+	}
 	if attention := digest.GroundingSourceAttentionCount(gs); attention > 0 {
 		parts = append(parts, fmt.Sprintf("%d attention", attention))
 	}

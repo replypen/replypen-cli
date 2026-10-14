@@ -92,6 +92,16 @@ func EmitJSONL(w io.Writer, full *client.FullResponse) error {
 	if r.BootstrapTurn != "" {
 		header["bootstrap_turn"] = r.BootstrapTurn
 	}
+	for key, v := range map[string]string{
+		"context_capture_origin":        r.ContextCaptureOrigin,
+		"context_capture_origin_run_id": r.ContextCaptureOriginRunID,
+		"context_captured_at":           r.ContextCapturedAt,
+		"prompt_decomposition":          r.PromptDecomposition,
+	} {
+		if v != "" {
+			header[key] = v
+		}
+	}
 	if r.PreselectedTurn != "" {
 		header["preselected_turn"] = r.PreselectedTurn
 	}

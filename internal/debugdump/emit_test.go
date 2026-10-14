@@ -393,3 +393,58 @@ func TestRequestedMirrorRefsSurviveFailedRunDump(t *testing.T) {
 		t.Fatalf("unresolved mirror dropped once another resolved:\n%s", index)
 	}
 }
+
+// A warm-container chat turn's context is its origin run's capture: the index must say so in the header
+// and the prompt-context section (never read as a fresh render), and the JSONL header must carry the
+// provenance keys the server sent.
+func TestInheritedPromptContextIsLabelled(t *testing.T) {
+	const origin = "fab52657-a87a-46ff-842b-a0f3cec14f2d"
+	full := &client.FullResponse{
+		Run: client.RunHeader{
+			RunID: "62aa0298-8b5b-465e-9e1f-dba31d6ef684", Project: "kampadmin-support", Status: "done", Kind: "chat",
+			SystemPrompt:              "P",
+			PromptSections:            json.RawMessage(`[{"id":"preamble","gate":"always","on":true,"text":"P"}]`),
+			BootstrapTurn:             "BOOT",
+			ContextSchemaVersion:      1,
+			ContextCaptureOrigin:      "inherited",
+			ContextCaptureOriginRunID: origin,
+			ContextCapturedAt:         "2026-10-13T06:59:01Z",
+			GroundingSources: &client.GroundingSources{
+				Captured: true, InheritedFromRunID: origin, CapturedAt: "2026-10-13T06:59:01Z",
+				Sources: []client.GroundingSource{{Kind: "mirror", Name: "app", Drift: []string{"commit_sha"}}},
+			},
+		},
+	}
+	index := RenderIndex(full)
+	for _, want := range []string{
+		"- **Prompt context:** inherited from run `" + origin + "` (warm container), captured_at `2026-10-13T06:59:01Z`",
+		"- **Inherited:** the warm container's mounts, captured by run `" + origin + "`",
+		"**Current drift (checked now, not at execution):**",
+	} {
+		if !strings.Contains(index, want) {
+			t.Fatalf("index missing %q:\n%s", want, index)
+		}
+	}
+
+	var buf bytes.Buffer
+	if err := EmitJSONL(&buf, full); err != nil {
+		t.Fatalf("EmitJSONL: %v", err)
+	}
+	var header map[string]any
+	if err := json.Unmarshal(bytes.SplitN(buf.Bytes(), []byte("\n"), 2)[0], &header); err != nil {
+		t.Fatalf("decode JSONL header: %v", err)
+	}
+	if header["context_capture_origin"] != "inherited" || header["context_capture_origin_run_id"] != origin || header["context_captured_at"] == nil {
+		t.Fatalf("JSONL header lost the provenance: %v", header)
+	}
+
+	// An inherited turn whose origin is gone says why, rather than blaming retention of THIS run.
+	gone := &client.FullResponse{Run: client.RunHeader{
+		RunID: "62aa0298-8b5b-465e-9e1f-dba31d6ef684", Status: "done", Kind: "chat",
+		ContextCaptureOrigin: "inherited", ContextCaptureOriginRunID: origin,
+		GroundingSources: &client.GroundingSources{Reason: "source_deleted"},
+	}}
+	if index := RenderIndex(gone); !strings.Contains(index, "**Not captured** (`source_deleted`)") {
+		t.Fatalf("missing origin not explained:\n%s", index)
+	}
+}

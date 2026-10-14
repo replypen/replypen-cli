@@ -32,13 +32,13 @@ Careful: when this run happened, these tenant settings differed from the current
 - **Details:** provider `intercom` · locale `en` · scope=mode=tenant tenant=de-kies visible=142 total=220 hidden=78 scoped=true
 - **Snapshot:** ref `intercom/en` · sha `93fa1200babe` · committed `2026-06-18T12:00:00Z` · mounted `yes`
 - **Sync:** configured `yes` · available `yes` · state `ok` · last_ok `2026-06-19T08:50:00Z` · last_attempt `2026-06-19T08:50:00Z`
-- **Current drift:** `commit_sha` · now_ref `intercom/en` · now_sha `1200babe93fa` · state `ok` · last_ok `2026-06-25T10:00:00Z`
+- **Current drift (checked now, not at execution):** `commit_sha` · now_ref `intercom/en` · now_sha `1200babe93fa` · state `ok` · last_ok `2026-06-25T10:00:00Z`
 
 ### `mirror/app`
 - **Source:** `/mirrors/app`
 - **Snapshot:** ref `main` · sha `abc123def456` · committed `2026-06-18T16:30:00Z` · mounted `yes`
 - **Sync:** configured `yes` · available `yes` · state `ok` · last_ok `2026-06-19T08:55:00Z` · last_attempt `2026-06-19T08:55:00Z`
-- **Current drift:** none · now_ref `main` · now_sha `abc123def456` · state `ok` · last_ok `2026-06-25T10:00:00Z`
+- **Current drift (checked now, not at execution):** none · now_ref `main` · now_sha `abc123def456` · state `ok` · last_ok `2026-06-25T10:00:00Z`
 
 ## Prompt context (what the model was handed)
 

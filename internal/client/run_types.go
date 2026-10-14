@@ -477,11 +477,14 @@ type EgressItem struct {
 // mounted into the workspace plus the current sync state so the CLI can surface stale or missing
 // grounding without recomputing anything. Old runs return captured:false with a reason.
 type GroundingSources struct {
-	Captured         bool              `json:"captured"`
-	Reason           string            `json:"reason,omitempty"`
-	CapturedAt       string            `json:"captured_at,omitempty"`
-	CurrentCheckedAt string            `json:"current_checked_at,omitempty"`
-	Sources          []GroundingSource `json:"sources,omitempty"`
+	Captured bool   `json:"captured"`
+	Reason   string `json:"reason,omitempty"`
+	// InheritedFromRunID: a warm-container chat turn's mounts are this origin run's, captured at its
+	// assembly (CapturedAt); Current/Drift are computed at read time, not at execution.
+	InheritedFromRunID string            `json:"inherited_from_run_id,omitempty"`
+	CapturedAt         string            `json:"captured_at,omitempty"`
+	CurrentCheckedAt   string            `json:"current_checked_at,omitempty"`
+	Sources            []GroundingSource `json:"sources,omitempty"`
 }
 
 // GroundingSource is one mounted grounding input (mirror, kb, or a future kind). Details stays
@@ -578,6 +581,16 @@ type RunHeader struct {
 	PreselectedTurn      string          `json:"preselected_turn,omitempty"`
 	ManifestBlocks       json.RawMessage `json:"manifest_blocks,omitempty"`
 	ContextSchemaVersion int             `json:"context_schema_version,omitempty"`
+	// ContextCaptureOrigin is "assembled" (this run rendered the context) or "inherited" (a warm-container
+	// chat turn: the context fields above are its origin run's capture, resolved by the server, and
+	// ContextCapturedAt is when that origin captured it). ContextCaptureOriginRunID names the origin; on an
+	// "assembled" run it names the warm container a re-rendered prompt ran in. PromptDecomposition
+	// "unavailable" = the origin's sections did not reproduce this run's exact system prompt, so
+	// PromptSections holds that exact text as one section. Cross-repo contract — do not rename.
+	ContextCaptureOrigin      string `json:"context_capture_origin,omitempty"`
+	ContextCaptureOriginRunID string `json:"context_capture_origin_run_id,omitempty"`
+	ContextCapturedAt         string `json:"context_captured_at,omitempty"`
+	PromptDecomposition       string `json:"prompt_decomposition,omitempty"`
 	// DetailRedacted marks a trace served WITHOUT its detail: the caller is not a project-level admin, so
 	// the server omits the sensitive header fields (system_prompt, grounding_*, warm_start_digest, prior
 	// messages/notes, tenant settings, egress) and ships an empty events list. Every renderer must call
