@@ -105,6 +105,7 @@ func RenderIndex(full *client.FullResponse) string {
 	} else {
 		add("_(none captured)_")
 	}
+	add(renderInspiration(r.Inspiration)...)
 	add("", "## Outcome", "")
 	add(renderOutcome(r)...)
 	// Directly under the draft it edited: the post-loop passes run AFTER the agent's terminal `reply`, so
@@ -881,4 +882,32 @@ func attachmentSummary(events []decEvent) (string, bool) {
 		return summary, true
 	}
 	return "", false
+}
+
+// renderInspiration names the gallery example a chat turn was sent from and the brain notes the host put
+// in that user turn. It is NOT a prompt section, so without this line a reader scanning the sections
+// table concludes the notes never arrived.
+func renderInspiration(raw json.RawMessage) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var pick struct {
+		ID       string   `json:"id"`
+		Title    string   `json:"title"`
+		Category string   `json:"category"`
+		Notes    []string `json:"notes"`
+		Skills   []string `json:"skills"`
+	}
+	if err := json.Unmarshal(raw, &pick); err != nil {
+		return nil
+	}
+	out := []string{"", fmt.Sprintf("**Gallery pick:** %s (%s) · id `%s` — the brain notes below were rendered inside the user turn (never a prompt section)",
+		backtickSafe(pick.Title), backtickSafe(pick.Category), backtickSafe(pick.ID))}
+	for _, n := range pick.Notes {
+		out = append(out, "- "+n)
+	}
+	if len(pick.Skills) > 0 {
+		out = append(out, "- Read first: "+strings.Join(pick.Skills, ", "))
+	}
+	return out
 }

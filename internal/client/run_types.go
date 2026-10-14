@@ -543,6 +543,10 @@ type RunHeader struct {
 	Question              string            `json:"question,omitempty"`
 	// ReplayOfRunID is the chat run this run replays (rc ask --replay-chat-run); "" otherwise.
 	ReplayOfRunID string `json:"replay_of_run_id,omitempty"`
+	// Inspiration is the gallery example a chat turn was sent from (id, title, category, the brain
+	// notes/skills the host rendered inside the user turn), raw so the shape stays the server's. Absent
+	// when the turn carried no pick — pasted or typed gallery text never does.
+	Inspiration json.RawMessage `json:"inspiration,omitempty"`
 	// PriorMessages / PriorNotes are the conversation-so-far the brain was GIVEN this turn (the replayed
 	// webhook Message/Note arrays), raw so the shape stays the server's. null on a first turn or a run
 	// predating the column. `rc run trace --brief` keeps them: they are the context a READER needs.

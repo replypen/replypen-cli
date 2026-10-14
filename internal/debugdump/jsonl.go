@@ -68,6 +68,9 @@ func EmitJSONL(w io.Writer, full *client.FullResponse) error {
 	if r.ReplayOfRunID != "" {
 		header["replay_of_run_id"] = r.ReplayOfRunID
 	}
+	if len(r.Inspiration) > 0 {
+		header["inspiration"] = json.RawMessage(r.Inspiration)
+	}
 	if len(r.ProposedActions) > 0 {
 		header["proposed_actions"] = r.ProposedActions
 	}
