@@ -348,6 +348,15 @@ func (c *Client) AdminList(ctx context.Context, resource string) (*ListResponse,
 	return &out, raw, nil
 }
 
+// AdminTokens reads the box-admin machine-credential fleet view (GET /api/v1/admin/tokens): every
+// project's machine credentials with owner + status. includeRevoked adds those dead within 30 days.
+func (c *Client) AdminTokens(ctx context.Context, includeRevoked bool) (*ListResponse, json.RawMessage, error) {
+	if !includeRevoked {
+		return c.AdminList(ctx, "tokens")
+	}
+	return c.AdminList(ctx, "tokens?include_revoked=true")
+}
+
 // AdminCreate POSTs to an admin collection, returning the echoed item + raw body.
 func (c *Client) AdminCreate(ctx context.Context, resource string, body map[string]any) (Item, json.RawMessage, error) {
 	return c.itemWrite(ctx, http.MethodPost, "/api/v1/admin/"+resource, body)

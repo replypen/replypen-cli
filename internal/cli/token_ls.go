@@ -13,16 +13,20 @@ import (
 
 // tokenLsCmd: GET /api/v1/tokens with client-side last-used review. Default shows active tokens only,
 // least-recently-used first; --unused-days N keeps the never-used / stale ones (the cleanup list).
-// -o json keeps the server envelope but applies the same filter + sort to its items.
+// -o json keeps the server envelope but applies the same filter + sort to its items. --all swaps the
+// source for the box-admin fleet view GET /api/v1/admin/tokens (every project, with owner); the server
+// owns its revoked window, so --include-revoked is forwarded rather than filtered here.
 func tokenLsCmd(e *env) *cobra.Command {
 	var unusedDays int
-	var all, wide bool
+	var includeRevoked, wide, fleet bool
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List tokens with last-used info (active only, least recently used first)",
 		Long: "List tokens, least recently used first. Active tokens only unless --include-revoked. \"never\" means no use\n" +
 			"since last-used tracking began (2026-10-12). Use --unused-days N to list stale credentials worth revoking.\n" +
-			"-o json keeps the server's raw items (scope, user agent, …) after the same filter and sort.",
+			"-o json keeps the server's raw items (scope, user agent, …) after the same filter and sort.\n" +
+			"--all lists machine credentials across EVERY project with their owner (all-projects global-admin token);\n" +
+			"with --include-revoked it adds revoked, expired and superseded ones that died in the last 30 days.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if unusedDays < 0 {
@@ -32,11 +36,17 @@ func tokenLsCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			l, raw, err := c.List(e.ctx(), "tokens", e.scopeProject(), collectionTenant(e, "tokens"))
+			var l *client.ListResponse
+			var raw json.RawMessage
+			if fleet {
+				l, raw, err = c.AdminTokens(e.ctx(), includeRevoked)
+			} else {
+				l, raw, err = c.List(e.ctx(), "tokens", e.scopeProject(), collectionTenant(e, "tokens"))
+			}
 			if err != nil {
 				return err
 			}
-			items := digest.SelectTokens(l.Items, digest.TokenFilter{IncludeInactive: all, UnusedDays: unusedDays, Now: nowFunc()})
+			items := digest.SelectTokens(l.Items, digest.TokenFilter{IncludeInactive: includeRevoked, UnusedDays: unusedDays, Now: nowFunc()})
 			if e.jsonOut() {
 				out, err := replaceListItems(raw, items)
 				if err != nil {
@@ -44,13 +54,18 @@ func tokenLsCmd(e *env) *cobra.Command {
 				}
 				return e.renderJSON("tokens-ls", out)
 			}
-			render.TokenList(e.out, items, nowFunc(), wide)
+			if fleet {
+				render.TokenFleetList(e.out, items, nowFunc(), wide)
+			} else {
+				render.TokenList(e.out, items, nowFunc(), wide)
+			}
 			return nil
 		},
 	}
 	cmd.Flags().IntVar(&unusedDays, "unused-days", 0, "only tokens never used or last used more than N days ago")
-	cmd.Flags().BoolVar(&all, "include-revoked", false, "include revoked tokens (default: active only)")
-	cmd.Flags().BoolVar(&wide, "wide", false, "add SCOPE and USER AGENT columns")
+	cmd.Flags().BoolVar(&includeRevoked, "include-revoked", false, "include revoked tokens (default: active only; with --all: revoked/expired/superseded in the last 30 days)")
+	cmd.Flags().BoolVar(&wide, "wide", false, "add SCOPE and USER AGENT columns (with --all: ID and the full user agent)")
+	cmd.Flags().BoolVar(&fleet, "all", false, "machine credentials across every project, with owner (all-projects global-admin token)")
 	return cmd
 }
 

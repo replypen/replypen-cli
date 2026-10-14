@@ -93,7 +93,8 @@ security default, don't work around it by reading flags directly.
 
 `--all` is the fat-client fan-out (`fanOutProjects` + `run{Fleet,Patterns,Health}All`): list projects, call
 the per-project endpoint once each, merge. Against a scoped token it errors instead of quietly running one
-project.
+project. Exception: `project token ls --all` reads one box-admin endpoint (`GET /api/v1/admin/tokens`) because
+it needs the owner email, which per-project rows don't carry.
 
 ## Four thin layers, no logic
 

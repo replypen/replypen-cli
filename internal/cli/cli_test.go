@@ -1576,6 +1576,27 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":"` + r.PathValue("id") + `","admin":false}`))
 	})
+	// The fleet view filters server-side: without include_revoked only the active rows ride.
+	mux.HandleFunc("GET /api/v1/admin/tokens", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		w.Header().Set("Content-Type", "application/json")
+		body := fixture(t, "admin_tokens.json")
+		if r.URL.Query().Get("include_revoked") != "true" {
+			var env struct {
+				Items []map[string]any `json:"items"`
+			}
+			_ = json.Unmarshal(body, &env)
+			live := env.Items[:0]
+			for _, it := range env.Items {
+				if it["status"] == "active" {
+					live = append(live, it)
+				}
+			}
+			env.Items = live
+			body, _ = json.Marshal(env)
+		}
+		_, _ = w.Write(body)
+	})
 	mux.HandleFunc("GET /api/v1/admin/projects", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		w.Header().Set("Content-Type", "application/json")

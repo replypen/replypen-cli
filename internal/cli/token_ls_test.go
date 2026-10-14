@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestTokenLs pins the last-used review: table default (active only, never-used first), --wide, --all,
+// TestTokenLs pins the last-used review: table default (active only, never-used first), --wide, --include-revoked, the --all fleet view,
 // and that -o json keeps the envelope + raw keys while applying the same filter and sort.
 func TestTokenLs(t *testing.T) {
 	pinNow(t, "2026-10-12T12:00:00Z")
@@ -17,6 +17,8 @@ func TestTokenLs(t *testing.T) {
 		{"Default", "token_ls.golden", []string{"project", "token", "ls"}},
 		{"Wide", "token_ls_wide.golden", []string{"project", "token", "ls", "--wide"}},
 		{"RevokedUnused30d", "token_ls_unused.golden", []string{"project", "token", "ls", "--include-revoked", "--unused-days", "30"}},
+		{"FleetDefault", "token_ls_fleet.golden", []string{"project", "token", "ls", "--all"}},
+		{"FleetRevokedWide", "token_ls_fleet_revoked_wide.golden", []string{"project", "token", "ls", "--all", "--include-revoked", "--wide"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := stubServer(t)

@@ -129,6 +129,9 @@ func commandScope(path string) scopeSpec {
 		return projectOnly
 	case strings.HasPrefix(path, "project knowledge sync "):
 		return projectOnly
+	// token ls --all is the box-admin fleet view of every project's machine credentials.
+	case path == "project token ls":
+		return scopeSpec{Project: true, AllProjects: true}
 	case strings.HasPrefix(path, "project database "), strings.HasPrefix(path, "project token "):
 		return projectOnly
 	case strings.HasPrefix(path, "project branding "), strings.HasPrefix(path, "project github "), strings.HasPrefix(path, "project action-settings "):

@@ -282,7 +282,9 @@ Add `label=<text>` to `token mint` to name a credential. `rc project token ls` s
 (time, IP, route), least recently used first, active tokens only (`--include-revoked` adds revoked ones,
 `--wide` adds scope and user agent; `-o json` keeps the raw rows after the same filter and sort). Clean up stale
 credentials with `rc project token ls --unused-days 90`, then `rc project token revoke <id>`. "never" means no
-use since tracking began on 2026-10-12.
+use since tracking began on 2026-10-12. `rc project token ls --all` (all-projects global-admin token) is the
+fleet view: every project's machine credentials with owner email and status, `--include-revoked` adding the
+revoked/expired/superseded ones from the last 30 days.
 
 ### Cloud setup
 

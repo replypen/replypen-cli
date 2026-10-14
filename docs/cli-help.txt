@@ -2475,14 +2475,17 @@ $ rc project token ls --help
 List tokens, least recently used first. Active tokens only unless --include-revoked. "never" means no use
 since last-used tracking began (2026-10-12). Use --unused-days N to list stale credentials worth revoking.
 -o json keeps the server's raw items (scope, user agent, …) after the same filter and sort.
+--all lists machine credentials across EVERY project with their owner (all-projects global-admin token);
+with --include-revoked it adds revoked, expired and superseded ones that died in the last 30 days.
 
 Usage:
   rc project token ls [flags]
 
 Flags:
-      --include-revoked   include revoked tokens (default: active only)
+      --all               machine credentials across every project, with owner (all-projects global-admin token)
+      --include-revoked   include revoked tokens (default: active only; with --all: revoked/expired/superseded in the last 30 days)
       --unused-days int   only tokens never used or last used more than N days ago
-      --wide              add SCOPE and USER AGENT columns
+      --wide              add SCOPE and USER AGENT columns (with --all: ID and the full user agent)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
