@@ -1650,6 +1650,25 @@ func run(t *testing.T, e *env, args ...string) error {
 	return root.Execute()
 }
 
+func TestConnectionProbeSendsSpreadsheet(t *testing.T) {
+	const sheet = "https://docs.google.com/spreadsheets/d/1Abc/edit"
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		body = readBody(t, r)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true,"capability":{"key":"googlesheets.write"},"grant":{},"action_plane":{},"steps":[]}`))
+	}))
+	defer srv.Close()
+	e, _, _ := newTestEnv(t, srv, "json")
+	if err := run(t, e, "project", "connection", "probe", "googlesheets.write", "--write", "--spreadsheet", sheet); err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	if !strings.Contains(body, `"spreadsheet":"`+sheet+`"`) {
+		t.Fatalf("probe body missing spreadsheet: %s", body)
+	}
+}
+
 // requireShareToken is requireAuth's mirror for the account-less plane: the token rides in `t=`, and an
 // Authorization header must NOT be sent (a reader may have no profile at all).
 func requireShareToken(t *testing.T, r *http.Request) {

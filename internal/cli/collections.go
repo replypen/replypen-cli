@@ -235,6 +235,7 @@ func newConnectionCmd(e *env) *cobra.Command {
 func connectionProbeCmd(e *env) *cobra.Command {
 	var write bool
 	var notionPage string
+	var spreadsheet string
 	var cleanup bool
 	var label string
 	cmd := &cobra.Command{
@@ -247,11 +248,12 @@ func connectionProbeCmd(e *env) *cobra.Command {
 				return err
 			}
 			res, raw, err := c.ConnectionProbe(e.ctx(), client.ConnectionProbeRequest{
-				Capability: args[0],
-				Label:      label,
-				Write:      write,
-				NotionPage: notionPage,
-				Cleanup:    cleanup,
+				Capability:  args[0],
+				Label:       label,
+				Write:       write,
+				NotionPage:  notionPage,
+				Spreadsheet: spreadsheet,
+				Cleanup:     cleanup,
 			}, e.scopeProject(), collectionTenant(e, "connections"))
 			if err != nil {
 				return err
@@ -265,6 +267,7 @@ func connectionProbeCmd(e *env) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&write, "write", false, "perform the provider write/read-back probe")
 	cmd.Flags().StringVar(&notionPage, "notion-page", "", "Notion page id for notion.write --write")
+	cmd.Flags().StringVar(&spreadsheet, "spreadsheet", "", "Google Sheets URL or id for googlesheets.write --write")
 	cmd.Flags().BoolVar(&cleanup, "cleanup", false, "delete/archive the probe artifact when supported")
 	cmd.Flags().StringVar(&label, "label", "", "OAuth grant label (default account when empty)")
 	return cmd

@@ -1697,6 +1697,7 @@ Flags:
       --cleanup              delete/archive the probe artifact when supported
       --label string         OAuth grant label (default account when empty)
       --notion-page string   Notion page id for notion.write --write
+      --spreadsheet string   Google Sheets URL or id for googlesheets.write --write
       --write                perform the provider write/read-back probe
 
 Global Flags:

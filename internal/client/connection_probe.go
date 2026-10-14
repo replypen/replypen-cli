@@ -7,11 +7,12 @@ import (
 )
 
 type ConnectionProbeRequest struct {
-	Capability string `json:"capability"`
-	Label      string `json:"label,omitempty"`
-	Write      bool   `json:"write,omitempty"`
-	NotionPage string `json:"notion_page,omitempty"`
-	Cleanup    bool   `json:"cleanup,omitempty"`
+	Capability  string `json:"capability"`
+	Label       string `json:"label,omitempty"`
+	Write       bool   `json:"write,omitempty"`
+	NotionPage  string `json:"notion_page,omitempty"`
+	Spreadsheet string `json:"spreadsheet,omitempty"`
+	Cleanup     bool   `json:"cleanup,omitempty"`
 }
 
 type ConnectionProbeResult struct {
