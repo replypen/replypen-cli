@@ -22,6 +22,7 @@ func RenderIndex(full *client.FullResponse) string {
 	var main, pre, polish []decEvent
 	for _, e := range events {
 		switch {
+		case e.depth:
 		case e.polish:
 			polish = append(polish, e)
 		case e.grounding:
@@ -62,6 +63,9 @@ func RenderIndex(full *client.FullResponse) string {
 	}
 	add(fmt.Sprintf("- **Thread / Session:** `%s` / `%s`", r.ThreadID, r.SessionID))
 	add(fmt.Sprintf("- **Created / Finished:** %s / %s", orQ(r.CreatedAt), orParen(r.FinishedAt, "unfinished")))
+	if d, ok := digest.DepthOf(full.Events); ok {
+		add(fmt.Sprintf("- **Depth:** `%s`", d.Line()))
+	}
 	if line := promptContextProvenance(r); line != "" {
 		add("- **Prompt context:** " + line)
 	}

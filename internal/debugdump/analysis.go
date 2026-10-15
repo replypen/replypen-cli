@@ -36,7 +36,7 @@ func flags(full *client.FullResponse, events []decEvent) []string {
 	// their (absent) duration would skew the median. They have their own section.
 	kept := events[:0:0]
 	for _, e := range events {
-		if !e.polish {
+		if !e.polish && !e.depth {
 			kept = append(kept, e)
 		}
 	}

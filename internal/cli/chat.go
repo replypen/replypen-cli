@@ -23,7 +23,7 @@ import (
 
 func newChatCmd(e *env, version string) *cobra.Command {
 	cmd := &cobra.Command{Use: "chat", Short: "Configure, diagnose, and smoke-test embedded chat"}
-	cmd.AddCommand(newBagGetCmd(e, "/api/v1/chat"), newBagSetCmd(e, "/api/v1/chat"), chatSecretCmd(e), chatTokenCmd(e), chatSendCmd(e), chatSessionCmd(e), chatCardDecideCmd(e), chatCardStatusCmd(e), chatDoctorCmd(e, version), chatBriefCmd(e))
+	cmd.AddCommand(newBagGetCmd(e, "/api/v1/chat"), newBagSetCmd(e, "/api/v1/chat"), chatSecretCmd(e), chatTokenCmd(e), chatSendCmd(e), chatReplayCmd(e), chatSessionCmd(e), chatCardDecideCmd(e), chatCardStatusCmd(e), chatDoctorCmd(e, version), chatBriefCmd(e))
 	return cmd
 }
 
@@ -167,31 +167,24 @@ func chatSendCmd(e *env) *cobra.Command {
 		if sessionID == "" && len(answerFlags) > 0 {
 			return fmt.Errorf("--session is required with --answer")
 		}
-		if lane.dashboard() {
-			return chatSendDashboard(e, lane, sessionID, args, answerFlags)
+		if sessionID != "" && lane.intent != "" {
+			return fmt.Errorf("--intent opens a new conversation; drop --session")
 		}
-		token, origin, project, err := chatEmbedScope(e, token, origin)
+		plane, c, err := resolveChatPlane(e, lane, token, origin)
 		if err != nil {
 			return err
 		}
-		c, err := e.newClient()
-		if err != nil {
-			return err
+		turn, sendErr := sendChatTurn(e, c, plane, sessionID, lane.tier, args, answerFlags, e.out)
+		if turn.SessionID == "" {
+			return sendErr
 		}
-		if sessionID == "" {
-			sessionID, err = c.ChatOpen(e.ctx(), project, origin, token)
-			if err != nil {
-				return err
-			}
+		_, _ = fmt.Fprintf(e.out, "session_id: %s\n", turn.SessionID)
+		if turn.RunID != "" {
+			_, _ = fmt.Fprintf(e.out, "run_id: %s\n", turn.RunID)
 		}
-		parts, err := chatTurnParts(args, answerFlags, func() (json.RawMessage, error) {
-			return c.ChatSession(e.ctx(), project, origin, token, sessionID)
-		})
-		if err != nil {
-			return err
+		if turn.Tier != "" {
+			_, _ = fmt.Fprintf(e.out, "tier: %s\n", turn.Tier)
 		}
-		runID, sendErr := c.ChatSend(e.ctx(), project, origin, token, sessionID, randomMessageID(), parts, e.out)
-		printChatHandles(e, sessionID, runID)
 		return sendErr
 	}}
 	cmd.Flags().StringVar(&token, "token", "", "embed chat token (default: RC_CHAT_TOKEN)")
@@ -202,34 +195,73 @@ func chatSendCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// chatSendDashboard is the --lane branch of `send`: the OAuth login + the brain/--project/--tenant
-// scope pick the conversation list, exactly like the logged-in page.
-func chatSendDashboard(e *env, lane chatLane, sessionID string, args, answerFlags []string) error {
-	c, err := e.newClient()
-	if err != nil {
-		return err
-	}
-	project, tenant := e.scopeProject(), e.scopeTenant()
-	if project == "" {
-		return fmt.Errorf("--lane needs a project: run inside a brain checkout or pass --project")
-	}
-	if sessionID == "" {
-		sessionID, err = lane.open(e, c, project, tenant)
-		if err != nil {
-			return err
+// chatPlane is one resolved chat target: the embed plane (token + origin + project, from flags or the
+// token's own claims) or, with --lane, the member dashboard plane over the OAuth bearer, scoped by the
+// brain/--project/--tenant exactly like the logged-in page.
+type chatPlane struct {
+	lane                           chatLane
+	token, origin, project, tenant string
+}
+
+func resolveChatPlane(e *env, lane chatLane, token, origin string) (chatPlane, *client.Client, error) {
+	p := chatPlane{lane: lane}
+	if lane.dashboard() {
+		p.project, p.tenant = e.scopeProject(), e.scopeTenant()
+		if p.project == "" {
+			return p, nil, fmt.Errorf("--lane needs a project: run inside a brain checkout or pass --project")
 		}
-	} else if lane.intent != "" {
-		return fmt.Errorf("--intent opens a new conversation; drop --session")
+	} else {
+		var err error
+		if p.token, p.origin, p.project, err = chatEmbedScope(e, token, origin); err != nil {
+			return p, nil, err
+		}
+	}
+	c, err := e.newClient()
+	return p, c, err
+}
+
+// chatTurnResult is one sent turn; also the `-o json` row of `chat replay`.
+type chatTurnResult = render.ChatTurn
+
+// sendChatTurn is the ONE send path behind `send` and `replay`: opens a session when sessionID is "",
+// builds the turn's parts, streams the SSE frames to out and returns the handles. tier is the member's
+// pick (dashboard plane only; "" lets the host route). A returned SessionID with an error means the
+// session exists and the turn failed in-stream.
+func sendChatTurn(e *env, c *client.Client, p chatPlane, sessionID, tier string, args, answerFlags []string, out io.Writer) (chatTurnResult, error) {
+	var err error
+	if sessionID == "" {
+		if p.lane.dashboard() {
+			open := p.lane
+			open.tier = tier
+			sessionID, err = open.open(e, c, p.project, p.tenant)
+		} else {
+			sessionID, err = c.ChatOpen(e.ctx(), p.project, p.origin, p.token)
+		}
+		if err != nil {
+			return chatTurnResult{}, err
+		}
 	}
 	parts, err := chatTurnParts(args, answerFlags, func() (json.RawMessage, error) {
-		return c.DashboardChatSession(e.ctx(), project, tenant, sessionID)
+		if p.lane.dashboard() {
+			return c.DashboardChatSession(e.ctx(), p.project, p.tenant, sessionID)
+		}
+		return c.ChatSession(e.ctx(), p.project, p.origin, p.token, sessionID)
 	})
 	if err != nil {
-		return err
+		return chatTurnResult{}, err
 	}
-	runID, sendErr := c.DashboardChatSend(e.ctx(), project, tenant, sessionID, randomMessageID(), lane.tier, parts, e.out)
-	printChatHandles(e, sessionID, runID)
-	return sendErr
+	started := time.Now()
+	var turn client.ChatTurn
+	if p.lane.dashboard() {
+		turn, err = c.DashboardChatSend(e.ctx(), p.project, p.tenant, sessionID, randomMessageID(), tier, parts, out)
+	} else {
+		turn, err = c.ChatSend(e.ctx(), p.project, p.origin, p.token, sessionID, randomMessageID(), parts, out)
+	}
+	res := chatTurnResult{SessionID: sessionID, RunID: turn.RunID, Tier: turn.Tier, Answer: turn.Answer, Secs: time.Since(started).Seconds()}
+	if err != nil {
+		res.Error = err.Error()
+	}
+	return res, err
 }
 
 // chatTurnParts assembles the typed parts of one turn: the text, plus a data-answers part built
@@ -254,15 +286,6 @@ func chatTurnParts(args, answerFlags []string, transcript func() (json.RawMessag
 		return nil, fmt.Errorf("message must not be empty")
 	}
 	return parts, nil
-}
-
-// printChatHandles prints the session id (the handle for every follow-up: `--session`, `rc project
-// chat session`, the card decision routes — the frames never carry it) beside the run id.
-func printChatHandles(e *env, sessionID, runID string) {
-	_, _ = fmt.Fprintf(e.out, "session_id: %s\n", sessionID)
-	if runID != "" {
-		_, _ = fmt.Fprintf(e.out, "run_id: %s\n", runID)
-	}
 }
 
 // chatEmbedScope resolves the embed-plane triple every chat verb needs: the bearer (flag or

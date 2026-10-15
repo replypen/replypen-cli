@@ -7,6 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/rootcause-org/rootcause-cli/internal/digest"
 )
 
 // sessionLabelChars bounds the label column: a conversation list is for recognising a conversation, not
@@ -20,13 +21,27 @@ func Sessions(w io.Writer, resp *client.SessionsResponse) {
 		_, _ = fmt.Fprintln(w, "No conversations.")
 		return
 	}
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "CREATED\tTENANT\tTURNS\tFEEDBACK\tCONVERSATION\tSESSION")
+	// The TIER column appears only once the server ships it, so older payloads keep their exact layout.
+	withTier := false
 	for _, s := range resp.Sessions {
-		_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%s\t%s\t%s\n",
-			s.CreatedAt, dash(s.TenantSlug), s.Turns, feedbackLabel(s.Feedback),
+		withTier = withTier || s.Tier != ""
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	tierHead := ""
+	if withTier {
+		tierHead = "TIER\t"
+	}
+	_, _ = fmt.Fprintln(tw, "CREATED\tTENANT\tTURNS\t"+tierHead+"FEEDBACK\tCONVERSATION\tSESSION")
+	for _, s := range resp.Sessions {
+		tier := ""
+		if withTier {
+			tier = digest.TierLabel(s.Tier, s.TierSource) + "\t"
+		}
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%s%s\t%s\t%s\n",
+			s.CreatedAt, dash(s.TenantSlug), s.Turns, tier, feedbackLabel(s.Feedback),
 			sessionLabel(s), s.SessionID)
 	}
+
 	_ = tw.Flush()
 	if resp.NextBefore != "" {
 		_, _ = fmt.Fprintf(w, "\nMore: rc run sessions --before %s\n", resp.NextBefore)

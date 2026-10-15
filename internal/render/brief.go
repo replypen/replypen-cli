@@ -52,6 +52,7 @@ func Brief(w io.Writer, f *client.FullResponse) {
 		_, _ = fmt.Fprintf(tw, "View run:\t%s\n", u)
 	}
 	_ = tw.Flush()
+	writeDepthLine(w, f.Events)
 
 	if f.Redacted() {
 		_, _ = fmt.Fprintf(w, "\n%s\n", RedactedTraceNotice)

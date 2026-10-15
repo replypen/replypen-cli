@@ -127,9 +127,12 @@ func Events(w io.Writer, resp *client.EventsResponse) {
 		_, _ = fmt.Fprintln(w, "No events.")
 		return
 	}
+	if d, ok := eventsDepth(resp.Events); ok {
+		_, _ = fmt.Fprintln(w, d.Line())
+	}
 	// Renumber 1..N in the human view: the server's raw seq can be a negative sentinel block
 	// (#-1000000, #-999999, …) that is meaningless to a reader. The raw seq is preserved in JSON/NDJSON.
-	for i, e := range resp.Events {
+	for i, e := range digest.LiftDepth(resp.Events, func(e client.Event) bool { return digest.IsDepthEvent(e.Tool, e.Status) }) {
 		_, _ = fmt.Fprintf(w, "\n#%d  %s  %s  exit=%d  %s  %s\n",
 			i+1, e.Tool, e.Status, e.ExitCode, duration(e.DurationMs), e.At)
 		if e.Command != "" {
@@ -215,6 +218,7 @@ func Full(w io.Writer, f *client.FullResponse) {
 		_, _ = fmt.Fprintf(tw, "Trace:\t%s\n", tu)
 	}
 	_ = tw.Flush()
+	writeDepthLine(w, f.Events)
 
 	if len(drift) > 0 {
 		_, _ = fmt.Fprintln(w, "\nCareful: when this run happened, these tenant settings differed from the current config.")
@@ -265,7 +269,7 @@ func Full(w io.Writer, f *client.FullResponse) {
 
 func renderTimeline(w io.Writer, events []client.EventItem) {
 	_, _ = fmt.Fprintf(w, "\nTimeline (%d):\n", len(events))
-	for i, e := range events {
+	for i, e := range digest.LiftDepth(events, func(e client.EventItem) bool { return digest.IsDepthEvent(e.Tool, e.Status) }) {
 		_, _ = fmt.Fprintf(w, "\n#%d  %s  %s  exit=%d  %s  %s\n",
 			i+1, eventTool(e.Tool, e.Label), e.Status, e.ExitCode, duration(e.DurationMs), e.At)
 		if e.Command != "" {
@@ -458,4 +462,20 @@ func projectionSummary(raw string) string {
 		parts = append(parts, fmt.Sprintf("selectors=%d", len(selectors)))
 	}
 	return strings.Join(parts, "  ")
+}
+
+// writeDepthLine prints the run's routed-depth one-liner (chat runs only; absent otherwise).
+func writeDepthLine(w io.Writer, events []client.EventItem) {
+	if d, ok := digest.DepthOf(events); ok {
+		_, _ = fmt.Fprintln(w, d.Line())
+	}
+}
+
+func eventsDepth(events []client.Event) (digest.Depth, bool) {
+	for _, e := range events {
+		if digest.IsDepthEvent(e.Tool, e.Status) {
+			return digest.ParseDepth(e.Args)
+		}
+	}
+	return digest.Depth{}, false
 }

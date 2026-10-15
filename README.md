@@ -192,6 +192,16 @@ card it carried, and the judge's rationale + evidence quote — what you need to
 customer never saw it and no model reads it back. Needs a project-level admin token; `-o json` carries it
 whole as `.blocked_turn`.
 
+**Depth (Quick/Deeper).** Each chat turn is routed to `standard` or `pro`. `rc run trace` (both modes),
+`rc run events` and `rc run debug` print it as `depth: pro (switched from standard; router: substantial
+p=0.01)`; `--brief -o json` keeps it as `.depth`; `rc run sessions` adds a TIER column (`*` = member's
+pick) once the server serves it. `rc project chat send` prints `tier:` after `run_id:`. To check routing
+over a whole conversation, replay a script (one message per line, `#` skipped, `---` = new session):
+
+```bash
+rc project chat replay convo.txt --lane data --tier standard   # #, tier, secs, run_id, answer head
+```
+
 (`rc run session <share-link>` is a different thing: the account-less dump of a conversation someone
 shared with you — see below.)
 
@@ -527,6 +537,7 @@ help using `go test ./internal/cli -update`.
 | `rc project chat decide` | Settle a chat card (e.g. publish or decline a website change) and print its projection |
 | `rc project chat doctor` | Diagnose embedded-chat configuration and recent rejects |
 | `rc project chat get` | Show current values (value / effective / default) |
+| `rc project chat replay` | Replay a file of user messages as one chat session and tabulate tier, time and answer per turn |
 | `rc project chat secret reveal` | Reveal the chat signing secret (printed once) |
 | `rc project chat secret rotate` | Rotate the chat signing secret (printed once) |
 | `rc project chat secret` | Manage the dedicated chat signing secret |

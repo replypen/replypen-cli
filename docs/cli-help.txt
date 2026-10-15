@@ -157,7 +157,7 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rc run sessions --help
-List chat conversations, newest first. A conversation is N runs sharing one session id: drill its turns with `rc run thread <session_id>`, then one turn's bodies with `rc run trace <run_id>`. The feedback column is the rollup over the conversation's rated turns; `-o json` is the server payload verbatim, including next_before.
+List chat conversations, newest first. A conversation is N runs sharing one session id: drill its turns with `rc run thread <session_id>`, then one turn's bodies with `rc run trace <run_id>`. The feedback column is the rollup over the conversation's rated turns; TIER (when served) is the latest turn's depth, `*` = picked by the member; `-o json` is the server payload verbatim, including next_before.
 
 Usage:
   rc run sessions [flags]
@@ -3105,6 +3105,7 @@ Available Commands:
   secret      Manage the dedicated chat signing secret
   token       Mint a five-minute server chat token
   send        Send one chat turn and print its SSE frames and session + run IDs
+  replay      Replay a file of user messages as one chat session and tabulate tier, time and answer per turn
   session     Print a session's persisted transcript as the widget would reopen it
   decide      Settle a chat card (e.g. publish or decline a website change) and print its projection
   card        Print a chat card's current projection (poll it while it settles)
@@ -3245,6 +3246,32 @@ Flags:
       --lane string          dashboard lane over the OAuth login instead of an embed token: setup (Set up & improve) or data (Ask your data)
       --origin string        embedding-page origin (default: token origin claim)
       --session string       existing chat session ID (opens a new session when omitted)
+      --tier string          session tier for a new --lane conversation: standard (Quick) or pro (Deeper)
+      --token string         embed chat token (default: RC_CHAT_TOKEN)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .rootcause/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .rootcause.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rc project chat replay --help
+One user message per non-empty line; lines starting with # are skipped and a line `---` starts a fresh session for the lines after it. Turns run sequentially, each waiting for its answer. --tier is the initial pick, sent only on a session's first turn; later turns let the host route. `-o json` prints the array of turns.
+
+Usage:
+  rc project chat replay <file> [flags]
+
+Flags:
+      --action string        action slug for --intent action_modify
+      --integration string   connector key for --intent integration_setup (e.g. clickup)
+      --intent string        seed the new --lane setup conversation like chat/new?intent=…: integration_setup, action_create, action_modify
+      --lane string          dashboard lane over the OAuth login instead of an embed token: setup (Set up & improve) or data (Ask your data)
+      --origin string        embedding-page origin (default: token origin claim)
+      --session string       continue this existing session (until the first ---)
       --tier string          session tier for a new --lane conversation: standard (Quick) or pro (Deeper)
       --token string         embed chat token (default: RC_CHAT_TOKEN)
 

@@ -32,7 +32,12 @@ var briefDroppedHeaderKeys = []string{
 // two blobs before they go, so the one fact worth knowing about them survives their removal.
 func briefTrace(raw json.RawMessage) (json.RawMessage, error) {
 	var bundle struct {
-		Run json.RawMessage `json:"run"`
+		Run    json.RawMessage `json:"run"`
+		Events []struct {
+			Tool   string          `json:"tool"`
+			Status string          `json:"status"`
+			Args   json.RawMessage `json:"args"`
+		} `json:"events"`
 	}
 	if err := json.Unmarshal(raw, &bundle); err != nil {
 		return nil, fmt.Errorf("decode trace bundle: %w", err)
@@ -49,7 +54,15 @@ func briefTrace(raw json.RawMessage) (json.RawMessage, error) {
 	for _, k := range briefDroppedHeaderKeys {
 		delete(fields, k)
 	}
-	return json.Marshal(map[string]any{"run": fields})
+	out := map[string]any{"run": fields}
+	// The timeline is dropped, but the host's depth decision is a what-was-answered fact: keep its args.
+	for _, ev := range bundle.Events {
+		if digest.IsDepthEvent(ev.Tool, ev.Status) && len(ev.Args) > 0 {
+			out["depth"] = ev.Args
+			break
+		}
+	}
+	return json.Marshal(out)
 }
 
 // briefTenantDrift computes the settings-drift list from the two snapshots the brief is about to drop.

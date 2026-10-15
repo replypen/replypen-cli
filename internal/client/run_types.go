@@ -296,8 +296,10 @@ type Event struct {
 	DurationMs int64  `json:"duration_ms"`
 	At         string `json:"at"`
 	Command    string `json:"command,omitempty"`
-	HasDraft   bool   `json:"has_draft,omitempty"`
-	HasNote    bool   `json:"has_note,omitempty"`
+	// Args is a non-bash tool's structured input (e.g. the host depth row's tier decision).
+	Args     json.RawMessage `json:"args,omitempty"`
+	HasDraft bool            `json:"has_draft,omitempty"`
+	HasNote  bool            `json:"has_note,omitempty"`
 	// DeclineReason is reply-only: the reasoned "why nothing" on a terminal reply event that DECLINED
 	// (neither a draft nor a note was placed). omitempty, so a normal reply event carries it as "".
 	DeclineReason string `json:"decline_reason,omitempty"`

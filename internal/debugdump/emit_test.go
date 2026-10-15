@@ -448,3 +448,22 @@ func TestInheritedPromptContextIsLabelled(t *testing.T) {
 		t.Fatalf("missing origin not explained:\n%s", index)
 	}
 }
+
+// The host depth row is a decision, not a step: it surfaces as the index's Depth line and never counts,
+// numbers or flags as an agent turn.
+func TestDepthRowRendersAsIndexLine(t *testing.T) {
+	full := &client.FullResponse{
+		Run: client.RunHeader{RunID: "c446011c-7e78-4a41-8848-46d92b61152a", Project: "pj", Status: "done", Kind: "chat", Draft: "ok"},
+		Events: []client.EventItem{
+			{Seq: 1, Tool: "bash", Status: "ok", Command: "psql -c 'select 1'"},
+			{Seq: 3_040_000, Tool: "host", Status: "depth", Args: json.RawMessage(`{"tier":"pro","source":"router","choice":"substantial","p_simple":0.01}`)},
+		},
+	}
+	index := RenderIndex(full)
+	if !strings.Contains(index, "- **Depth:** `depth: pro (router: substantial p=0.01)`") {
+		t.Fatalf("depth line missing:\n%s", index)
+	}
+	if !strings.Contains(index, "**Steps:** 1 main") || strings.Contains(index, "] depth") {
+		t.Fatalf("depth row counted or flagged as a step:\n%s", index)
+	}
+}

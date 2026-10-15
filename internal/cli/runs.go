@@ -117,7 +117,8 @@ func newRunSessionsCmd(e *env) *cobra.Command {
 		Long: "List chat conversations, newest first. A conversation is N runs sharing one session id: " +
 			"drill its turns with `rc run thread <session_id>`, then one turn's bodies with " +
 			"`rc run trace <run_id>`. The feedback column is the rollup over the conversation's rated " +
-			"turns; `-o json` is the server payload verbatim, including next_before.",
+			"turns; TIER (when served) is the latest turn's depth, `*` = picked by the member; " +
+			"`-o json` is the server payload verbatim, including next_before.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if err := validateSessionSurface(f.surface); err != nil {

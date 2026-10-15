@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -72,5 +73,25 @@ func TestConsolePrincipalHeader(t *testing.T) {
 	DBQuery(&unbound, &client.DBQueryResponse{RunID: "abcdef12", Columns: []string{"id"}, Rows: [][]any{{"1"}}, RowCount: 1})
 	if strings.Contains(unbound.String(), "Principal") || strings.Contains(unbound.String(), "Hidden") {
 		t.Errorf("unbound query view leaked a principal header:\n%s", unbound.String())
+	}
+}
+
+// The host's depth row sorts last on the wire (seq 3.04M); the trace view prints the one-liner under
+// the header and lifts the row to the head of the timeline.
+func TestFullRendersDepthLineAndLiftsRow(t *testing.T) {
+	var b strings.Builder
+	Full(&b, &client.FullResponse{
+		Run: client.RunHeader{RunID: "run-1", Status: "done", Kind: "chat"},
+		Events: []client.EventItem{
+			{Seq: 1, Tool: "bash", Status: "ok", Command: "ls"},
+			{Seq: 3040000, Tool: "host", Status: "depth", Args: json.RawMessage(`{"tier":"pro","source":"sticky","previous_tier":"standard","switched":true}`)},
+		},
+	})
+	got := b.String()
+	if !strings.Contains(got, "\ndepth: pro (switched from standard; sticky)\n") {
+		t.Fatalf("missing depth line:\n%s", got)
+	}
+	if !strings.Contains(got, "#1  host  depth") || !strings.Contains(got, "#2  bash  ok") {
+		t.Fatalf("depth row not lifted:\n%s", got)
 	}
 }

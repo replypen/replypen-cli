@@ -186,6 +186,7 @@ func TestChatSendPrintsSSE(t *testing.T) {
 			t.Fatal(err)
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("X-Chat-Tier", "standard")
 		_, _ = w.Write([]byte("data: {\"type\":\"start\",\"messageId\":\"run-123\"}\n\ndata: {\"type\":\"text-delta\"}\n\ndata: [DONE]\n\n"))
 	})
 	srv := httptest.NewServer(mux)
@@ -197,7 +198,7 @@ func TestChatSendPrintsSSE(t *testing.T) {
 	if !strings.Contains(out.String(), "[DONE]") {
 		t.Fatalf("output = %q", out.String())
 	}
-	if !strings.HasSuffix(out.String(), "session_id: 11111111-1111-1111-1111-111111111111\nrun_id: run-123\n") {
+	if !strings.HasSuffix(out.String(), "session_id: 11111111-1111-1111-1111-111111111111\nrun_id: run-123\ntier: standard\n") {
 		t.Fatalf("missing final session/run IDs: %q", out.String())
 	}
 }
@@ -414,6 +415,7 @@ func TestChatSendLaneSetupUsesDashboardBearerMount(t *testing.T) {
 			t.Fatalf("body = %v", body)
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("X-Chat-Tier", "pro")
 		_, _ = w.Write([]byte("data: {\"type\":\"start\",\"messageId\":\"run-setup\"}\n\ndata: {\"type\":\"text-delta\",\"delta\":\"hi\"}\n\ndata: [DONE]\n\n"))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { t.Fatalf("unexpected %s %s", r.Method, r.URL.String()) })
@@ -423,7 +425,7 @@ func TestChatSendLaneSetupUsesDashboardBearerMount(t *testing.T) {
 	if err := run(t, e, "--project", "alpha", "project", "chat", "send", "--lane", "setup", "--intent", "integration_setup", "--integration", "clickup", "set it up"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix(out.String(), "session_id: 22222222-2222-2222-2222-222222222222\nrun_id: run-setup\n") {
+	if !strings.HasSuffix(out.String(), "session_id: 22222222-2222-2222-2222-222222222222\nrun_id: run-setup\ntier: pro\n") {
 		t.Fatalf("missing final session/run IDs: %q", out.String())
 	}
 }
@@ -479,5 +481,84 @@ func TestChatSendLaneRejectsBadCombinations(t *testing.T) {
 		if err := run(t, e, args...); err == nil {
 			t.Fatalf("%v: expected a usage error", args)
 		}
+	}
+}
+
+// Replay: one session per `---` segment, --tier only on a segment's first turn, the header-driven tier
+// per turn, and a reported switch between consecutive turns of one session.
+func TestChatReplayRunsTurnsOnOneSessionAndReportsSwitch(t *testing.T) {
+	mux := http.NewServeMux()
+	chatTestProjects(mux)
+	sessions := 0
+	mux.HandleFunc("POST /api/v1/projects/alpha/chat/dashboard/session", func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]string
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["tier"] != "standard" || body["flavor"] != "data" {
+			t.Fatalf("open body = %v", body)
+		}
+		sessions++
+		_, _ = fmt.Fprintf(w, `{"session_id":"sess-%d"}`, sessions)
+	})
+	tiers := []string{"standard", "pro", "pro"}
+	turn := 0
+	mux.HandleFunc("POST /api/v1/projects/alpha/chat/dashboard/message", func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		wantSession := "sess-1"
+		if turn == 2 {
+			wantSession = "sess-2"
+		}
+		_, hasTier := body["tier"]
+		if body["session_id"] != wantSession || hasTier != (turn != 1) {
+			t.Fatalf("turn %d body = %v", turn+1, body)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("X-Chat-Tier", tiers[turn])
+		turn++
+		_, _ = fmt.Fprintf(w, "data: {\"type\":\"start\",\"messageId\":\"run-%d\"}\n\ndata: {\"type\":\"text-delta\",\"delta\":\"answer \"}\n\ndata: {\"type\":\"text-delta\",\"delta\":\"%d\\nmore\"}\n\ndata: [DONE]\n\n", turn, turn)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { t.Fatalf("unexpected %s %s", r.Method, r.URL.String()) })
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	path := filepath.Join(t.TempDir(), "script.txt")
+	if err := os.WriteFile(path, []byte("# warm-up\nhow many bookings?\n\nand per week?\n---\nhello again\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e, out, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, "--project", "alpha", "project", "chat", "replay", path, "--lane", "data", "--tier", "standard"); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{"1  standard", "2  pro", "run-2", "answer 2 more", "session_id: sess-1\nsession_id: sess-2\nswitched at turn 2 (standard → pro)\n"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "turn 3") {
+		t.Fatalf("a new session is not a switch:\n%s", got)
+	}
+
+	sessions, turn = 0, 0
+	e, out, _ = newTestEnv(t, srv, "json")
+	if err := run(t, e, "--project", "alpha", "project", "chat", "replay", path, "--lane", "data", "--tier", "standard"); err != nil {
+		t.Fatal(err)
+	}
+	var rows []chatTurnResult
+	if err := json.Unmarshal(out.Bytes(), &rows); err != nil {
+		t.Fatalf("json: %v (%q)", err, out.String())
+	}
+	if len(rows) != 3 || rows[2].SessionID != "sess-2" || rows[1].Tier != "pro" || rows[0].Message != "how many bookings?" {
+		t.Fatalf("rows = %+v", rows)
+	}
+}
+
+// --brief drops the timeline but keeps the host's depth decision.
+func TestBriefTraceKeepsDepth(t *testing.T) {
+	body, err := briefTrace(json.RawMessage(`{"run":{"run_id":"r1","system_prompt":"x"},"events":[{"tool":"bash","status":"ok"},{"tool":"host","status":"depth","args":{"tier":"pro","source":"user"}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(body); !strings.Contains(got, `"depth":{"tier":"pro","source":"user"}`) || strings.Contains(got, "system_prompt") {
+		t.Fatalf("brief = %s", got)
 	}
 }

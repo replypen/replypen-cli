@@ -134,10 +134,10 @@ func (c *Client) ChatSession(ctx context.Context, project, origin, token, sessio
 	return c.fetch(ctx, embedSpec(http.MethodGet, path, origin, token, nil))
 }
 
-func (c *Client) ChatSend(ctx context.Context, project, origin, token, sessionID, messageID string, parts []map[string]any, out io.Writer) (string, error) {
+func (c *Client) ChatSend(ctx context.Context, project, origin, token, sessionID, messageID string, parts []map[string]any, out io.Writer) (ChatTurn, error) {
 	body, err := json.Marshal(map[string]any{"session_id": sessionID, "message": map[string]any{"id": messageID, "parts": parts}})
 	if err != nil {
-		return "", err
+		return ChatTurn{}, err
 	}
 	path := "/chat/v1/message?project=" + url.QueryEscape(project)
 	spec := embedSpec(http.MethodPost, path, origin, token, body)
@@ -233,28 +233,39 @@ func (c *Client) DashboardChatCardDecide(ctx context.Context, project, tenant, s
 }
 
 // DashboardChatSend posts one dashboard turn over the OAuth bearer and prints its SSE frames.
-func (c *Client) DashboardChatSend(ctx context.Context, project, tenant, sessionID, messageID, tier string, parts []map[string]any, out io.Writer) (string, error) {
+func (c *Client) DashboardChatSend(ctx context.Context, project, tenant, sessionID, messageID, tier string, parts []map[string]any, out io.Writer) (ChatTurn, error) {
 	msg := map[string]any{"session_id": sessionID, "message": map[string]any{"id": messageID, "parts": parts}}
 	if tier != "" {
 		msg["tier"] = tier
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {
-		return "", err
+		return ChatTurn{}, err
 	}
 	return c.streamChatTurn(ctx, sendSpec{method: http.MethodPost, path: dashboardChatPath(project, tenant, "/message"), body: body, accept: "text/event-stream"}, out)
 }
 
+// ChatTurn is what one streamed turn yields: the run id (the `start` frame's messageId), the depth the
+// host routed it to (X-Chat-Tier response header, "" on servers that don't send it) and the answer
+// prose concatenated from the text-delta frames.
+type ChatTurn struct {
+	RunID  string
+	Tier   string
+	Answer string
+}
+
 // streamChatTurn runs one turn's SSE response to completion, echoing every line to out, and returns the
-// run id (the `start` frame's messageId) plus the stream's own error frame as an error.
-func (c *Client) streamChatTurn(ctx context.Context, spec sendSpec, out io.Writer) (string, error) {
+// turn plus the stream's own error frame as an error.
+func (c *Client) streamChatTurn(ctx context.Context, spec sendSpec, out io.Writer) (ChatTurn, error) {
 	resp, err := c.openStream(ctx, spec)
 	if err != nil {
-		return "", err
+		return ChatTurn{}, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	var runID, streamError string
+	turn := ChatTurn{Tier: resp.Header.Get("X-Chat-Tier")}
+	var answer strings.Builder
+	var streamError string
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 64<<10), 1<<20)
 	for scanner.Scan() {
@@ -270,29 +281,33 @@ func (c *Client) streamChatTurn(ctx context.Context, spec sendSpec, out io.Write
 		var event struct {
 			Type      string `json:"type"`
 			MessageID string `json:"messageId"`
+			Delta     string `json:"delta"`
 			ErrorText string `json:"errorText"`
 			Code      string `json:"code"`
 		}
 		if json.Unmarshal([]byte(data), &event) != nil {
 			continue
 		}
-		if event.Type == "start" {
-			runID = event.MessageID
-		}
-		if event.Type == "error" {
+		switch event.Type {
+		case "start":
+			turn.RunID = event.MessageID
+		case "text-delta":
+			answer.WriteString(event.Delta)
+		case "error":
 			streamError = event.ErrorText
 			if streamError == "" {
 				streamError = event.Code
 			}
 		}
 	}
+	turn.Answer = answer.String()
 	if err := scanner.Err(); err != nil {
-		return runID, &TransportError{Err: err}
+		return turn, &TransportError{Err: err}
 	}
 	if streamError != "" {
-		return runID, fmt.Errorf("chat stream error: %s", streamError)
+		return turn, fmt.Errorf("chat stream error: %s", streamError)
 	}
-	return runID, nil
+	return turn, nil
 }
 
 // embedSpec is the transport spec for the chat embed plane: the credential is the widget/embed JWT

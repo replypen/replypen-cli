@@ -29,6 +29,9 @@ type SessionSummary struct {
 	WorstOutcome   string           `json:"worst_outcome,omitempty"`
 	Feedback       *SessionFeedback `json:"feedback,omitempty"`
 	Shared         bool             `json:"shared,omitempty"`
+	// Tier is the latest turn's routed depth (standard|pro); TierSource why (router|user|sticky|…).
+	Tier       string `json:"tier,omitempty"`
+	TierSource string `json:"tier_source,omitempty"`
 }
 
 // SessionPrincipal names who held the conversation: the asserted end-user principal on the embed

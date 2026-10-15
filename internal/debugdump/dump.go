@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/rootcause-org/rootcause-cli/internal/digest"
 )
 
 // decEvent is one decorated event: the raw item plus the display fields the index + JSONL derive (disp,
@@ -34,7 +35,10 @@ type decEvent struct {
 	// polish marks a synthetic post-loop draft-polish row (server seq band 4M+): it is NOT a tool call the
 	// agent made, so it stays out of the step counts, the timeline and the anomaly flags and gets its own
 	// index section — a "draft-cleanup" status in the flags list would read as a failed turn.
-	polish  bool
+	polish bool
+	// depth marks the host's routed-depth row (tool "host", status "depth"): a decision, not a step, so
+	// it is kept out of the numbering, timeline and flags and surfaces as the index's Depth line.
+	depth   bool
 	label   string
 	command string
 	gist    string
@@ -72,6 +76,14 @@ func decorate(events []client.EventItem) []decEvent {
 	p, n, c := 0, 0, 0
 	inGrounding := true
 	for _, e := range events {
+		if digest.IsDepthEvent(e.Tool, e.Status) {
+			d := decEvent{src: e, depth: true, disp: "depth", label: "depth"}
+			if dd, ok := digest.ParseDepth(e.Args); ok {
+				d.command = dd.Line()
+			}
+			out = append(out, d)
+			continue
+		}
 		if e.Seq >= polishSeqBase {
 			c++
 			d := decEvent{src: e, polish: true, disp: "C" + strconv.Itoa(c)}
