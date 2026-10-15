@@ -39,7 +39,9 @@ func TenantReplies(w io.Writer, list *client.TenantReplyList) {
 func replyOutcome(it client.TenantReply) string {
 	out := it.DraftStatus
 	switch {
-	case it.Sent != nil && it.Sent.Edited:
+	case it.Sent != nil && it.Sent.Edited == nil:
+		out = "sent"
+	case it.Sent != nil && *it.Sent.Edited:
 		out = "sent (edited)"
 	case it.Sent != nil:
 		out = "sent as proposed"

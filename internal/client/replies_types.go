@@ -40,7 +40,7 @@ type TenantReplySent struct {
 	MessageID string `json:"message_id"`
 	Date      string `json:"date"`
 	Body      string `json:"body"`
-	Edited    bool   `json:"edited"`
+	Edited    *bool  `json:"edited"` // nil = unknown: the latch never compared this send
 }
 
 // Comment is absent (nil) for a caller below the server's review-content tier.
