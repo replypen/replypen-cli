@@ -32,7 +32,7 @@ func TestTenantBudgetCommands(t *testing.T) {
 	}{
 		{[]string{"get", "heyo"}, http.MethodGet, "", "limit      $125.50 per month (recurring)"},
 		{[]string{"set", "heyo", "--usd", "125.50"}, http.MethodPatch, `{"monthly_usd":125.5}`, "shared by  kampadmin-support/heyo, kampadmin/heyo"},
-		{[]string{"add", "heyo", "--usd", "-10"}, http.MethodPatch, `{"add_usd":-10}`, "used       37% this month, resets 31 Oct 2026"},
+		{[]string{"add", "heyo", "--usd", "-10"}, http.MethodPatch, `{"add_usd":-10}`, "used       37% this month, resets 1 Nov 2026"},
 	} {
 		e, out, _ := newTestEnv(t, srv, "table")
 		args := append([]string{"project", "tenant", "budget"}, tc.args...)

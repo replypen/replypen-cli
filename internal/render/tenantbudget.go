@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	_ "time/tzdata" // Brussels zone even where the OS ships no zoneinfo
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
 )
@@ -12,7 +13,11 @@ import (
 // TenantBudget renders the project-admin view of one tenant's monthly AI limit.
 func TenantBudget(w io.Writer, tenant string, l *client.TenantBudgetLimit) {
 	resets := l.ResetsAt
+	// The budget month is Europe/Brussels; in UTC the reset instant falls on the previous day.
 	if t, err := time.Parse(time.RFC3339Nano, l.ResetsAt); err == nil {
+		if loc, err := time.LoadLocation("Europe/Brussels"); err == nil {
+			t = t.In(loc)
+		}
 		resets = t.Format("2 Jan 2006")
 	}
 	_, _ = fmt.Fprintf(w, "tenant     %s\n", tenant)
