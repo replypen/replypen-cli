@@ -491,6 +491,7 @@ help using `go test ./internal/cli -update`.
 | `rc dev console database` | Access guarded production databases |
 | `rc dev console file get` | Fetch a workspace or /tmp file without the bash output cap |
 | `rc dev console file` | Transfer files from a guarded workspace console |
+| `rc dev console paths` | Check which absolute paths exist in a production workspace |
 | `rc dev console` | Use guarded production consoles |
 | `rc dev context-export` | Render a project's full opening context offline (needs a rootcause host checkout) |
 | `rc dev learning evidence` | List feedback, sent-delta, shadow, and triage evidence |
@@ -811,6 +812,12 @@ through `-o json`. Older hosts that do not know the field are unaffected: an unb
 rc dev console database query prod 'select id from invoices' \
   --principal-kind kampadmin_admin --principal-id 3f1c…-…-…
 ```
+
+`rc dev console paths [--tenants a,b|all] <path>...|-` reports `dir`/`file`/`missing` for absolute
+workspace paths (`/brain`, `/tenant`, `/mirrors/<repo>`, `/kb/<provider>`), one parallel `bash run` per
+tenant (bounded by `--concurrency`), chunked under the server's command/output caps. Existence only;
+`/skills` is not mounted in the console. Exit 4 when a path is missing or a tenant check failed; a failed
+check is that tenant's `error`, never a silent `missing`. Lints should use `-o json --raw-output`.
 
 SQL and bash commands accept a literal argument, `-` for stdin, or `@file`. Console SQL uses `@key`
 placeholders; repeated `--param k=v` values are bound server-side as text and never interpolated. The

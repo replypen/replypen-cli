@@ -104,7 +104,7 @@ func commandScope(path string) scopeSpec {
 	// the same selector: --tenant proves the tenant's own mirror, no selector the project's.
 	case path == "dev mirror refresh":
 		return projectTenant
-	case strings.HasPrefix(path, "dev console database "), strings.HasPrefix(path, "dev console bash "), strings.HasPrefix(path, "dev console file "), path == "dev console capabilities":
+	case strings.HasPrefix(path, "dev console database "), strings.HasPrefix(path, "dev console bash "), strings.HasPrefix(path, "dev console file "), path == "dev console capabilities", path == "dev console paths":
 		return projectTenant
 	// Actions execute against a project's own prod, where the bound tenant IS the data scope: the server's
 	// console action routes read ?tenant= and a tenant-scoped action is refused without it.

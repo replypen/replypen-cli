@@ -1,0 +1,11 @@
+Project: alpha
+  acme: channel:stable @ abc123
+  beta: channel:stable @ abc123
+  broken: -
+
+PATH               ACME  BETA     BROKEN
+/brain/AGENTS.md   file  file     error
+/tenant/AGENTS.md  dir   missing  error
+/kb/knowledgeowl   dir   dir      error
+
+error on broken: remote check exited 2: sh: boom

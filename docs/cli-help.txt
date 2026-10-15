@@ -3792,6 +3792,7 @@ Usage:
 Available Commands:
   database     Access guarded production databases
   bash         List or run workspace console commands
+  paths        Check which absolute paths exist in a production workspace
   file         Transfer files from a guarded workspace console
   action       Inspect and execute guarded rootcause actions
   capabilities List direct production primitives available to this login
@@ -3947,6 +3948,31 @@ Flags:
       --principal-id string     principal external id (the asserted identity); requires --principal-kind
       --principal-kind string   bind the call to a principal kind (e.g. kampadmin_admin); requires --principal-id
       --timeout int             per-command timeout in seconds
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .rootcause/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .rootcause.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rc dev console paths --help
+Reports dir/file/missing for each absolute path as a real production workspace sees it
+(/brain, /tenant, /mirrors/<repo>, /kb/<provider>, …), optionally per tenant. Existence only:
+surface-scoped docs are stubbed in the console, so file content there is not representative,
+and /skills is not mounted in the console at all. A single - reads newline-separated paths from
+stdin. Exits 4 when any path is missing or any checked tenant failed. Scripts reading -o json
+should add --raw-output so a large report is never replaced by a spill manifest.
+
+Usage:
+  rc dev console paths [--tenants a,b|all] <path>...|- [flags]
+
+Flags:
+      --concurrency int   max tenants checked in parallel (default 4)
+      --tenants string    check each listed tenant (comma-separated), or all active tenants of the project
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

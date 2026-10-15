@@ -326,6 +326,10 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		{"AskRejectsDuplicateMirrorRef", []string{"ask", "q", "--mirror-ref", "app=dev/a", "--mirror-ref", "app=dev/b"}, "more than once"},
 		{"ConsoleBashRunRejectsHalfPrincipal", []string{"dev", "console", "bash", "run", "--principal-kind", "kampadmin_admin", "echo hi"}, "must be provided together"},
 		{"ConsoleDBQueryRejectsHalfPrincipal", []string{"dev", "console", "database", "query", "prod", "select 1", "--principal-id", "usr_1"}, "must be provided together"},
+		// paths are absolute literals checked in a production workspace: a relative path or an ambiguous
+		// tenant selection never reaches the server.
+		{"ConsolePathsRejectsRelativePath", []string{"dev", "console", "paths", "/brain/AGENTS.md", "tenant/AGENTS.md"}, "not absolute"},
+		{"ConsolePathsRejectsTenantWithTenants", []string{"--tenant", "acme", "dev", "console", "paths", "--tenants", "beta", "/brain"}, "cannot be combined"},
 		{"ConsoleDBSchemaRejectsHalfPrincipal", []string{"dev", "console", "database", "schema", "app", "--principal-kind", "kampadmin_admin"}, "must be provided together"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

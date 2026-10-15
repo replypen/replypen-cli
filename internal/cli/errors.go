@@ -48,6 +48,11 @@ func remoteExitError() error {
 	return &commandError{code: exitRemote, name: "REMOTE_FAILED", silent: true, message: "remote command exited non-zero or timed out"}
 }
 
+// pathsIncompleteError is `dev console paths`' exit: the report is already printed, so stay silent.
+func pathsIncompleteError() error {
+	return &commandError{code: exitRemote, name: "PATHS_INCOMPLETE", silent: true, message: "a path is missing or a checked scope failed"}
+}
+
 // hintedError carries a LOCAL, actionable next step alongside any error. The wrapped error still
 // renders verbatim (code + message); the hint is a second stderr line, or the `hint` field in JSON.
 type hintedError struct {

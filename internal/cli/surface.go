@@ -79,7 +79,7 @@ func newKnowledgeCmd(e *env, version string) *cobra.Command {
 func newDevCmd(e *env, version string) *cobra.Command {
 	cmd := &cobra.Command{Use: "dev", Short: "Develop and inspect project behavior"}
 	console := &cobra.Command{Use: "console", Short: "Use guarded production consoles"}
-	console.AddCommand(newConsoleDatabaseCmd(e), newBashCmd(e), newConsoleFileCmd(e), newActionCmd(e), newCapabilitiesCmd(e))
+	console.AddCommand(newConsoleDatabaseCmd(e), newBashCmd(e), newConsolePathsCmd(e), newConsoleFileCmd(e), newActionCmd(e), newCapabilitiesCmd(e))
 	learning := &cobra.Command{Use: "learning", Short: "Inspect learning and consolidation inputs"}
 	learning.AddCommand(dreamEvidenceCmd(e))
 	api := &cobra.Command{Use: "api", Short: "Inspect the public API contract"}

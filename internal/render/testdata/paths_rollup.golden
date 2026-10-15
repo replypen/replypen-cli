@@ -1,0 +1,9 @@
+Project: alpha
+  brain channel:stable @ abc123: 7 tenants
+
+PATH               PRESENT  MISSING ON
+/brain/AGENTS.md   7/7      -
+/tenant/AGENTS.md  1/7      t2, t3, t4, t5, t6 +1 more
+/kb/knowledgeowl   7/7      -
+
+error on broken: remote check exited 2: sh: boom
