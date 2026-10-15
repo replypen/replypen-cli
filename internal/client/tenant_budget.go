@@ -40,3 +40,22 @@ func (c *Client) PatchTenantBudgetLimit(ctx context.Context, project, tenant str
 	}
 	return fetchBoth[TenantBudgetLimit](ctx, c, http.MethodPatch, path, patch)
 }
+
+// ProjectBudgets is GET /api/v1/projects/{p}/ai-budgets: every non-archived tenant with its limit.
+type ProjectBudgets struct {
+	Tenants []TenantBudgetRow `json:"tenants"`
+}
+
+// TenantBudgetRow is one ProjectBudgets entry (the server embeds the limit fields beside tenant).
+type TenantBudgetRow struct {
+	Tenant string `json:"tenant"`
+	TenantBudgetLimit
+}
+
+func (c *Client) ListProjectBudgets(ctx context.Context, project string) (*ProjectBudgets, json.RawMessage, error) {
+	path, err := projectTreePath(project, "", "/ai-budgets")
+	if err != nil {
+		return nil, nil, err
+	}
+	return fetchBoth[ProjectBudgets](ctx, c, http.MethodGet, path, nil)
+}

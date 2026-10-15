@@ -14,11 +14,36 @@ import (
 func newTenantBudgetCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "budget",
-		Short: "Read or change a tenant's monthly AI limit in USD (project admins)",
+		Short: "List, create or change tenants' monthly AI limits in USD (project admins)",
 		Long: "The limit is recurring: it applies from now on, every month, to every tenant listed under\n" +
-			"\"shared by\". This month's usage is never reset. Creating or removing a limit stays with ReplyPen support.",
+			"\"shared by\". This month's usage is never reset. `set` on a tenant without a limit creates one,\n" +
+			"shared with the same tenant in sibling projects. Removing a limit stays with ReplyPen support.",
 	}
 	cmd.AddCommand(
+		&cobra.Command{
+			Use:   "ls",
+			Short: "List every tenant's monthly AI limit and this month's usage",
+			Args:  cobra.NoArgs,
+			RunE: func(_ *cobra.Command, _ []string) error {
+				c, err := e.newClient()
+				if err != nil {
+					return err
+				}
+				project, err := hierarchyProject(e, c)
+				if err != nil {
+					return err
+				}
+				b, raw, err := c.ListProjectBudgets(e.ctx(), project)
+				if err != nil {
+					return err
+				}
+				if e.jsonOut() {
+					return e.renderJSON("tenant-budgets-"+project, raw)
+				}
+				render.TenantBudgets(e.out, b)
+				return nil
+			},
+		},
 		&cobra.Command{
 			Use:   "get <slug>",
 			Short: "Show a tenant's monthly AI limit and this month's usage",
@@ -27,7 +52,7 @@ func newTenantBudgetCmd(e *env) *cobra.Command {
 				return tenantBudgetRun(e, args[0], nil)
 			},
 		},
-		tenantBudgetWriteCmd(e, "set", "Set a tenant's monthly AI limit to an absolute USD amount", false),
+		tenantBudgetWriteCmd(e, "set", "Set (or create) a tenant's monthly AI limit as an absolute USD amount", false),
 		tenantBudgetWriteCmd(e, "add", "Raise (or with a negative amount, lower) a tenant's monthly AI limit by USD", true),
 	)
 	return cmd

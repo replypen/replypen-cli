@@ -20,6 +20,10 @@ func TestTenantBudgetCommands(t *testing.T) {
 		}
 		method, path, body = r.Method, r.URL.Path, readBody(t, r)
 		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/projects/kampadmin-support/ai-budgets" {
+			_, _ = w.Write([]byte(`{"tenants":[` + strings.Replace(resp, "{", `{"tenant":"heyo",`, 1) + `,{"tenant":"impact","metered":false,"monthly_usd":null,"used_percent":null,"paused":false,"resets_at":"2026-10-31T23:00:00Z","tenants":[]}]}`))
+			return
+		}
 		_, _ = w.Write([]byte(resp))
 	}))
 	defer srv.Close()
@@ -47,7 +51,15 @@ func TestTenantBudgetCommands(t *testing.T) {
 		}
 	}
 
-	e, _, _ := newTestEnv(t, srv, "table")
+	e, out, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, "project", "tenant", "budget", "ls"); err != nil {
+		t.Fatal(err)
+	}
+	if s := out.String(); !strings.Contains(s, "heyo") || !strings.Contains(s, "$125.50") || !strings.Contains(s, "impact") || !strings.Contains(s, "none") {
+		t.Fatalf("ls output:\n%s", s)
+	}
+
+	e, _, _ = newTestEnv(t, srv, "table")
 	if err := run(t, e, "project", "tenant", "budget", "add", "heyo"); err == nil || !strings.Contains(err.Error(), "--usd") {
 		t.Fatalf("missing --usd err = %v", err)
 	}

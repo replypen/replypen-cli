@@ -639,8 +639,9 @@ help using `go test ./internal/cli -update`.
 | `rc project tenant add` | Create a tenant |
 | `rc project tenant budget add` | Raise (or with a negative amount, lower) a tenant's monthly AI limit by USD |
 | `rc project tenant budget get` | Show a tenant's monthly AI limit and this month's usage |
-| `rc project tenant budget set` | Set a tenant's monthly AI limit to an absolute USD amount |
-| `rc project tenant budget` | Read or change a tenant's monthly AI limit in USD (project admins) |
+| `rc project tenant budget ls` | List every tenant's monthly AI limit and this month's usage |
+| `rc project tenant budget set` | Set (or create) a tenant's monthly AI limit as an absolute USD amount |
+| `rc project tenant budget` | List, create or change tenants' monthly AI limits in USD (project admins) |
 | `rc project tenant get` | Show one tenant |
 | `rc project tenant ls` | List tenants |
 | `rc project tenant profile get` | Show a tenant's projection/profile values |
