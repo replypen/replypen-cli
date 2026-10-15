@@ -645,6 +645,29 @@ func stubServer(t *testing.T) *httptest.Server {
 		_, _ = fmt.Fprintf(w, `{"scope":"mailbox","project":"%s","tenant":"acme","mailbox":"%s","settings":%s,"resolved":{"persona":{"tone":{"value":"mailbox direct","source":"mailbox"}}}}`, r.PathValue("project"), r.PathValue("id"), body)
 	})
 
+	// Tenant replies feed + its tenant-fenced feedback write. The list asserts the paging params ride
+	// through; the feedback POST echoes the merged state like the server.
+	mux.HandleFunc("GET /api/v1/projects/{project}/tenants/{slug}/replies", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		if got := r.URL.Query().Get("limit"); got != "" && got != "2" {
+			t.Fatalf("replies limit = %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(fixture(t, "replies.json"))
+	})
+	mux.HandleFunc("POST /api/v1/projects/{project}/tenants/{slug}/replies/{run_id}/feedback", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		var body map[string]any
+		if err := json.Unmarshal([]byte(readBody(t, r)), &body); err != nil {
+			t.Fatalf("decode replies feedback body: %v", err)
+		}
+		if body["score"] != float64(5) || body["comment"] != "te formeel" {
+			t.Fatalf("replies feedback body = %v", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true,"score":5,"comment":"te formeel"}`))
+	})
+
 	// Spam allow/block lists — path-scoped by project (/api/v1/projects/{project}/spam/…). GET each
 	// list echoes a canned fixture; POST asserts the {pattern,reason} body and echoes back one rule with
 	// the server-inferred match_type; DELETE 404s an unknown id on the block list so `rm` falls through

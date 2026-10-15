@@ -116,6 +116,8 @@ func commandScope(path string) scopeSpec {
 		return projectTenant
 	case path == "dev learning evidence", path == "auth status", path == "self doctor":
 		return projectTenant
+	case strings.HasPrefix(path, "dev replies "):
+		return projectTenant
 	}
 
 	// Project-owned configuration deliberately rejects tenant selection. Tenant profile/settings take

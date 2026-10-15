@@ -1,0 +1,5 @@
+Scope: alpha / de-kies
+RECEIVED              FROM                SUBJECT             OUTCOME        SCORE  RUN
+2026-10-14T09:00:00Z  petra@example.test  Afspraak verzetten  placed         -      22222222
+2026-10-13T08:00:00Z  petra@example.test  Afspraak verzetten  sent (edited)  5      11111111
+more: --cursor eyJpZCI6Im5leHQifQ

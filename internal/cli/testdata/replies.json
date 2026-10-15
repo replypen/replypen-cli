@@ -1,0 +1,35 @@
+{
+  "items": [
+    {
+      "run_id": "22222222-2222-2222-2222-222222222222",
+      "draft_id": "dddd2222-0000-0000-0000-000000000002",
+      "thread_id": "tttt1111-0000-0000-0000-000000000001",
+      "draft_status": "placed",
+      "created_at": "2026-10-14T09:05:00Z",
+      "subject": "Afspraak verzetten",
+      "shadow": false,
+      "auto_sent": false,
+      "trigger": {"message_id": "mmmm2222-0000-0000-0000-000000000002", "from": "Petra <petra@example.test>", "from_address": "petra@example.test", "from_name": "Petra", "date": "2026-10-14T09:00:00Z", "body": "Kan het later?"},
+      "draft": {"body_markdown": "Dat kan."},
+      "sent": null,
+      "feedback": null,
+      "bodies_scrubbed": false
+    },
+    {
+      "run_id": "11111111-1111-1111-1111-111111111111",
+      "draft_id": "dddd1111-0000-0000-0000-000000000001",
+      "thread_id": "tttt1111-0000-0000-0000-000000000001",
+      "draft_status": "superseded",
+      "created_at": "2026-10-13T08:05:00Z",
+      "subject": "Afspraak verzetten",
+      "shadow": false,
+      "auto_sent": false,
+      "trigger": {"message_id": "mmmm1111-0000-0000-0000-000000000001", "from": "Petra <petra@example.test>", "from_address": "petra@example.test", "from_name": "Petra", "date": "2026-10-13T08:00:00Z", "body": "Mijn afspraak?"},
+      "draft": {"body_markdown": "Uw afspraak is dinsdag."},
+      "sent": {"message_id": "mmmm1112-0000-0000-0000-000000000001", "date": "2026-10-13T08:30:00Z", "body": "Uw afspraak is dinsdag om 9u.", "edited": true},
+      "feedback": {"score": 5, "comment": "goed", "score_set_at": "2026-10-13T10:00:00Z", "comment_set_at": "2026-10-13T10:01:00Z"},
+      "bodies_scrubbed": false
+    }
+  ],
+  "next_cursor": "eyJpZCI6Im5leHQifQ"
+}

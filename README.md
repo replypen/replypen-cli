@@ -500,6 +500,9 @@ help using `go test ./internal/cli -update`.
 | `rc dev mirror` | Refresh project or tenant source mirrors |
 | `rc dev onboarding goto` | Re-seed an onboarding world at a step and print the URL to open |
 | `rc dev onboarding` | Drive onboarding worlds on a local make dev server |
+| `rc dev replies feedback` | Rate one proposed reply (score 1-5 and/or comment, saved independently) |
+| `rc dev replies list` | List a tenant's answered mails, newest first |
+| `rc dev replies` | Review a tenant's answered mails and rate the proposed replies |
 | `rc dev tools id gmail` | Translate Gmail hex/decimal/thread-f: ids + build a clickable URL |
 | `rc dev tools id outlook` | Classify an Outlook/Graph id + tell you which DB column matches it |
 | `rc dev tools id` | Translate provider message/thread ids |

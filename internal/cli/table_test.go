@@ -162,6 +162,9 @@ func TestTableGolden(t *testing.T) {
 		// HealthCleanExitsZero: a clean fleet renders healthy AND returns nil (zero exit).
 		{"HealthCleanExitsZero", []string{"fleet", "health", "--hours", "999"}, "health_clean.golden"},
 		{"TenantSettingsGetTable", []string{"project", "tenant", "settings", "get", "de-kies"}, "tenant_get.golden"},
+		// RepliesListTable pins `rc dev replies list`: one line per turn, the decomposed send state, and the
+		// next-page cursor hint.
+		{"RepliesListTable", []string{"--project", "alpha", "--tenant", "de-kies", "dev", "replies", "list", "--limit", "2"}, "replies_ls.golden"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := stubServer(t)
@@ -227,6 +230,7 @@ func TestJSONPassthrough(t *testing.T) {
 		{"ChatCardDecideDashboardJSON", []string{"--project", "alpha", "project", "chat", "decide", "sess_1", "wc_01", "publish", "--lane", "setup"}, "chat_card.json"},
 		{"ChatCardStatusDashboardJSON", []string{"--project", "alpha", "project", "chat", "card", "sess_1", "wc_01", "--lane", "setup"}, "chat_card.json"},
 		{"ProjectHierarchySettingsGetJSON", []string{"project", "settings", "behavior", "get"}, "hierarchy_project_settings.json"},
+		{"RepliesListJSONPassthrough", []string{"--project", "alpha", "--tenant", "de-kies", "dev", "replies", "list"}, "replies.json"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := stubServer(t)
@@ -254,6 +258,7 @@ func TestTableLine(t *testing.T) {
 		{"TokenRevokeTable", []string{"project", "token", "revoke", "tok_aaaa"}, "revoked token tok_aaaa\n"},
 		{"EnvRmTable", []string{"project", "env", "rm", "STRIPE_KEY"}, "deleted STRIPE_KEY (env_grounding)\n"},
 		{"BrandingLogoClear", []string{"project", "branding", "logo", "clear"}, "logo cleared\n"},
+		{"RepliesFeedbackTable", []string{"--project", "alpha", "--tenant", "de-kies", "dev", "replies", "feedback", "11111111-1111-1111-1111-111111111111", "--score", "5", "--comment", "te formeel"}, "Scope: alpha / de-kies\nfeedback recorded for run 11111111-1111-1111-1111-111111111111\n"},
 		{"RunFeedbackTable", []string{"run", "feedback", "11111111-1111-1111-1111-111111111111", "--score", "1", "--comment", "great draft"}, "feedback recorded for run 11111111-1111-1111-1111-111111111111\n"},
 		// RunFeedbackProcessedTable: the operator plane rides a PATCH and prints its own terse line.
 		{"RunFeedbackProcessedTable", []string{"run", "feedback", "11111111-1111-1111-1111-111111111111", "--processed", "--resolution-note", "fixed the brain skill"}, "feedback marked processed with a resolution note for run 11111111-1111-1111-1111-111111111111\n"},
@@ -295,6 +300,8 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		// RunFeedbackProcessedExclusive: the two processed flags contradict each other; reject client-side.
 		{"RunFeedbackProcessedExclusive", []string{"run", "feedback", "11111111-1111-1111-1111-111111111111", "--processed", "--unprocessed"}, "processed"},
 		// RunFeedbackRequiresInput: with no flag at all it's a clear client-side error.
+		{"RepliesRequireTenant", []string{"--project", "alpha", "dev", "replies", "list"}, "--tenant are required"},
+		{"RepliesFeedbackRequiresInput", []string{"--project", "alpha", "--tenant", "de-kies", "dev", "replies", "feedback", "11111111-1111-1111-1111-111111111111"}, "nothing to record"},
 		{"RunFeedbackRequiresInput", []string{"run", "feedback", "11111111-1111-1111-1111-111111111111"}, "nothing to record"},
 		// ConfigSetObjectRejectsNonObject asserts a non-JSON-object value for an object key fails
 		// client-side with a shape hint instead of being sent as a bare string.

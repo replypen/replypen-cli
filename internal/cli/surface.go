@@ -88,7 +88,7 @@ func newDevCmd(e *env, version string) *cobra.Command {
 	tools.AddCommand(newIDCmd(e), newProviderCmd(e))
 	action := &cobra.Command{Use: "action", Short: "Diagnose project actions"}
 	action.AddCommand(newActionDoctorCmd(e, version))
-	cmd.AddCommand(newBrainCmd(e), newMirrorCmd(e), console, action, learning, api, tools, newContextExportCmd(e), newDevOnboardingCmd(e))
+	cmd.AddCommand(newBrainCmd(e), newMirrorCmd(e), console, action, learning, newRepliesCmd(e), api, tools, newContextExportCmd(e), newDevOnboardingCmd(e))
 	return cmd
 }
 
