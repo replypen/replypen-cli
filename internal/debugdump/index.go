@@ -112,6 +112,7 @@ func RenderIndex(full *client.FullResponse) string {
 	add(renderInspiration(r.Inspiration)...)
 	add("", "## Outcome", "")
 	add(renderOutcome(r)...)
+	add(renderQuestionSet(events)...)
 	// Directly under the draft it edited: the post-loop passes run AFTER the agent's terminal `reply`, so
 	// a draft that doesn't match the reply row is otherwise unexplainable from the timeline.
 	add(renderDraftCleanup(polish, jsonlName)...)
@@ -850,6 +851,48 @@ func linkSummary(events []decEvent) (string, bool) {
 		return summary, true
 	}
 	return "", false
+}
+
+// renderQuestionSet shows the question set the last respond call put in front of the user (the host's
+// cleaned `question_set`, PII still tokenized), so "what options did the user see?" needs no share link.
+func renderQuestionSet(events []decEvent) []string {
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].src.Tool != "respond" {
+			continue
+		}
+		var args struct {
+			QuestionSet []struct {
+				ID          string `json:"id"`
+				Kind        string `json:"kind"`
+				Prompt      string `json:"prompt"`
+				AllowOther  bool   `json:"allow_other"`
+				Placeholder string `json:"placeholder"`
+				Options     []struct {
+					Value string `json:"value"`
+					Label string `json:"label"`
+				} `json:"options"`
+			} `json:"question_set"`
+		}
+		if json.Unmarshal(events[i].src.Args, &args) != nil || len(args.QuestionSet) == 0 {
+			return nil
+		}
+		out := []string{"**Questions shown:**", ""}
+		for _, q := range args.QuestionSet {
+			line := fmt.Sprintf("- `%s` (%s): %s", q.ID, q.Kind, q.Prompt)
+			if q.Placeholder != "" {
+				line += fmt.Sprintf(" _placeholder: %s_", q.Placeholder)
+			}
+			out = append(out, line)
+			for _, o := range q.Options {
+				out = append(out, fmt.Sprintf("  - %s `%s`", o.Label, o.Value))
+			}
+			if q.AllowOther {
+				out = append(out, "  - _(other: free text)_")
+			}
+		}
+		return append(out, "")
+	}
+	return nil
 }
 
 // attachmentSummary renders what the last reply call declared vs actually shipped as one index-header

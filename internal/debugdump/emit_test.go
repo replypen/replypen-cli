@@ -72,6 +72,21 @@ func TestReplyAttachmentsRenderInDebugDump(t *testing.T) {
 	}
 }
 
+func TestRespondQuestionSetRendersInDebugDump(t *testing.T) {
+	full := &client.FullResponse{
+		Run: client.RunHeader{RunID: "7ca34e0f-8a1e-418e-8818-c59543c735ff", Project: "kampadmin", Status: "done", Kind: "chat", Draft: "Welke sheet?"},
+		Events: []client.EventItem{{
+			Seq: 1, Tool: "respond", Status: "ok", Args: json.RawMessage(`{"has_message":true,"questions":1,"question_set":[{"id":"task","kind":"single_select","prompt":"Wat wil je doen?","allow_other":true,"options":[{"value":"sum","label":"Samenvatten"},{"value":"unsure","label":"Weet ik niet"}]}]}`),
+		}},
+	}
+	index := RenderIndex(full)
+	for _, want := range []string{"**Questions shown:**", "- `task` (single_select): Wat wil je doen?", "  - Samenvatten `sum`", "  - Weet ik niet `unsure`", "_(other: free text)_"} {
+		if !strings.Contains(index, want) {
+			t.Fatalf("index missing %q:\n%s", want, index)
+		}
+	}
+}
+
 func TestReplyLinksRenderInDebugDump(t *testing.T) {
 	full := &client.FullResponse{
 		Run: client.RunHeader{RunID: "7ca34e0f-8a1e-418e-8818-c59543c735ff", Project: "kampadmin", Status: "done", Kind: "email"},
