@@ -38,15 +38,16 @@ func TenantReplies(w io.Writer, list *client.TenantReplyList) {
 // replyOutcome mirrors the server's decomposed send state without inferring "unsent" from a missing latch.
 func replyOutcome(it client.TenantReply) string {
 	out := it.DraftStatus
+	// AutoSent first: our own synced send also fills Sent (edited unknown), and it is not a human send.
 	switch {
+	case it.AutoSent:
+		out = "auto-sent"
 	case it.Sent != nil && it.Sent.Edited == nil:
 		out = "sent"
 	case it.Sent != nil && *it.Sent.Edited:
 		out = "sent (edited)"
 	case it.Sent != nil:
 		out = "sent as proposed"
-	case it.AutoSent:
-		out = "auto-sent"
 	}
 	if it.Shadow {
 		out += " [shadow]"
