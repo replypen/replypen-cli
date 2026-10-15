@@ -637,6 +637,10 @@ help using `go test ./internal/cli -update`.
 | `rc project settings schema` | Show the config registry (fields, types, scopes, defaults) |
 | `rc project settings` | Read, change, and describe project settings |
 | `rc project tenant add` | Create a tenant |
+| `rc project tenant budget add` | Raise (or with a negative amount, lower) a tenant's monthly AI limit by USD |
+| `rc project tenant budget get` | Show a tenant's monthly AI limit and this month's usage |
+| `rc project tenant budget set` | Set a tenant's monthly AI limit to an absolute USD amount |
+| `rc project tenant budget` | Read or change a tenant's monthly AI limit in USD (project admins) |
 | `rc project tenant get` | Show one tenant |
 | `rc project tenant ls` | List tenants |
 | `rc project tenant profile get` | Show a tenant's projection/profile values |
