@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -289,6 +292,7 @@ func TestTableLine(t *testing.T) {
 
 // TestRejectsBeforeRequest collects the client-side validations: a bad flag combination or a bad
 // value must fail with its own message rather than reach the server (the stub would happily answer).
+// Each row asserts the command's own request was never sent; only the scope probes (scopeProbes) may run.
 func TestRejectsBeforeRequest(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -307,11 +311,6 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		{"RunFeedbackRequiresInput", []string{"run", "feedback", "11111111-1111-1111-1111-111111111111"}, "nothing to record"},
 		{"RunFeedbackListRejectsScore", []string{"run", "feedback", "list", "--score", "1"}, "invalid --score"},
 		{"RunFeedbackListRejectsSurface", []string{"run", "feedback", "list", "--surface", "mobile"}, "invalid --surface"},
-		// ConfigSetObjectRejectsNonObject asserts a non-JSON-object value for an object key fails
-		// client-side with a shape hint instead of being sent as a bare string.
-		{"ConfigSetObjectRejectsNonObject", []string{"project", "settings", "runtime", "set", "models.agent=pro"}, "expected a JSON object"},
-		// ExplainUnknownKey asserts an unknown key is a clear client-side error (not a silent miss).
-		{"ExplainUnknownKey", []string{"project", "settings", "describe", "nope"}, "unknown config key"},
 		{"KBSearchRejectsProviderTraversal", []string{"project", "knowledge", "content", "search", "--provider", "../agent_internal", "restore"}, "invalid --provider"},
 		// apply without a block has nothing to send; naming --from beats a server 400 on an empty body.
 		{"KnowledgeArticleApplyRequiresFrom", []string{"project", "knowledge", "article", "apply"}, "--from"},
@@ -324,9 +323,6 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		{"RunRetryRejectsCommentAndCommentFile", []string{"run", "retry", "11111111-1111-1111-1111-111111111111", "--comment", "hi", "--comment-file", "-"}, "none of the others can be"},
 		// Whitespace-only steering would reach the server as an empty comment; refuse instead.
 		{"RunRetryRejectsEmptyComment", []string{"run", "retry", "11111111-1111-1111-1111-111111111111", "--comment", "   "}, "empty retry comment"},
-		// A recorded apply failure is HTTP 200 server-side; the CLI must still exit non-zero.
-		{"SettingProposalApplyFailedExitsNonZero", []string{"--project", "alpha", "project", "settings", "proposals", "approve", "fa110000-0000-4000-8000-000000000000"}, "apply failed: settings changed since this preview"},
-		{"SettingProposalAmbiguousPrefix", []string{"--project", "alpha", "project", "settings", "proposals", "show", "5a1f0c2e"}, "ambiguous"},
 		// The list is windowed (pending + recent decided), so a prefix could resolve to the wrong row:
 		// decisions take the full uuid and never guess.
 		{"SettingProposalApproveRejectsPrefix", []string{"--project", "alpha", "project", "settings", "proposals", "approve", "5a1f0c2e-1111"}, "full proposal id"},
@@ -342,6 +338,65 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		{"ConsolePathsRejectsRelativePath", []string{"dev", "console", "paths", "/brain/AGENTS.md", "tenant/AGENTS.md"}, "not absolute"},
 		{"ConsolePathsRejectsTenantWithTenants", []string{"--tenant", "acme", "dev", "console", "paths", "--tenants", "beta", "/brain"}, "cannot be combined"},
 		{"ConsoleDBSchemaRejectsHalfPrincipal", []string{"dev", "console", "database", "schema", "app", "--principal-kind", "kampadmin_admin"}, "must be provided together"},
+		// session search narrows locally: a malformed filter never starts the paged scan.
+		{"SessionSearchRejectsHalfPrincipalID", []string{"run", "sessions", "search", "--principal-id", "1"}, "must be provided together"},
+		{"SessionSearchRejectsHalfPrincipalKind", []string{"run", "sessions", "search", "--principal-kind", "member"}, "must be provided together"},
+		{"SessionSearchRejectsBadSince", []string{"run", "sessions", "search", "--since", "yesterday"}, "invalid --since"},
+		{"SessionSearchRejectsBadUntil", []string{"run", "sessions", "search", "--until", "2026-02-30"}, "invalid --until"},
+		{"SessionSearchRejectsInvertedWindow", []string{"run", "sessions", "search", "--since", "2026-02-02", "--until", "2026-02-01"}, "--since must precede --until"},
+		{"SessionSearchRejectsZeroLimit", []string{"run", "sessions", "search", "--limit", "0"}, "--limit must be between"},
+		{"SessionSearchRejectsBlankContains", []string{"run", "sessions", "search", "--contains", "  "}, "--contains must not be empty"},
+		{"SessionSearchRejectsBadSurface", []string{"run", "sessions", "search", "--surface", "bad"}, "invalid --surface"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			base := stubServer(t)
+			defer base.Close()
+			var mu sync.Mutex
+			var sent []string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if call := r.Method + " " + r.URL.Path; !scopeProbes[call] {
+					mu.Lock()
+					sent = append(sent, call)
+					mu.Unlock()
+				}
+				base.Config.Handler.ServeHTTP(w, r)
+			}))
+			defer srv.Close()
+			e, _, _ := newTestEnv(t, srv, "table")
+			err := run(t, e, tc.args...)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("rc %s error = %v, want %q", strings.Join(tc.args, " "), err, tc.want)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if len(sent) != 0 {
+				t.Fatalf("rc %s reached the server before rejecting: %v", strings.Join(tc.args, " "), sent)
+			}
+		})
+	}
+}
+
+// scopeProbes are the identity/scope reads env resolution makes before any command body runs; they are
+// not the command's own request, so TestRejectsBeforeRequest tolerates them.
+var scopeProbes = map[string]bool{"GET /api/v1/whoami": true, "GET /api/v1/projects": true}
+
+// TestRejectsWithServerData: validations whose verdict needs a server read (the settings schema, the
+// proposal list) or a server answer (a recorded apply failure). They fail with their own message, but
+// by design only after a request.
+func TestRejectsWithServerData(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		// ConfigSetObjectRejectsNonObject asserts a non-JSON-object value for an object key fails
+		// client-side with a shape hint instead of being sent as a bare string.
+		{"ConfigSetObjectRejectsNonObject", []string{"project", "settings", "runtime", "set", "models.agent=pro"}, "expected a JSON object"},
+		// ExplainUnknownKey asserts an unknown key is a clear client-side error (not a silent miss).
+		{"ExplainUnknownKey", []string{"project", "settings", "describe", "nope"}, "unknown config key"},
+		{"SettingProposalAmbiguousPrefix", []string{"--project", "alpha", "project", "settings", "proposals", "show", "5a1f0c2e"}, "ambiguous"},
+		// A recorded apply failure is HTTP 200 server-side; the CLI must still exit non-zero.
+		{"SettingProposalApplyFailedExitsNonZero", []string{"--project", "alpha", "project", "settings", "proposals", "approve", "fa110000-0000-4000-8000-000000000000"}, "apply failed: settings changed since this preview"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := stubServer(t)

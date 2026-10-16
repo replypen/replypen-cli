@@ -562,3 +562,64 @@ func TestBriefTraceKeepsDepth(t *testing.T) {
 		t.Fatalf("brief = %s", got)
 	}
 }
+
+// chatDoctorServer is the healthy doctor fixture with a caller-supplied rejects body.
+func chatDoctorServer(t *testing.T, rejects string) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	chatTestProjects(mux)
+	mux.HandleFunc("GET /api/v1/projects/alpha/chat", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"chat_enabled":{"effective":true},"chat_origins":{"effective":["https://app.example.com"]}}`))
+	})
+	mux.HandleFunc("GET /api/v1/projects/alpha/principals", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"kinds":{}}`)) })
+	mux.HandleFunc("GET /api/v1/projects/alpha/chat/secret", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"source":"dedicated"}`)) })
+	mux.HandleFunc("GET /api/v1/branding", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"name":{"effective":"Example"}}`))
+	})
+	mux.HandleFunc("GET /api/v1/projects/alpha/chat/rejects", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(rejects)) })
+	mux.HandleFunc("GET /chat/widget/v1/loader.js", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
+	return httptest.NewServer(mux)
+}
+
+// Near-miss findings come from a map: they must still print in a stable (sorted) order.
+func TestChatDoctorNearMissFindingsAreSorted(t *testing.T) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	var rows []string
+	for _, host := range []string{"f", "e", "d", "c", "b", "a"} {
+		rows = append(rows, fmt.Sprintf(`{"code":"ORIGIN_NOT_ALLOWED","origin":"https://%s.example.com","timestamp":%q}`, host, now))
+	}
+	srv := chatDoctorServer(t, `{"rejects":[`+strings.Join(rows, ",")+`]}`)
+	defer srv.Close()
+	e, out, _ := newTestEnv(t, srv, "json")
+	if err := run(t, e, "--project", "alpha", "project", "chat", "doctor"); err != nil {
+		var cmdErr *commandError
+		if !errors.As(err, &cmdErr) {
+			t.Fatal(err)
+		}
+	}
+	var bundle doctorBundle
+	if err := json.Unmarshal(out.Bytes(), &bundle); err != nil {
+		t.Fatalf("bundle: %v (%q)", err, out.String())
+	}
+	var got []string
+	for _, f := range bundle.Findings {
+		if f.Code == "ORIGIN_NEAR_MISS" {
+			got = append(got, strings.Fields(f.Hint)[4])
+		}
+	}
+	want := []string{"https://a.example.com,", "https://b.example.com,", "https://c.example.com,", "https://d.example.com,", "https://e.example.com,", "https://f.example.com,"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("near-miss order = %q, want %q", got, want)
+	}
+}
+
+// A rejects shape the doctor cannot decode must fail the doctor, not read as "no recent rejects".
+func TestChatDoctorUndecodableRejectsFails(t *testing.T) {
+	srv := chatDoctorServer(t, `{"rejects":{"code":"ORIGIN_NOT_ALLOWED"}}`)
+	defer srv.Close()
+	e, _, _ := newTestEnv(t, srv, "json")
+	err := run(t, e, "--project", "alpha", "project", "chat", "doctor")
+	if err == nil || !strings.Contains(err.Error(), "decode chat rejects") {
+		t.Fatalf("err = %v, want a decode chat rejects error", err)
+	}
+}

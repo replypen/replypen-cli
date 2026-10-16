@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/rootcause-org/rootcause-cli/internal/client"
 )
 
 const (
@@ -364,5 +366,27 @@ func TestThreadTranscriptFilesSection(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "## Files") || errb.Len() != 0 {
 		t.Fatalf("404 must skip silently; Files=%v, stderr=%q", strings.Contains(out.String(), "## Files"), errb.String())
+	}
+}
+
+// The server's session id is a path segment of the download folder: a non-UUID is rejected before any
+// directory is made, with or without --dir.
+func TestSelectAttachmentJobsRejectsNonUUIDSessionID(t *testing.T) {
+	file := client.ChatAttachment{AttachmentID: "e1000000-0000-4000-8000-000000000001", Origin: client.AttachmentOriginUser}
+	bad := sessionFiles{list: &client.SessionAttachments{SessionID: "../../escape", Attachments: []client.ChatAttachment{file}}}
+	good := sessionFiles{list: &client.SessionAttachments{SessionID: attSession, Attachments: []client.ChatAttachment{file}}}
+	for name, tc := range map[string]struct {
+		sessions []sessionFiles
+		dir      string
+	}{
+		"default dir":         {[]sessionFiles{bad}, ""},
+		"--dir, several sess": {[]sessionFiles{good, bad}, "out"},
+	} {
+		if _, err := selectAttachmentJobs(tc.sessions, attachmentFlags{dir: tc.dir}); err == nil || !strings.Contains(err.Error(), "not a UUID") {
+			t.Errorf("%s: err = %v, want a not-a-UUID refusal", name, err)
+		}
+	}
+	if jobs, err := selectAttachmentJobs([]sessionFiles{good}, attachmentFlags{}); err != nil || len(jobs) != 1 {
+		t.Fatalf("valid session: jobs=%d err=%v", len(jobs), err)
 	}
 }

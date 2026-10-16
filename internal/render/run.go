@@ -39,8 +39,8 @@ func Run(w io.Writer, r *client.RunDetail) {
 	if oc := metaString(r.Metadata, "outcome"); oc != "" {
 		_, _ = fmt.Fprintf(tw, "Outcome:\t%s\n", oc)
 	}
-	if why := runWhy(r.Debug); why != "" {
-		_, _ = fmt.Fprintf(tw, "Why:\t%s\n", why)
+	if r.DeclineReason != "" {
+		_, _ = fmt.Fprintf(tw, "Why:\tdeclined — %s\n", truncate(r.DeclineReason, 80))
 	}
 	_, _ = fmt.Fprintf(tw, "Draft?:\t%s\n", yesNo(r.HasDraft))
 	_, _ = fmt.Fprintf(tw, "Note?:\t%s\n", yesNo(r.HasNote))
@@ -93,27 +93,6 @@ func placedLabel(hasDraft, hasNote bool, outcome string) string {
 	}
 }
 
-// runWhy is the index-level one-liner explaining a surprising outcome: a truncated decline_reason, the
-// forced-submission cause, the model the run fell back FROM, and any tripped guardrail — joined into a
-// single terse line. Blank when there's nothing notable (the caller then omits the row). The untruncated
-// detail lives in `rc run trace <id>`.
-func runWhy(d *client.RunDebug) string {
-	if d == nil {
-		return ""
-	}
-	var parts []string
-	if d.DeclineReason != "" {
-		parts = append(parts, "declined — "+truncate(d.DeclineReason, 80))
-	}
-	if d.Guardrail != "" {
-		parts = append(parts, "guardrail ("+d.Guardrail+")")
-	}
-	if d.Forced != "" {
-		parts = append(parts, "forced ("+d.Forced+")")
-	}
-	return strings.Join(parts, "; ")
-}
-
 // Events renders the per-event trace as a readable per-iteration block: a header line per event plus
 // command / stdout / stderr / reply markers when present.
 func Events(w io.Writer, resp *client.EventsResponse) {
@@ -164,20 +143,6 @@ func Full(w io.Writer, f *client.FullResponse) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintf(tw, "Run:\t%s\n", r.RunID)
 	_, _ = fmt.Fprintf(tw, "Status:\t%s\n", r.Status)
-	// Debug flags sit right under Status — they explain HOW the run reached that status. The full
-	// decline_reason (which can be a paragraph) is rendered as a block below; here we show only the
-	// terse flags. Each row prints only when the signal is present, so a clean run stays clean.
-	if d := r.Debug; d != nil {
-		if d.Guardrail != "" {
-			_, _ = fmt.Fprintf(tw, "Guardrail:\t%s\n", d.Guardrail)
-		}
-		if d.Forced != "" {
-			_, _ = fmt.Fprintf(tw, "Forced:\t%s\n", d.Forced)
-		}
-		if d.RecoverableRetries > 0 {
-			_, _ = fmt.Fprintf(tw, "Recoverable retries:\t%d\n", d.RecoverableRetries)
-		}
-	}
 	_, _ = fmt.Fprintf(tw, "Kind:\t%s\n", r.Kind)
 	if r.ReplayOfRunID != "" {
 		_, _ = fmt.Fprintf(tw, "Replay of:\t%s\n", r.ReplayOfRunID)
@@ -229,10 +194,10 @@ func Full(w io.Writer, f *client.FullResponse) {
 
 	renderGroundingSources(w, r.GroundingSources)
 
-	// The full decline_reason verbatim (untruncated, may span lines) — the headline "why nothing" for a
-	// declined run. Rendered as a block since the index view only shows a truncated one-liner.
-	if r.Debug != nil && r.Debug.DeclineReason != "" {
-		_, _ = fmt.Fprintf(w, "\nDecline reason:\n%s\n", r.Debug.DeclineReason)
+	// The full decline verdict verbatim (untruncated, may span lines) — the headline "why nothing" for a
+	// declined run. Rendered as a block since the one-run view only shows a truncated one-liner.
+	if r.Decline != "" {
+		_, _ = fmt.Fprintf(w, "\nDecline reason:\n%s\n", r.Decline)
 	}
 
 	if len(r.Egress) > 0 {

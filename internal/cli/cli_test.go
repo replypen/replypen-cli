@@ -165,8 +165,8 @@ func stubServer(t *testing.T) *httptest.Server {
 			_, _ = w.Write([]byte("Method Not Allowed\n"))
 			return
 		}
-		// id "declined" carries the run-debug bundle (decline_reason + guardrail/forced/fallback flags +
-		// recoverable retries) — exercises the index "why" line and the -o json passthrough of the new fields.
+		// id "declined" carries the top-level decline_reason — exercises the one-run "Why" line and the
+		// -o json passthrough.
 		if r.PathValue("id") == "declined" {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write(fixture(t, "run_declined.json"))
@@ -222,8 +222,7 @@ func stubServer(t *testing.T) *httptest.Server {
 			_, _ = w.Write([]byte(`{"error":{"code":"UNKNOWN_RUN","message":"no such run"}}`))
 			return
 		}
-		// id "declined" carries the run.debug bundle, exercising the full header's debug rows + the
-		// untruncated decline_reason block.
+		// id "declined" carries run.decline, exercising the untruncated decline block.
 		if r.PathValue("id") == "declined" {
 			_, _ = w.Write(fixture(t, "full_declined.json"))
 			return

@@ -27,6 +27,9 @@ import (
 // maxRetries is the number of extra attempts after the first for a retryable status on a safe request.
 const maxRetries = 3
 
+// maxRetryAfter caps an honoured Retry-After: a CLI call must never hang for an arbitrary server hint.
+const maxRetryAfter = 30 * time.Second
+
 // sendSpec is one request for the transport loop. Zero values mean the JSON defaults: Accept
 // application/json, and Content-Type application/json when a body is present.
 type sendSpec struct {
@@ -166,7 +169,7 @@ func retryableRequest(method, path string, body []byte) bool {
 func retryDelay(resp *http.Response, attempt int) time.Duration {
 	if raw := resp.Header.Get("Retry-After"); raw != "" {
 		if seconds, err := strconv.Atoi(raw); err == nil && seconds >= 0 {
-			return time.Duration(seconds) * time.Second
+			return min(time.Duration(seconds)*time.Second, maxRetryAfter)
 		}
 	}
 	return time.Duration(1<<attempt) * 250 * time.Millisecond

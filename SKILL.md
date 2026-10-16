@@ -130,13 +130,17 @@ map. The rules that make the layering real:
 `rc … | jq` always works. JSON mode is a **verbatim pretty-print of the server body**: the CLI cannot
 invent or drop a field.
 
-Two deliberate exceptions, both documented at their code site:
+Deliberate exceptions, each documented at its code site:
 
 - an **explicitly passed** `--format` pins a computed fleet digest even over a pipe (`rawRowsJSON`,
   [`observability.go`](internal/cli/observability.go)); explicit `-o json` still wins.
 - console query output is a normalized `columns` + positional `rows` shape streamed as
   `json|ndjson|csv|tsv`, with a terminal row-count frame so a cut-off stream fails instead of installing a
   partial file.
+- a truncated `rc dev console bash run -o json` gets one appended CLI `hint` key naming the exact
+  full-stdout download command (`withJSONHint`, [`console_download.go`](internal/cli/console_download.go)).
+- `rc project token ls -o json` filters/sorts items client-side but keeps the server envelope and raw item
+  keys (`replaceListItems`, [`token_ls.go`](internal/cli/token_ls.go)).
 
 Large payloads spill to `.rootcause/output/` with a preview/manifest on stdout
 ([`internal/outputspill`](internal/outputspill/outputspill.go), wired in
@@ -249,7 +253,9 @@ redirect traffic. `.rootcause/local.toml` overlays `tenant` only.
   playbook: [README](README.md#rc-project-env--self-serve-grounding-env-sync).
 - **`rc self update`** ([upgrade.go](internal/cli/upgrade.go)) is the one command that reaches outside
   `/api/v1` (GitHub Releases or `RC_RELEASE_MIRROR`, sha256-verified, Homebrew on macOS). Keep it the only
-  one. `--migrate` fails closed on binaries it cannot identify as ours.
+  one. `--migrate` fails closed on binaries it cannot identify as ours. One narrow exception:
+  `rc dev mirror refresh --accept-descendant` shells out to the cwd checkout's own `git` (`fetch` from its
+  origin, `merge-base --is-ancestor`) to prove ancestry (`gitIsAncestor`, [mirror.go](internal/cli/mirror.go)).
 
 ## Adding a command
 

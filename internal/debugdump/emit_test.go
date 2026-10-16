@@ -482,3 +482,67 @@ func TestDepthRowRendersAsIndexLine(t *testing.T) {
 		t.Fatalf("depth row counted or flagged as a step:\n%s", index)
 	}
 }
+
+// The trace's `decline` (the model's own "why nothing") must reach both the index and the JSONL header;
+// a decline-only callback is still a callback.
+func TestDeclineRendersInDebugDump(t *testing.T) {
+	why := "Thread already resolved.\nNo further action was warranted."
+	full := &client.FullResponse{Run: client.RunHeader{RunID: "c5f80889-901a-4563-94c6-a421db7d24c6", Project: "coca-cola", Status: "done", Kind: "email", Decline: why}}
+
+	index := RenderIndex(full)
+	if !strings.Contains(index, "**Declined:**") || !strings.Contains(index, "No further action was warranted.") {
+		t.Fatalf("index missing decline verdict:\n%s", index)
+	}
+	if strings.Contains(index, "no stored callback") {
+		t.Fatalf("decline-only run reported as having no callback:\n%s", index)
+	}
+
+	var buf bytes.Buffer
+	if err := EmitJSONL(&buf, full); err != nil {
+		t.Fatalf("EmitJSONL: %v", err)
+	}
+	var header struct {
+		Decline string `json:"decline"`
+	}
+	if err := json.Unmarshal(bytes.SplitN(buf.Bytes(), []byte("\n"), 2)[0], &header); err != nil {
+		t.Fatalf("decode JSONL header: %v", err)
+	}
+	if header.Decline != why {
+		t.Fatalf("jsonl decline = %q, want %q", header.Decline, why)
+	}
+}
+
+// Flags and the index share one callback definition: a raw-scenario run that only answered is not flagged.
+func TestAnswerOnlyRunIsNotFlaggedAsNoCallback(t *testing.T) {
+	full := &client.FullResponse{Run: client.RunHeader{RunID: "r", Status: "done", Kind: "prompt", AnswerMarkdown: "17 active subscriptions."}}
+	for _, f := range flags(full, decorate(full.Events)) {
+		if strings.Contains(f, "no stored callback") {
+			t.Fatalf("answer-only run flagged: %q", f)
+		}
+	}
+}
+
+// Past the 14-day scrub the raw command is gone but the kept redacted shape survives: a grep miss must
+// still read as "no match", and its paths must still count as files read.
+func TestScrubbedGrepMissUsesKeptCommand(t *testing.T) {
+	kept := `{"v":1,"command":"rg ⟨str⟩ /brain/skills/billing.md","redactions":{"str":1},"stdout_bytes":0,"stderr_bytes":0}`
+	full := &client.FullResponse{
+		Run: client.RunHeader{RunID: "r", Status: "done", Kind: "email", Draft: "hi"},
+		Events: []client.EventItem{
+			{Seq: 1, Tool: "bash", Status: "ok", ExitCode: 1, OutputScrubbedAt: "2026-09-01T03:00:00Z", Kept: json.RawMessage(kept)},
+		},
+	}
+	events := decorate(full.Events)
+	if got := flags(full, events); len(got) != 0 {
+		t.Fatalf("scrubbed grep miss flagged: %q", got)
+	}
+	if got := filesRead(events); strings.Join(got, ",") != "/brain/skills/billing.md" {
+		t.Fatalf("filesRead() = %q, want the kept command's path", got)
+	}
+	// A chained command that failed loudly (kept stderr bytes) is still a failure after the scrub.
+	loud := `{"v":1,"command":"rg ⟨str⟩ /brain/skills/billing.md && python3 /brain/scripts/check.py","stdout_bytes":0,"stderr_bytes":212}`
+	full.Events[0].Kept = json.RawMessage(loud)
+	if got := flags(full, decorate(full.Events)); len(got) != 1 || !strings.Contains(got[0], "exit 1") {
+		t.Fatalf("scrubbed loud failure flags = %q, want the exit-1 failure", got)
+	}
+}

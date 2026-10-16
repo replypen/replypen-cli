@@ -665,10 +665,10 @@ func joinNonEmpty(parts []string, sep string) string {
 	return strings.Join(out, sep)
 }
 
-// renderOutcome shows the draft gist (first 8 lines), action proposals, the FULL note bodies, or a "no
-// callback" marker.
+// renderOutcome shows the draft gist (first 8 lines), the decline verdict, action proposals, the FULL note
+// bodies, or a "no callback" marker.
 func renderOutcome(r client.RunHeader) []string {
-	if r.Draft == "" && r.AnswerMarkdown == "" && len(r.Notes) == 0 && len(r.ProposedActions) == 0 && len(r.Metadata) == 0 {
+	if !hasCallback(r) {
 		return []string{"_(no stored callback — run errored or never produced one)_"}
 	}
 	var out []string
@@ -706,6 +706,10 @@ func renderOutcome(r client.RunHeader) []string {
 		out = append(out, fmt.Sprintf("**Answer** (%d lines):", len(lines)), "", fence(g, ""), "")
 	} else {
 		out = append(out, "**Draft:** none", "")
+	}
+	// The decline verdict in full: the model's own "why nothing", the headline of a declined run.
+	if d := strings.TrimSpace(r.Decline); d != "" {
+		out = append(out, "**Declined:**", "", fence(d, ""), "")
 	}
 	if len(r.ProposedActions) > 0 {
 		out = append(out, fmt.Sprintf("**Proposed actions** (%d):", len(r.ProposedActions)), "")

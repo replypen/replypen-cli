@@ -203,6 +203,10 @@ func selectAttachmentJobs(sessions []sessionFiles, f attachmentFlags) ([]attachm
 	var jobs []attachmentJob
 	for _, s := range sessions {
 		dir := f.dir
+		// The server's session id becomes a folder name: anything but a UUID could climb out of --dir.
+		if (dir == "" || len(sessions) > 1) && !uuidPattern.MatchString(s.list.SessionID) {
+			return nil, fmt.Errorf("server returned session id %q, which is not a UUID: refusing to use it as a folder name", s.list.SessionID)
+		}
 		switch {
 		case dir == "":
 			dir = filepath.Join(".rootcause", "attachments", s.list.SessionID)

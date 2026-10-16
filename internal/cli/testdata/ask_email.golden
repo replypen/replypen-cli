@@ -38,10 +38,5 @@ Actions (1):
     url: https://app.replypen.com/actions/tok_123
     Sends a reminder for the two unpaid invoices.
 
-PR:
-  Title:  Clarify overdue invoice copy
-  Repo:   billing
-  URL:    https://github.com/acme/billing/pull/7
-
 Metadata:
   trace_url:  https://trace.example/email-rich

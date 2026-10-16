@@ -200,3 +200,24 @@ func TestDownloadPreservesUnauthorizedEnvelopeWhenRefreshFails(t *testing.T) {
 		t.Fatalf("error = %#v, want original 401 APIError", err)
 	}
 }
+
+// A server Retry-After is honoured but capped: an hour-long hint must not hang a CLI call.
+func TestRetryDelayCapsRetryAfter(t *testing.T) {
+	for _, tc := range []struct {
+		header string
+		want   time.Duration
+	}{
+		{"3", 3 * time.Second},
+		{"30", 30 * time.Second},
+		{"3600", maxRetryAfter},
+		{"", 500 * time.Millisecond}, // attempt 1 backoff
+	} {
+		resp := &http.Response{Header: http.Header{}}
+		if tc.header != "" {
+			resp.Header.Set("Retry-After", tc.header)
+		}
+		if got := retryDelay(resp, 1); got != tc.want {
+			t.Errorf("Retry-After %q: retryDelay = %v, want %v", tc.header, got, tc.want)
+		}
+	}
+}

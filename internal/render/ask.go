@@ -15,7 +15,7 @@ import (
 )
 
 // AskEmail renders `rc ask --scenario email`: the reviewable support outcome first (draft, notes,
-// actions/PR), with enough run metadata to jump into the trace.
+// actions), with enough run metadata to jump into the trace.
 func AskEmail(w io.Writer, r *client.RunDetail, full *client.FullResponse) {
 	renderAskHeader(w, r, "email")
 	if why := askDecline(r, full); why != "" {
@@ -41,7 +41,6 @@ func AskEmail(w io.Writer, r *client.RunDetail, full *client.FullResponse) {
 	}
 	renderRunFiles(w, r.Attachments)
 	renderProposedActions(w, askActions(r, full))
-	renderSourcePR(w, askSourcePR(r, full))
 	renderMetadata(w, askMetadata(r, full))
 }
 
@@ -58,7 +57,6 @@ func AskRaw(w io.Writer, r *client.RunDetail) {
 	}
 	renderRunFiles(w, r.Attachments)
 	renderProposedActions(w, r.ProposedActions)
-	renderSourcePR(w, r.SourcePR)
 	renderMetadata(w, r.Metadata)
 }
 
@@ -183,10 +181,8 @@ func renderAskHeader(w io.Writer, r *client.RunDetail, scenario string) {
 
 func askDraft(r *client.RunDetail, full *client.FullResponse) string {
 	if full != nil {
-		for _, s := range []string{full.Run.Draft, full.Run.DraftMarkdown} {
-			if strings.TrimSpace(s) != "" {
-				return s
-			}
+		if strings.TrimSpace(full.Run.Draft) != "" {
+			return full.Run.Draft
 		}
 	}
 	for _, s := range []string{r.DraftMarkdown, r.AnswerMarkdown} {
@@ -236,20 +232,10 @@ func outboundEmailLabel(oe *client.OutboundEmail) string {
 }
 
 func askDecline(r *client.RunDetail, full *client.FullResponse) string {
-	if full != nil {
-		for _, s := range []string{full.Run.Decline, full.Run.DeclineReason} {
-			if strings.TrimSpace(s) != "" {
-				return s
-			}
-		}
+	if full != nil && strings.TrimSpace(full.Run.Decline) != "" {
+		return full.Run.Decline
 	}
-	if strings.TrimSpace(r.DeclineReason) != "" {
-		return r.DeclineReason
-	}
-	if r.Debug != nil {
-		return r.Debug.DeclineReason
-	}
-	return ""
+	return r.DeclineReason
 }
 
 func askNotes(r *client.RunDetail, full *client.FullResponse) []client.Note {
@@ -265,16 +251,6 @@ func askActions(r *client.RunDetail, full *client.FullResponse) []client.Propose
 	}
 	if full != nil {
 		return full.Run.ProposedActions
-	}
-	return nil
-}
-
-func askSourcePR(r *client.RunDetail, full *client.FullResponse) *client.SourcePR {
-	if r.SourcePR != nil {
-		return r.SourcePR
-	}
-	if full != nil {
-		return full.Run.SourcePR
 	}
 	return nil
 }
@@ -344,27 +320,6 @@ func renderProposedActions(w io.Writer, actions []client.ProposedAction) {
 		if a.Description != "" {
 			_, _ = fmt.Fprintf(w, "    %s\n", a.Description)
 		}
-	}
-}
-
-func renderSourcePR(w io.Writer, pr *client.SourcePR) {
-	if pr == nil {
-		return
-	}
-	_, _ = fmt.Fprintln(w, "\nPR:")
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	if pr.Title != "" {
-		_, _ = fmt.Fprintf(tw, "  Title:\t%s\n", pr.Title)
-	}
-	if pr.Repo != "" {
-		_, _ = fmt.Fprintf(tw, "  Repo:\t%s\n", pr.Repo)
-	}
-	if pr.URL != "" {
-		_, _ = fmt.Fprintf(tw, "  URL:\t%s\n", pr.URL)
-	}
-	_ = tw.Flush()
-	if strings.TrimSpace(pr.Body) != "" {
-		_, _ = fmt.Fprintf(w, "\n%s\n", pr.Body)
 	}
 }
 

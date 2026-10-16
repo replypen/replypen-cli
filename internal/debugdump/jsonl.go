@@ -42,6 +42,7 @@ func EmitJSONL(w io.Writer, full *client.FullResponse) error {
 		"created_at":              emptyNil(r.CreatedAt),
 		"finished_at":             emptyNil(r.FinishedAt),
 		"draft":                   emptyNil(r.Draft),
+		"decline":                 emptyNil(r.Decline),
 		"notes":                   notesJSON(r.Notes),
 		"metadata":                metadataJSON(r.Metadata),
 		"egress":                  egressJSON(r.Egress),

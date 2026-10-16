@@ -9,13 +9,7 @@
     "finished_at": "2026-06-19T09:00:42Z",
     "model": "google/gemini-3.5-flash",
     "question": "Any update on my refund?",
-    "debug": {
-      "decline_reason": "Thread already resolved — the sender acknowledged closure, so there is no open question to answer.\nNo further action was warranted.",
-      "guardrail": "max_iterations",
-      "forced": "budget",
-      "fallback_from": "claude-opus-4-8",
-      "recoverable_retries": 2
-    },
+    "decline": "Thread already resolved — the sender acknowledged closure, so there is no open question to answer.\nNo further action was warranted.",
     "metadata": { "outcome": "declined" }
   },
   "events": [

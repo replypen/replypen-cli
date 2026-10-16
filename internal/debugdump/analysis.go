@@ -2,7 +2,7 @@
 // "Flags" section, plus the mount-path rule behind "Files read". Everything else in this package is a
 // mechanical move of server data into JSONL or Markdown; these thresholds are ours, so they live in one
 // file where they can be argued with. Today's policy:
-//   - run errored, or no stored callback at all (no draft, notes or metadata);
+//   - run errored, or no stored callback at all (hasCallback);
 //   - a step whose status is not "ok", or whose exit code is non-zero — except a grep/rg miss with empty
 //     stderr (benignGrepMiss), which is "no match", not a failure;
 //   - output mentioning EGRESS_BLOCKED, and any egress host the sandbox actually blocked;
@@ -44,7 +44,7 @@ func flags(full *client.FullResponse, events []decEvent) []string {
 	if r.Error != "" {
 		out = append(out, fmt.Sprintf("run errored: `%s`", r.Error))
 	}
-	if r.Draft == "" && len(r.Notes) == 0 && len(r.Metadata) == 0 {
+	if !hasCallback(r) {
 		out = append(out, "no stored callback — the run never produced one")
 	}
 	for _, e := range events {
@@ -112,10 +112,30 @@ func flags(full *client.FullResponse, events []decEvent) []string {
 	return out
 }
 
+// hasCallback reports whether the run stored any callback at all — draft, raw answer, notes, proposed
+// actions, a decline verdict, or metadata. The one definition behind both the "no stored callback" flag
+// and the index's Outcome marker, so the two never disagree.
+func hasCallback(r client.RunHeader) bool {
+	return r.Draft != "" || r.AnswerMarkdown != "" || r.Decline != "" || len(r.Notes) > 0 ||
+		len(r.ProposedActions) > 0 || len(r.Metadata) > 0
+}
+
+// analysisCommand is the command text the judgement calls read: the raw command, else (past the 14-day
+// scrub) the kept redacted shape, whose literals are placeholders but whose paths and verbs survive.
+// Repeat detection deliberately does NOT use it — placeholders would merge distinct literals.
+func analysisCommand(e decEvent) string {
+	if e.command == "" && e.kept != nil {
+		return e.kept.Command
+	}
+	return e.command
+}
+
+// benignGrepMiss: exit 1 with silent stderr from a grep-led command. Once scrubbed, raw stderr is blank,
+// so the kept stderr byte count stands in — a chained command that failed loudly stays a failure.
 func benignGrepMiss(e decEvent) bool {
 	return e.src.ExitCode == 1 && (e.src.Status == "ok" || e.src.Status == "error") &&
-		strings.TrimSpace(e.src.Stderr) == "" &&
-		grepRx.MatchString(cdPrefix.ReplaceAllString(e.command, ""))
+		strings.TrimSpace(e.src.Stderr) == "" && (e.kept == nil || e.kept.StderrBytes == 0) &&
+		grepRx.MatchString(cdPrefix.ReplaceAllString(analysisCommand(e), ""))
 }
 
 // pathRx matches the run's read-only mounts in commands — the bridge to "what did the run read". ALL
@@ -135,7 +155,7 @@ func filesRead(events []decEvent) []string {
 		if e.src.Tool != "bash" {
 			continue
 		}
-		for _, m := range pathRx.FindAllStringSubmatch(e.command, -1) {
+		for _, m := range pathRx.FindAllStringSubmatch(analysisCommand(e), -1) {
 			p := m[2] // the path (group 1 is the leading boundary char)
 			last := p[strings.LastIndex(p, "/")+1:]
 			if strings.Contains(last, ".") { // a dot in the basename ⇒ a file, not a dir

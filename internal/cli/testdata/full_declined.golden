@@ -1,13 +1,10 @@
-Run:                  c5f80889-901a-4563-94c6-a421db7d24c6
-Status:               done
-Guardrail:            max_iterations
-Forced:               budget
-Recoverable retries:  2
-Kind:                 prompt
-Trigger:              email
-Created:              2026-06-19T09:00:00Z
-Finished:             2026-06-19T09:00:42Z
-Question:             Any update on my refund?
+Run:       c5f80889-901a-4563-94c6-a421db7d24c6
+Status:    done
+Kind:      prompt
+Trigger:   email
+Created:   2026-06-19T09:00:00Z
+Finished:  2026-06-19T09:00:42Z
+Question:  Any update on my refund?
 
 Decline reason:
 Thread already resolved — the sender acknowledged closure, so there is no open question to answer.

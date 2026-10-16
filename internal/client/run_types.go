@@ -210,22 +210,6 @@ type RunsResponse struct {
 	NextBefore string       `json:"next_before,omitempty"`
 }
 
-// RunDebug groups the run's debug/triage signals — the "why" a project-dev needs when a run did
-// something surprising: why it declined (decline_reason), whether a loop guardrail tripped (guardrail
-// sub-cause), whether the final answer was a FORCED submission under budget pressure (forced cause,
-// e.g. "budget"/"timeout"), and how many recoverable (transient) errors were retried in-loop. Surfaced
-// under a single optional "debug" object on GET /api/v1/runs/{id} and /trace's run (progressive
-// disclosure) — the whole object is omitempty so a clean run carries nothing and the typed pointer
-// stays nil. Field names match the server verbatim. No model identity rides here either: the rung a run
-// fell back FROM is host-only telemetry like the rung that answered (run_health.is_fallback carries the
-// content-free THAT).
-type RunDebug struct {
-	DeclineReason      string `json:"decline_reason,omitempty"`
-	Guardrail          string `json:"guardrail,omitempty"`
-	Forced             string `json:"forced,omitempty"`
-	RecoverableRetries int    `json:"recoverable_retries,omitempty"`
-}
-
 // RunDetail is GET /api/v1/runs/{id} — it MUST mirror the server's statusResponse (internal/api/prompt.go)
 // field-for-field: same json tags, same omitempty. Optional fields are omitempty server-side; Attachments
 // is always present: the files the run itself generated (never the ask's --file inputs). category/has_draft/has_note come from the shared row-builder;
@@ -253,14 +237,12 @@ type RunDetail struct {
 	Notes           []Note           `json:"notes,omitempty"`
 	DeclineReason   string           `json:"decline_reason,omitempty"`
 	ProposedActions []ProposedAction `json:"proposed_actions,omitempty"`
-	SourcePR        *SourcePR        `json:"source_pr,omitempty"`
 	RunURL          string           `json:"run_url,omitempty"`
 	// OutboundEmail / ReplyScope: WHO the draft is addressed to. Absent on an ordinary reply-to-sender.
 	OutboundEmail *OutboundEmail `json:"outbound_email,omitempty"`
 	ReplyScope    string         `json:"reply_scope,omitempty"`
 	Attachments   []RunFile      `json:"attachments"`
 	Error         string         `json:"error,omitempty"`
-	Debug         *RunDebug      `json:"debug,omitempty"`
 	Metadata      map[string]any `json:"metadata,omitempty"`
 	// ReplayOfRunID is the chat run this run replays (rc ask --replay-chat-run); "" otherwise.
 	ReplayOfRunID string `json:"replay_of_run_id,omitempty"`
@@ -456,17 +438,6 @@ type ProposedAction struct {
 	Color       string `json:"color,omitempty"`
 }
 
-// SourcePR is a proposed source change. The host may return either the original proposal fields or the
-// opened PR URL; all fields are optional so older/newer servers decode cleanly.
-type SourcePR struct {
-	Repo  string `json:"repo,omitempty"`
-	Base  string `json:"base,omitempty"`
-	Title string `json:"title,omitempty"`
-	Body  string `json:"body,omitempty"`
-	Diff  string `json:"diff,omitempty"`
-	URL   string `json:"url,omitempty"`
-}
-
 // EgressItem is one host the run reached out to (the egress_log rollup): how many times, and whether
 // the egress proxy blocked it.
 type EgressItem struct {
@@ -560,16 +531,12 @@ type RunHeader struct {
 	CreatedAt           string            `json:"created_at"`
 	FinishedAt          string            `json:"finished_at,omitempty"`
 	Draft               string            `json:"draft,omitempty"`
-	DraftMarkdown       string            `json:"draft_markdown,omitempty"`
 	AnswerMarkdown      string            `json:"answer_markdown,omitempty"`
 	Notes               []Note            `json:"notes,omitempty"`
 	Decline             string            `json:"decline,omitempty"`
-	DeclineReason       string            `json:"decline_reason,omitempty"`
 	OutboundEmail       *OutboundEmail    `json:"outbound_email,omitempty"`
 	ReplyScope          string            `json:"reply_scope,omitempty"`
 	ProposedActions     []ProposedAction  `json:"proposed_actions,omitempty"`
-	SourcePR            *SourcePR         `json:"source_pr,omitempty"`
-	Debug               *RunDebug         `json:"debug,omitempty"`
 	Metadata            map[string]any    `json:"metadata,omitempty"`
 	Egress              []EgressItem      `json:"egress,omitempty"`
 	GroundingSources    *GroundingSources `json:"grounding_sources,omitempty"`

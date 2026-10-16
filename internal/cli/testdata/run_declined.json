@@ -12,12 +12,6 @@
   "bash_total": 3,
   "run_url": "https://app.replypen.com/runs/c5f80889-901a-4563-94c6-a421db7d24c6?t=zzz",
   "attachments": [],
-  "debug": {
-    "decline_reason": "Thread already resolved — the sender acknowledged closure, so there is no open question to answer.",
-    "guardrail": "max_iterations",
-    "forced": "budget",
-    "fallback_from": "claude-opus-4-8",
-    "recoverable_retries": 2
-  },
+  "decline_reason": "Thread already resolved — the sender acknowledged closure, so there is no open question to answer.",
   "metadata": { "outcome": "declined", "total_cost_usd": 0.21, "model": "google/gemini-3.5-flash", "model_fallback_from": "claude-opus-4-8" }
 }

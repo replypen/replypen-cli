@@ -38,11 +38,6 @@
         "url": "https://app.replypen.com/actions/tok_123"
       }
     ],
-    "source_pr": {
-      "repo": "billing",
-      "title": "Clarify overdue invoice copy",
-      "url": "https://github.com/acme/billing/pull/7"
-    },
     "metadata": { "trace_url": "https://trace.example/email-rich", "outcome": "ok" }
   },
   "events": []

@@ -177,21 +177,3 @@ func TestSessionSearchTranscriptFailuresAreLoud(t *testing.T) {
 		})
 	}
 }
-
-func TestSessionSearchRejectsBeforeRequest(t *testing.T) {
-	for _, flags := range [][]string{
-		{"--principal-id", "1"}, {"--principal-kind", "member"}, {"--since", "yesterday"}, {"--until", "2026-02-30"},
-		{"--since", "2026-02-02", "--until", "2026-02-01"}, {"--limit", "0"}, {"--contains", "  "}, {"--surface", "bad"},
-	} {
-		t.Run(strings.Join(flags, " "), func(t *testing.T) {
-			calls := 0
-			srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { calls++ }))
-			defer srv.Close()
-			e, _, _ := newTestEnv(t, srv, "json")
-			err := run(t, e, append([]string{"run", "sessions", "search"}, flags...)...)
-			if err == nil || calls != 0 {
-				t.Fatalf("err=%v calls=%d", err, calls)
-			}
-		})
-	}
-}

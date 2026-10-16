@@ -158,15 +158,13 @@ func (t *Transcript) TruncateAnswers(head int) {
 // transcriptAnswer is what the turn replied with: the draft body, the raw-scenario answer, or — when
 // the agent deliberately placed nothing — its own decline words, so an empty answer is never silent.
 func transcriptAnswer(h *client.RunHeader) string {
-	for _, body := range []string{h.Draft, h.DraftMarkdown, h.AnswerMarkdown} {
+	for _, body := range []string{h.Draft, h.AnswerMarkdown} {
 		if s := strings.TrimSpace(body); s != "" {
 			return s
 		}
 	}
-	for _, why := range []string{h.Decline, h.DeclineReason} {
-		if s := strings.TrimSpace(why); s != "" {
-			return "(declined) " + s
-		}
+	if s := strings.TrimSpace(h.Decline); s != "" {
+		return "(declined) " + s
 	}
 	return ""
 }

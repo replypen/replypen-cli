@@ -22,11 +22,6 @@
       "url": "https://app.replypen.com/actions/tok_456"
     }
   ],
-  "source_pr": {
-    "repo": "analytics",
-    "title": "Add missing billing index",
-    "url": "https://github.com/acme/analytics/pull/9"
-  },
   "run_url": "https://app.replypen.com/runs/raw-rich?t=def456",
   "attachments": [],
   "metadata": { "outcome": "ok", "query_ms": 148, "run_url": "https://app.replypen.com/runs/raw-rich?t=def456" }

@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -579,14 +581,23 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 		}
 		project := e.scopeProject()
 		b := doctorBundle{Project: project, RCVersion: version, Timestamp: time.Now().UTC(), Since: since, Config: map[string]any{}, Principals: map[string]any{}, Secret: map[string]any{}, Branding: map[string]any{}, Probes: map[string]any{}}
-		decodeDoctor := func(raw json.RawMessage, dst any) { _ = json.Unmarshal(raw, dst) }
+		// A shape the doctor cannot decode is an error, never an empty section: empty rejects would read as a
+		// clean bill of health.
+		decodeDoctor := func(what string, raw json.RawMessage, dst any) error {
+			if err := json.Unmarshal(raw, dst); err != nil {
+				return fmt.Errorf("chat doctor: decode %s: %w", what, err)
+			}
+			return nil
+		}
 		// The bundle carries the bag verbatim (raw passthrough); the checks read the SAME bytes through
 		// the typed settings shape, so a field's Effective-then-Value ladder is decoded in one place.
 		settings, raw, err := c.ChatSettings(e.ctx(), project)
 		if err != nil {
 			return err
 		}
-		decodeDoctor(raw, &b.Config)
+		if err := decodeDoctor("chat settings", raw, &b.Config); err != nil {
+			return err
+		}
 		config := *settings
 		manifest, _, err := c.Principals(e.ctx(), project)
 		if err != nil {
@@ -602,7 +613,9 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		decodeDoctor(raw, &b.Secret)
+		if err := decodeDoctor("chat secret status", raw, &b.Secret); err != nil {
+			return err
+		}
 		// Branding is a diagnostic input, not a precondition: a doctor that aborts on it reports nothing
 		// about the chat wiring the operator actually came to check.
 		brandingBag, _, brandingErr := c.GetBag(e.ctx(), "/api/v1/branding", project)
@@ -622,7 +635,9 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 		var rejects struct {
 			Rejects []doctorReject `json:"rejects"`
 		}
-		decodeDoctor(raw, &rejects)
+		if err := decodeDoctor("chat rejects", raw, &rejects); err != nil {
+			return err
+		}
 		cutoff := b.Timestamp.Add(-sinceDuration)
 		for i := range rejects.Rejects {
 			rejects.Rejects[i].Stale = rejects.Rejects[i].Timestamp.Before(cutoff)
@@ -668,10 +683,12 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 				warn("ORIGIN_NEAR_MISS", fmt.Sprintf("%s is not registered, but %s is — one of them is probably a typo.", origin, near))
 			}
 		}
-		for rejected, near := range nearMissRejects(b.Rejects, origins) {
+		nearMisses := nearMissRejects(b.Rejects, origins)
+		for _, rejected := range slices.Sorted(maps.Keys(nearMisses)) {
 			if rejected == origin {
 				continue
 			}
+			near := nearMisses[rejected]
 			warn("ORIGIN_NEAR_MISS", fmt.Sprintf("recent rejects came from %s, which is not registered; %s is — one of them is probably a typo.", rejected, near))
 		}
 		source, _ := b.Secret["source"].(string)
