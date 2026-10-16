@@ -123,7 +123,7 @@ func (d sandboxDownload) getFile(remote, local string) error {
 // streamable regular file, and prints "<file|dir>\t<sandbox path>[\tstaged]". Prefixed with p=<path>.
 const stageScript = `
 if [ -d "$p" ]; then
-  out=$(mktemp -p /tmp rc-download-XXXXXX) && tar -czf "$out" -C "$p" . && printf 'dir\t%s\tstaged\n' "$out"
+  out=$(mktemp -p /tmp rc-download-XXXXXX) && tar --hard-dereference -czf "$out" -C "$p" . && printf 'dir\t%s\tstaged\n' "$out"
 elif [ -f "$p" ]; then
   r=$(readlink -f -- "$p")
   case "$r" in
@@ -207,11 +207,11 @@ func (d sandboxDownload) getDir(tarball, remote, local string) error {
 	if d.e.jsonOut() {
 		enc := json.NewEncoder(d.e.out)
 		enc.SetIndent("", "  ")
-		return enc.Encode(map[string]any{"path": local, "kind": "dir", "files": st.files, "bytes": st.bytes, "skipped_symlinks": st.skipped})
+		return enc.Encode(map[string]any{"path": local, "kind": "dir", "files": st.files, "bytes": st.bytes, "skipped": st.skipped})
 	}
 	_, err = fmt.Fprintf(d.e.out, "downloaded %s → %s/ (%d files, %d bytes", remote, local, st.files, st.bytes)
 	if st.skipped > 0 {
-		_, _ = fmt.Fprintf(d.e.out, ", %d symlinks pointing outside skipped", st.skipped)
+		_, _ = fmt.Fprintf(d.e.out, ", %d symlinks/special files skipped", st.skipped)
 	}
 	_, _ = fmt.Fprintln(d.e.out, ")")
 	return err
@@ -219,10 +219,16 @@ func (d sandboxDownload) getDir(tarball, remote, local string) error {
 
 type extractStats struct{ files, skipped, bytes int64 }
 
-// extractTarGz unpacks into dst, refusing any entry that would land outside it; a symlink is kept
-// only when its target stays inside the tree.
+// extractTarGz unpacks regular files and directories into dst through an os.Root, so no entry can write
+// outside it. Symlinks and special files are skipped and counted, never created: a remote archive must
+// not plant links on the laptop (staging already resolves hardlinks into regular files).
 func extractTarGz(r io.Reader, dst string) (extractStats, error) {
 	var st extractStats
+	root, err := os.OpenRoot(dst)
+	if err != nil {
+		return st, err
+	}
+	defer func() { _ = root.Close() }()
 	gz, err := gzip.NewReader(r)
 	if err != nil {
 		return st, err
@@ -244,17 +250,19 @@ func extractTarGz(r io.Reader, dst string) (extractStats, error) {
 		if path.IsAbs(name) || name == ".." || strings.HasPrefix(name, "../") {
 			return st, fmt.Errorf("unsafe entry %q", h.Name)
 		}
-		target := filepath.Join(dst, filepath.FromSlash(name))
+		target := filepath.FromSlash(name)
 		switch h.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := root.MkdirAll(target, 0o755); err != nil {
 				return st, err
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return st, err
+			if dir := filepath.Dir(target); dir != "." {
+				if err := root.MkdirAll(dir, 0o755); err != nil {
+					return st, err
+				}
 			}
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_EXCL, os.FileMode(h.Mode&0o755)|0o600)
+			f, err := root.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_EXCL, os.FileMode(h.Mode&0o755)|0o600)
 			if err != nil {
 				return st, err
 			}
@@ -267,18 +275,8 @@ func extractTarGz(r io.Reader, dst string) (extractStats, error) {
 			}
 			st.files++
 			st.bytes += n
-		case tar.TypeSymlink:
-			resolved := path.Clean(path.Join(path.Dir(name), h.Linkname))
-			if path.IsAbs(h.Linkname) || resolved == ".." || strings.HasPrefix(resolved, "../") {
-				st.skipped++
-				continue
-			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return st, err
-			}
-			if err := os.Symlink(h.Linkname, target); err != nil {
-				return st, err
-			}
+		default:
+			st.skipped++
 		}
 	}
 }

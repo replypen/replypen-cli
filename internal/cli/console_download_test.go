@@ -74,7 +74,11 @@ func TestFileGetDirectoryStagesAndUnpacks(t *testing.T) {
 		_ = tw.WriteHeader(&tar.Header{Name: f.name, Mode: 0o644, Size: int64(len(f.body)), Typeflag: tar.TypeReg})
 		_, _ = tw.Write([]byte(f.body))
 	}
-	_ = tw.WriteHeader(&tar.Header{Name: "./escape", Linkname: "../../etc/passwd", Typeflag: tar.TypeSymlink})
+	// Chained links: a -> ., b -> a/.. (outside), then b/escaped would land in the parent if links were made.
+	_ = tw.WriteHeader(&tar.Header{Name: "./a", Linkname: ".", Typeflag: tar.TypeSymlink})
+	_ = tw.WriteHeader(&tar.Header{Name: "./b", Linkname: "a/..", Typeflag: tar.TypeSymlink})
+	_ = tw.WriteHeader(&tar.Header{Name: "./b/escaped", Mode: 0o644, Size: 1, Typeflag: tar.TypeReg})
+	_, _ = tw.Write([]byte("!"))
 	_ = tw.Close()
 	_ = gz.Close()
 
@@ -107,13 +111,19 @@ func TestFileGetDirectoryStagesAndUnpacks(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(dst, "sub", "b.md")); string(b) != "beta" {
 		t.Fatalf("sub/b.md = %q", b)
 	}
-	if _, err := os.Lstat(filepath.Join(dst, "escape")); !os.IsNotExist(err) {
-		t.Fatalf("escaping symlink was created (err=%v)", err)
+	if _, err := os.Lstat(filepath.Join(dst, "a")); !os.IsNotExist(err) {
+		t.Fatalf("symlink was created (err=%v)", err)
+	}
+	if _, err := os.Lstat(filepath.Join(filepath.Dir(dst), "escaped")); !os.IsNotExist(err) {
+		t.Fatalf("chained symlink escaped the destination (err=%v)", err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dst, "b", "escaped")); string(b) != "!" {
+		t.Fatalf("b/escaped = %q, want a plain file inside the tree", b)
 	}
 	if len(commands) != 2 || commands[1] != "rm -f -- /tmp/rc-download-abc" {
 		t.Fatalf("bash commands = %q, want stage + cleanup", commands)
 	}
-	if !strings.Contains(out.String(), "2 files") {
+	if !strings.Contains(out.String(), "3 files") {
 		t.Fatalf("summary = %s", out.String())
 	}
 }
