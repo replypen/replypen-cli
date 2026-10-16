@@ -1516,6 +1516,11 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 	})
 
 	// run feedback / retry.
+	mux.HandleFunc("GET /api/v1/feedback", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(fixture(t, "feedback.json"))
+	})
 	mux.HandleFunc("POST /api/v1/runs/{id}/feedback", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		body := readBody(t, r)

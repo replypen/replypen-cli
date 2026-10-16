@@ -32,6 +32,7 @@ authoring a skill:
 | Rung | Command | Endpoint |
 |---|---|---|
 | conversations | `rc run sessions` | `GET /api/v1/sessions` (chat only: which conversations happened, with turn/feedback rollups) |
+| feedback | `rc run feedback list` | `GET /api/v1/feedback` (rated/commented runs, windowed on rating time, not run creation) |
 | index | `rc status` / `rc run list` | `GET /api/v1/runs` (`status` = fixed health-led page; `run list` = filterable) |
 | one run | `rc run show <id>` | `GET /api/v1/runs/{id}` |
 | detail | `rc run events <id>` | `GET /api/v1/runs/{id}/events` (NDJSON in `-o json`) |

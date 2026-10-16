@@ -109,7 +109,7 @@ Available Commands:
   thread         Trace one run, provider/local thread, or session through pipeline and placement
   attachments    List or download the files in a chat session
   session        Dump a shared chat session (transcript + its runs) to one markdown file
-  feedback       Record score/comment feedback on a run's trace, or mark it processed
+  feedback       Record score/comment feedback on a run's trace, or mark it processed; `list` reviews rated runs
   retry          Re-run a run; --comment steers the rerun with reviewer guidance (e.g. the corrected answer) and lets it keep the original tier; without it a finished run escalates one tier
   process-thread Process a triage-skipped or security-blocked inbox thread
 
@@ -419,17 +419,57 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rc run feedback --help
-Record score/comment feedback on a run's trace, or mark it processed
+Record a reviewer score (1..5) and/or comment on one run, or set the operator triage state (--processed/--unprocessed/--resolution-note). To review feedback across runs, use `rc run feedback list`.
 
 Usage:
   rc run feedback <run-id> [--score N] [--comment TEXT] [--processed|--unprocessed] [--resolution-note TEXT] [flags]
+  rc run feedback [command]
+
+Available Commands:
+  list        List runs that received a human score or comment, newest rating first
 
 Flags:
       --comment string           free-text feedback comment
       --processed                mark the run's feedback as processed
       --resolution-note string   operator note on how the feedback was resolved
-      --score int                feedback score (e.g. -1, 0, 1)
+      --score int                reviewer score 1..5 (chat 👎 = 1, 👍 = 5)
       --unprocessed              mark the run's feedback as not processed
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .rootcause/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .rootcause.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+Use "rc run feedback [command] --help" for more information about a command.
+
+$ rc run feedback list --help
+List runs that received human feedback (a score and/or a comment), newest rating first.
+
+Scores run 1..5 (chat thumbs: 👎 = 1, 👍 = 5); --score negative = 1-2, positive = 4-5, any (default) = every row with a score or comment. The --days/--since/--until window applies to when the feedback was last written (feedback_at), not when the run was created. Comments need review-content access and question/answer previews need project-admin access; below those tiers the cells stay empty.
+
+Drill down with `rc run show <run_id>`, and for chat `rc run thread <session_id> --transcript` to read the whole conversation. `-o json` is the server payload verbatim (session_id, previews, next_before included).
+
+Usage:
+  rc run feedback list [flags]
+
+Examples:
+  rc run feedback list --score negative --kind chat --since 2026-10-16
+  rc run feedback list --tenant conferentie --days 7 -o json
+
+Flags:
+      --before string    cursor: next_before of the previous page (keep the other filters the same)
+      --days int         feedback written in the last N days
+      --kind string      filter by run kind: email|prompt|mcp|analysis|console|chat
+      --limit int        max rows to return (1..100, server default 50)
+      --score string     negative (1-2) | positive (4-5) | any (server default: any)
+      --since string     feedback written at/after this RFC3339 time or YYYY-MM-DD (UTC midnight)
+      --surface string   chat surface: embed|dashboard|all (server default: all)
+      --until string     feedback written before this RFC3339 time, or through this YYYY-MM-DD (UTC)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

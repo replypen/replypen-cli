@@ -160,3 +160,79 @@ func validateSessionSurface(surface string) error {
 		return fmt.Errorf("invalid --surface %q (want embed, dashboard, or all)", surface)
 	}
 }
+
+// feedbackListFlags holds the `rc run feedback list` filters, bound per-command so each invocation is isolated.
+type feedbackListFlags struct {
+	score   string
+	kind    string
+	surface string
+	days    int
+	since   string
+	until   string
+	limit   int
+	before  string
+}
+
+// newRunFeedbackListCmd builds `rc run feedback list`: the rated-runs index (GET /api/v1/feedback), the
+// read side of `rc run feedback <run-id>`. Filters go to the server so paging stays correct.
+func newRunFeedbackListCmd(e *env) *cobra.Command {
+	var f feedbackListFlags
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List runs that received a human score or comment, newest rating first",
+		Long: "List runs that received human feedback (a score and/or a comment), newest rating first.\n\n" +
+			"Scores run 1..5 (chat thumbs: 👎 = 1, 👍 = 5); --score negative = 1-2, positive = 4-5, any (default) " +
+			"= every row with a score or comment. The --days/--since/--until window applies to when the feedback " +
+			"was last written (feedback_at), not when the run was created. Comments need review-content access " +
+			"and question/answer previews need project-admin access; below those tiers the cells stay empty.\n\n" +
+			"Drill down with `rc run show <run_id>`, and for chat `rc run thread <session_id> --transcript` to " +
+			"read the whole conversation. `-o json` is the server payload verbatim (session_id, previews, " +
+			"next_before included).",
+		Example: "  rc run feedback list --score negative --kind chat --since 2026-10-16\n" +
+			"  rc run feedback list --tenant conferentie --days 7 -o json",
+		Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if err := validateFeedbackScore(f.score); err != nil {
+				return err
+			}
+			if err := validateSessionSurface(f.surface); err != nil {
+				return err
+			}
+			c, err := e.newClient()
+			if err != nil {
+				return err
+			}
+			params := client.FeedbackParams{
+				Score: f.score, Kind: f.kind, Surface: f.surface, Days: f.days, Since: f.since, Until: f.until,
+				Limit: f.limit, Before: f.before, Project: e.scopeProject(), Tenant: e.scopeTenant(),
+			}
+			resp, raw, err := c.Feedback(e.ctx(), params)
+			if err != nil {
+				return err
+			}
+			if render.IsJSON(e.mode(), e.out) {
+				return render.JSON(e.out, raw)
+			}
+			render.Feedback(e.out, resp)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&f.score, "score", "", "negative (1-2) | positive (4-5) | any (server default: any)")
+	cmd.Flags().StringVar(&f.kind, "kind", "", "filter by run kind: email|prompt|mcp|analysis|console|chat")
+	cmd.Flags().StringVar(&f.surface, "surface", "", "chat surface: embed|dashboard|all (server default: all)")
+	cmd.Flags().IntVar(&f.days, "days", 0, "feedback written in the last N days")
+	cmd.Flags().StringVar(&f.since, "since", "", "feedback written at/after this RFC3339 time or YYYY-MM-DD (UTC midnight)")
+	cmd.Flags().StringVar(&f.until, "until", "", "feedback written before this RFC3339 time, or through this YYYY-MM-DD (UTC)")
+	cmd.Flags().IntVar(&f.limit, "limit", 0, "max rows to return (1..100, server default 50)")
+	cmd.Flags().StringVar(&f.before, "before", "", "cursor: next_before of the previous page (keep the other filters the same)")
+	return cmd
+}
+
+func validateFeedbackScore(score string) error {
+	switch score {
+	case "", "negative", "positive", "any":
+		return nil
+	default:
+		return fmt.Errorf("invalid --score %q (want negative, positive, or any)", score)
+	}
+}

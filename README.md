@@ -424,6 +424,11 @@ Use **`--reviewed`** on `rc fleet runs` or `rc run list` for the human-audit cor
 1–5 review score, including held-out eval runs. Operator JSON includes `review.score` and the optional
 `review.comment`; this stays separate from `--learning=feedback`, which excludes held-outs.
 
+`rc run feedback list` is the feedback-first view: one row per rated/commented run, newest rating
+first, windowed on the rating time (`--days`/`--since`/`--until`) rather than run creation. Narrow with
+`--score negative|positive`, `--kind`, `--surface`; drill with `rc run show <run_id>` or, for chat,
+`rc run thread <session_id> --transcript`.
+
 `rc dev learning evidence` is intentionally JSON-only because feedback, deltas, and triage evidence
 have different wire shapes. `--plane feedback|deltas|triage` narrows the corpus; `--plane shadow` is a
 convenience alias for `--plane deltas --shadow=true`. Use `--shadow=true|false`, `--verdict <csv>`, and
@@ -677,7 +682,8 @@ help using `go test ./internal/cli -update`.
 | `rc run debug` | Decompose a run into local debug artifacts |
 | `rc run egress` | Show outbound gateway connections and HTTP attempts |
 | `rc run events` | Show the full per-event trace |
-| `rc run feedback` | Record score/comment feedback on a run's trace, or mark it processed |
+| `rc run feedback list` | List runs that received a human score or comment, newest rating first |
+| `rc run feedback` | Record score/comment feedback on a run's trace, or mark it processed; `list` reviews rated runs |
 | `rc run guards` | Show every security-checkpoint verdict for one run |
 | `rc run list` | List recent runs (filterable) |
 | `rc run process-thread` | Process a triage-skipped or security-blocked inbox thread |

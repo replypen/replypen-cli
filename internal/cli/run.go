@@ -307,8 +307,11 @@ func runFeedbackCmd(e *env) *cobra.Command {
 	var resolutionNote string
 	cmd := &cobra.Command{
 		Use:   "feedback <run-id> [--score N] [--comment TEXT] [--processed|--unprocessed] [--resolution-note TEXT]",
-		Short: "Record score/comment feedback on a run's trace, or mark it processed",
-		Args:  cobra.ExactArgs(1),
+		Short: "Record score/comment feedback on a run's trace, or mark it processed; `list` reviews rated runs",
+		Long: "Record a reviewer score (1..5) and/or comment on one run, or set the operator triage state " +
+			"(--processed/--unprocessed/--resolution-note). To review feedback across runs, use " +
+			"`rc run feedback list`.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cc *cobra.Command, args []string) error {
 			if processed && unprocessed {
 				return fmt.Errorf("--processed and --unprocessed are mutually exclusive")
@@ -362,12 +365,13 @@ func runFeedbackCmd(e *env) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().IntVar(&score, "score", 0, "feedback score (e.g. -1, 0, 1)")
+	cmd.Flags().IntVar(&score, "score", 0, "reviewer score 1..5 (chat 👎 = 1, 👍 = 5)")
 	cmd.Flags().StringVar(&comment, "comment", "", "free-text feedback comment")
 	cmd.Flags().BoolVar(&processed, "processed", false, "mark the run's feedback as processed")
 	cmd.Flags().BoolVar(&unprocessed, "unprocessed", false, "mark the run's feedback as not processed")
 	cmd.Flags().StringVar(&resolutionNote, "resolution-note", "", "operator note on how the feedback was resolved")
 	cmd.MarkFlagsMutuallyExclusive("processed", "unprocessed")
+	cmd.AddCommand(newRunFeedbackListCmd(e))
 	return cmd
 }
 

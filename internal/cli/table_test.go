@@ -59,6 +59,7 @@ func TestTableGolden(t *testing.T) {
 		{"ExportGetTable", []string{"project", "corpus", "get", "eeee1111-0000-0000-0000-000000000001"}, "export_get.golden"},
 		{"StatusTable", []string{"status"}, "status.golden"},
 		{"RunsTable", []string{"run", "list", "--limit", "10"}, "runs.golden"},
+		{"RunFeedbackListTable", []string{"run", "feedback", "list"}, "feedback_list.golden"},
 		{"RunDetailTable", []string{"run", "show", "11111111-1111-1111-1111-111111111111"}, "run.golden"},
 		{"RunEventsTable", []string{"run", "events", "11111111-1111-1111-1111-111111111111"}, "events.golden"},
 		{"RunFullTable", []string{"run", "trace", "11111111-1111-1111-1111-111111111111"}, "full.golden"},
@@ -220,6 +221,7 @@ func TestJSONPassthrough(t *testing.T) {
 		{"AccessJSONPassthrough", []string{"auth", "access"}, "meta_capabilities.json"},
 		{"StatusJSONPassthrough", []string{"status"}, "runs.json"},
 		{"RunDetailJSONPassthrough", []string{"run", "show", "11111111-1111-1111-1111-111111111111"}, "run.json"},
+		{"RunFeedbackListJSONPassthrough", []string{"run", "feedback", "list"}, "feedback.json"},
 		{"SettingProposalsJSONPassthrough", []string{"--project", "alpha", "--tenant", "acme", "project", "settings", "proposals", "ls"}, "setting_proposals.json"},
 		{"ConfigGetJSONPassthrough", []string{"project", "settings", "runtime", "get"}, "settings.json"},
 		{"TenantSettingsGetJSON", []string{"project", "tenant", "settings", "get", "de-kies"}, "hierarchy_tenant_settings.json"},
@@ -303,6 +305,8 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		{"RepliesRequireTenant", []string{"--project", "alpha", "dev", "replies", "list"}, "--tenant are required"},
 		{"RepliesFeedbackRequiresInput", []string{"--project", "alpha", "--tenant", "de-kies", "dev", "replies", "feedback", "11111111-1111-1111-1111-111111111111"}, "nothing to record"},
 		{"RunFeedbackRequiresInput", []string{"run", "feedback", "11111111-1111-1111-1111-111111111111"}, "nothing to record"},
+		{"RunFeedbackListRejectsScore", []string{"run", "feedback", "list", "--score", "1"}, "invalid --score"},
+		{"RunFeedbackListRejectsSurface", []string{"run", "feedback", "list", "--surface", "mobile"}, "invalid --surface"},
 		// ConfigSetObjectRejectsNonObject asserts a non-JSON-object value for an object key fails
 		// client-side with a shape hint instead of being sent as a bare string.
 		{"ConfigSetObjectRejectsNonObject", []string{"project", "settings", "runtime", "set", "models.agent=pro"}, "expected a JSON object"},
