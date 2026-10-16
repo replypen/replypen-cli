@@ -259,7 +259,8 @@ redirect traffic. `.rootcause/local.toml` overlays `tenant` only.
 
 ## Adding a command
 
-1. Wire struct in the endpoint's `internal/client/<endpoint>_types.go` — field names match the server JSON exactly.
+1. Wire struct in the endpoint's `internal/client/<endpoint>_types.go` — field names match the server JSON exactly. Grep each new tag in the server handler (`rootcause/internal/api`) before adding it: a field the
+   server never sends decodes silently to zero, and a fixture inventing it keeps the golden green (2026-10-16: phantom `debug`/`source_pr` hid every decline reason).
 2. Client method in `internal/client` (one method per endpoint), returning `(typed, raw, error)`.
 3. Render function + golden fixture/test in `internal/render`.
 4. Cobra command in `surface.go`, plus a `commandScope` entry if it accepts any selector (without one it
