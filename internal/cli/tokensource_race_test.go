@@ -108,23 +108,40 @@ func TestRefreshHelperProcess(t *testing.T) {
 // TestConcurrentProfilesRefreshInParallel: refresh serialization is per profile. Three processes on three
 // expired profiles must refresh concurrently — a slow OAuth round-trip on one profile may not queue the
 // others behind it (a store-wide lock made them take N× the latency, and time out once N× exceeded the
-// lock wait).
+// lock wait). Each refresh holds its response until all three are in flight: parallel refreshes meet at
+// that barrier at once, serialized ones never do and the first one gives up after barrierWait.
 func TestConcurrentProfilesRefreshInParallel(t *testing.T) {
 	isolatedConfig(t)
 
-	const latency = 2 * time.Second
+	const barrierWait = 10 * time.Second
+	profiles := []string{"alpha", "beta", "gamma"}
 	var (
 		mu        sync.Mutex
 		refreshes = map[string]int{}
+		inFlight  sync.WaitGroup
+		allIn     = make(chan struct{})
+		met       = true
 	)
+	inFlight.Add(len(profiles))
+	go func() { inFlight.Wait(); close(allIn) }()
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /oauth/token", func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		rt := r.PostFormValue("refresh_token") // rcor_<profile>
 		mu.Lock()
 		refreshes[rt]++
+		first := refreshes[rt] == 1
 		mu.Unlock()
-		time.Sleep(latency)
+		if first {
+			inFlight.Done()
+		}
+		select {
+		case <-allIn:
+		case <-time.After(barrierWait):
+			mu.Lock()
+			met = false
+			mu.Unlock()
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = fmt.Fprintf(w, `{"access_token":"rcoa_new_%s","refresh_token":"rcor_new_%s","token_type":"Bearer","expires_in":3600}`,
 			strings.TrimPrefix(rt, "rcor_"), strings.TrimPrefix(rt, "rcor_"))
@@ -132,7 +149,6 @@ func TestConcurrentProfilesRefreshInParallel(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	profiles := []string{"alpha", "beta", "gamma"}
 	for _, p := range profiles {
 		seedToken(t, p, token.Token{
 			AccessToken: "rcoa_stale", RefreshToken: "rcor_" + p,
@@ -142,7 +158,6 @@ func TestConcurrentProfilesRefreshInParallel(t *testing.T) {
 
 	outs := make([]string, len(profiles))
 	var wg sync.WaitGroup
-	start := time.Now()
 	for i, p := range profiles {
 		wg.Add(1)
 		go func() {
@@ -158,8 +173,6 @@ func TestConcurrentProfilesRefreshInParallel(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	elapsed := time.Since(start)
-	t.Logf("3 profiles refreshed in %s (one refresh = %s)", elapsed.Round(10*time.Millisecond), latency)
 
 	for i, p := range profiles {
 		if !strings.Contains(outs[i], "TOKEN=rcoa_new_"+p+"\n") {
@@ -173,9 +186,8 @@ func TestConcurrentProfilesRefreshInParallel(t *testing.T) {
 			t.Errorf("profile %s refresh requests = %d, want 1", p, n)
 		}
 	}
-	// Parallel: ~one latency plus process start-up. Serialized would be >= 3× latency.
-	if elapsed >= 2*latency {
-		t.Errorf("elapsed %s >= %s: profiles refreshed serially, not in parallel", elapsed, 2*latency)
+	if !met {
+		t.Errorf("the three refreshes were never in flight together: profiles refreshed serially, not in parallel")
 	}
 }
 

@@ -237,7 +237,11 @@ func extractTarGz(r io.Reader, dst string) (extractStats, error) {
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
-			_, _ = io.Copy(io.Discard, r)
+			// Read on through gz, not r: the gzip CRC/size trailer follows tar's end-of-archive blocks and
+			// is only checked at gzip EOF. This also drains the pipe so the download completes.
+			if _, err := io.Copy(io.Discard, gz); err != nil {
+				return st, err
+			}
 			return st, nil
 		}
 		if err != nil {

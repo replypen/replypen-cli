@@ -163,6 +163,7 @@ func TestSessionSearchTranscriptFailuresAreLoud(t *testing.T) {
 				case "/api/v1/sessions":
 					_ = json.NewEncoder(w).Encode(map[string]any{"sessions": []map[string]any{searchSession("unreadable", "2026-01-01T00:00:00Z", "member", "1", "none")}})
 				default:
+					w.Header().Set("Retry-After", "0") // the 500 is retried; don't wait out the real backoff
 					w.WriteHeader(code)
 					_, _ = fmt.Fprint(w, `{"error":{"code":"UNKNOWN_SESSION","message":"unavailable"}}`)
 				}

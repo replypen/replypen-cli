@@ -127,3 +127,23 @@ func TestFileGetDirectoryStagesAndUnpacks(t *testing.T) {
 		t.Fatalf("summary = %s", out.String())
 	}
 }
+
+// TestExtractTarGzRejectsCorruptTrailer: the gzip CRC sits after tar's end-of-archive blocks, so the
+// extractor must read through it — a corrupt download may not be installed as a complete tree.
+func TestExtractTarGzRejectsCorruptTrailer(t *testing.T) {
+	var tarball bytes.Buffer
+	gz := gzip.NewWriter(&tarball)
+	tw := tar.NewWriter(gz)
+	_ = tw.WriteHeader(&tar.Header{Name: "a.md", Mode: 0o644, Size: 5, Typeflag: tar.TypeReg})
+	_, _ = tw.Write([]byte("alpha"))
+	_ = tw.Close()
+	_ = gz.Close()
+	if _, err := extractTarGz(bytes.NewReader(tarball.Bytes()), t.TempDir()); err != nil {
+		t.Fatalf("valid archive: %v", err)
+	}
+	corrupt := bytes.Clone(tarball.Bytes())
+	corrupt[len(corrupt)-8] ^= 0xff // first CRC-32 byte of the gzip trailer
+	if _, err := extractTarGz(bytes.NewReader(corrupt), t.TempDir()); err == nil {
+		t.Fatal("corrupt gzip trailer extracted without error")
+	}
+}
