@@ -186,7 +186,8 @@ func (c *Client) BashRun(ctx context.Context, req BashRunRequest, project, tenan
 	return fetchBoth[BashRunResponse](ctx, c, http.MethodPost, "/api/v1/console/bash/run"+consoleScope(project, tenant), req)
 }
 
-func (c *Client) FileGet(ctx context.Context, remote, project, tenant string, w io.Writer) error {
+// FileGet streams one sandbox file. principal selects the warm session a principal-bound bash run used.
+func (c *Client) FileGet(ctx context.Context, remote, project, tenant string, principal *Principal, w io.Writer) error {
 	q := url.Values{}
 	q.Set("path", remote)
 	if project != "" {
@@ -194,6 +195,10 @@ func (c *Client) FileGet(ctx context.Context, remote, project, tenant string, w 
 	}
 	if tenant != "" {
 		q.Set("tenant", tenant)
+	}
+	if principal != nil {
+		q.Set("principal_kind", principal.Kind)
+		q.Set("principal_id", principal.ExternalID)
 	}
 	return c.Download(ctx, "/api/v1/console/file?"+q.Encode(), w)
 }

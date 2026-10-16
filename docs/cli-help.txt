@@ -4091,7 +4091,7 @@ Usage:
   rc dev console file [command]
 
 Available Commands:
-  get         Fetch a workspace or /tmp file without the bash output cap
+  get         Download a sandbox file or directory without the bash output cap
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -4106,13 +4106,25 @@ Global Flags:
 Use "rc dev console file [command] --help" for more information about a command.
 
 $ rc dev console file get --help
-Fetch a workspace or /tmp file without the bash output cap
+Download a file or directory from the console sandbox, any size (up to 512 MiB), byte-exact.
+Directories arrive as a local directory (tar'ed in the sandbox, unpacked here). Paths outside
+/tmp and /home/agent (e.g. /kb, /brain, /mirrors) are staged through /tmp transparently.
+local-path defaults to the sandbox path's base name in the current directory; - writes a file to stdout.
 
 Usage:
-  rc dev console file get <remote-path> [flags]
+  rc dev console file get <sandbox-path> [local-path] [flags]
+
+Aliases:
+  get, download
+
+Examples:
+  rc dev console file get /kb/knowledgeowl ./kb
+  rc dev console file get /tmp/rc-console/stdout-7.txt ./stdout.txt
 
 Flags:
-      --out string   local destination path, or - for stdout
+      --out string              local destination path, or - for stdout (same as the local-path argument)
+      --principal-id string     principal external id (the asserted identity); requires --principal-kind
+      --principal-kind string   bind the call to a principal kind (e.g. kampadmin_admin); requires --principal-id
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

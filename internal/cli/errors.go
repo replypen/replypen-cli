@@ -72,11 +72,15 @@ func withHint(err error, hint string) error {
 	return &hintedError{hint: hint, err: err}
 }
 
-// hintFor returns the local hint attached to err, if any.
+// hintFor returns the local hint attached to err, else the generic self-heal line for a known code.
 func hintFor(err error) string {
 	var he *hintedError
 	if errors.As(err, &he) {
 		return he.hint
+	}
+	var apiErr *client.APIError
+	if errors.As(err, &apiErr) && apiErr.Hint == "" && apiErr.Code == "TENANT_REQUIRED" {
+		return "this project is tenant-enabled: add --tenant <slug> (list them: rc project tenant ls)"
 	}
 	return ""
 }

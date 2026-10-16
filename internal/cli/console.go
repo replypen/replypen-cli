@@ -314,9 +314,10 @@ func newBashCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			hint := stdoutTruncationHint(e, resp)
 			if out == "" {
 				if e.jsonOut() {
-					if err := e.renderJSON(bashRunLabel(resp), raw); err != nil {
+					if err := e.renderJSONHinted(bashRunLabel(resp), raw, hint); err != nil {
 						return err
 					}
 				} else {
@@ -325,24 +326,42 @@ func newBashCmd(e *env) *cobra.Command {
 						return err
 					}
 					render.BashRun(e.out, resp, bashArtifacts(manifest))
+					if hint != "" {
+						_, _ = fmt.Fprintln(e.out, hint)
+					}
 				}
 			} else {
 				format := "text"
-				data := []byte(resp.Stdout)
 				ext := ".txt"
 				if e.jsonOut() {
-					format, data, ext = "json", append(raw, '\n'), ".json"
+					format, ext = "json", ".json"
 				}
 				target, err := openOutputTarget(e, out, "console-bash-run-"+shortRunID(resp.RunID)+ext, format)
 				if err != nil {
 					return err
 				}
-				if _, err := target.Writer().Write(data); err != nil {
+				// Text --out is the command's whole stdout: a truncated one is fetched in full from the
+				// sandbox copy the host kept, so the file never silently ends mid-stream.
+				var werr error
+				fullFetched := false
+				switch {
+				case e.jsonOut():
+					_, werr = target.Writer().Write(append(withJSONHint(raw, hint), '\n'))
+				case resp.StdoutTruncated && resp.StdoutPath != "":
+					werr = c.FileGet(e.ctx(), resp.StdoutPath, e.scopeProject(), e.scopeTenant(), principal, target.Writer())
+					fullFetched = werr == nil
+				default:
+					_, werr = target.Writer().Write([]byte(resp.Stdout))
+				}
+				if werr != nil {
 					target.abort()
+					return werr
+				}
+				if err := target.finish(e, resp.StdoutTruncated && !fullFetched); err != nil {
 					return err
 				}
-				if err := target.finish(e, false); err != nil {
-					return err
+				if hint != "" && !fullFetched && !e.jsonOut() {
+					_, _ = fmt.Fprintln(e.err, hint)
 				}
 				if !e.jsonOut() && resp.Stderr != "" {
 					_, _ = fmt.Fprint(e.err, resp.Stderr)
@@ -371,43 +390,6 @@ func newBashCmd(e *env) *cobra.Command {
 func addConsolePrincipalFlags(cmd *cobra.Command, kind, id *string) {
 	cmd.Flags().StringVar(kind, "principal-kind", "", "bind the call to a principal kind (e.g. kampadmin_admin); requires --principal-id")
 	cmd.Flags().StringVar(id, "principal-id", "", "principal external id (the asserted identity); requires --principal-kind")
-}
-
-func newConsoleFileCmd(e *env) *cobra.Command {
-	cmd := &cobra.Command{Use: "file", Short: "Transfer files from a guarded workspace console"}
-	var out string
-	get := &cobra.Command{
-		Use:   "get <remote-path>",
-		Short: "Fetch a workspace or /tmp file without the bash output cap",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			if out == "" {
-				return fmt.Errorf("--out <local-path> is required (use --out - for stdout)")
-			}
-			if out == "auto" {
-				return fmt.Errorf("file get requires an explicit local path or --out -")
-			}
-			c, err := e.newClient()
-			if err != nil {
-				return err
-			}
-			if out == "-" {
-				return c.FileGet(e.ctx(), args[0], e.scopeProject(), e.scopeTenant(), e.out)
-			}
-			target, err := openOutputTarget(e, out, "", "binary")
-			if err != nil {
-				return err
-			}
-			if err := c.FileGet(e.ctx(), args[0], e.scopeProject(), e.scopeTenant(), target.Writer()); err != nil {
-				target.abort()
-				return err
-			}
-			return target.finish(e, false)
-		},
-	}
-	get.Flags().StringVar(&out, "out", "", "local destination path, or - for stdout")
-	cmd.AddCommand(get)
-	return cmd
 }
 
 func newActionCmd(e *env) *cobra.Command {

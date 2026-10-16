@@ -489,7 +489,7 @@ help using `go test ./internal/cli -update`.
 | `rc dev console database query` | Run a guarded production database query |
 | `rc dev console database schema` | Fetch database schema, optionally one table |
 | `rc dev console database` | Access guarded production databases |
-| `rc dev console file get` | Fetch a workspace or /tmp file without the bash output cap |
+| `rc dev console file get` | Download a sandbox file or directory without the bash output cap |
 | `rc dev console file` | Transfer files from a guarded workspace console |
 | `rc dev console paths` | Check which absolute paths exist in a production workspace |
 | `rc dev console` | Use guarded production consoles |
@@ -834,10 +834,18 @@ requires `--all`. Multi-statement SQL and cross-database queries remain unsuppor
 
 `--out <path>` atomically writes data there and prints a JSON manifest. `--out -` writes data directly
 to stdout. `--out auto` writes a unique `.rootcause/output/<command>-<runid8>.<ext>` artifact, so
-concurrent calls do not clobber each other. Fetch a brain-side spill without the bash 64 KiB cap with:
+concurrent calls do not clobber each other.
+
+Bash stdout is capped server-side at ~64 KiB. A truncated `bash run` keeps the full stdout in the sandbox
+(`stdout_path`) and ends its output (table line, JSON `hint`, spill-manifest hint) with the exact
+download command; `bash run --out FILE` fetches the full stdout automatically. `file get` copies any
+sandbox file or directory without the cap (512 MiB max): directories are tar'ed in the sandbox and
+unpacked locally, and paths outside `/tmp`/`/home/agent` are staged through `/tmp` transparently. The
+sandbox lives with the warm console session (~2 min idle), so fetch promptly.
 
 ```bash
-rc dev console file get /tmp/rootcause-out/report-abc123.csv --out ./report.csv
+rc dev console file get /tmp/rootcause-out/report-abc123.csv ./report.csv
+rc dev console file get /kb/knowledgeowl ./kb          # directory → ./kb/
 ```
 
 Stable process exits: `0` success, `1` usage, `2` auth/scope, `3` truncated, `4` remote bash

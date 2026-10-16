@@ -168,9 +168,13 @@ type BashRunResponse struct {
 	Stderr          string `json:"stderr"`
 	StdoutTruncated bool   `json:"stdout_truncated"`
 	StderrTruncated bool   `json:"stderr_truncated"`
-	TimedOut        bool   `json:"timed_out"`
-	DurationMs      int64  `json:"duration_ms"`
-	EgressBlocked   bool   `json:"egress_blocked"`
+	// StdoutPath is the sandbox file holding the FULL stdout when StdoutTruncated (fetch it with
+	// `dev console file get` while the warm session lives); empty on an older host.
+	StdoutPath    string `json:"stdout_path,omitempty"`
+	StdoutBytes   int64  `json:"stdout_bytes,omitempty"`
+	TimedOut      bool   `json:"timed_out"`
+	DurationMs    int64  `json:"duration_ms"`
+	EgressBlocked bool   `json:"egress_blocked"`
 
 	Principal    *Principal `json:"principal,omitempty"`
 	HiddenTables []string   `json:"hidden_tables,omitempty"`
