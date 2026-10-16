@@ -21,6 +21,8 @@ Method: pjarchitecture scripts as pointers → 2 Opus sub-agents (cli · debugdu
 | 9 | Suite sinks: refresh-race test slept 2 s to infer parallelism; session-search 500 waited real backoff (1.75 s) | barrier (mutation-checked: store-wide lock fails it) + `Retry-After: 0` · cli pkg **8.4 s → 4.9 s** |
 | 10 | SKILL.md claimed 2 JSON exceptions; reality has more | documented console `hint`, token-ls envelope, mirror-refresh `git fetch` |
 
+Released **v1.51.1**; live-verified on a declined DA run (`run show` Why, `run trace` Decline block, `run debug` index + JSONL `decline` — all empty before). Sol High review: 1 finding (scrubbed loud failure read as grep miss) fixed + mutation-checked.
+
 Suite: `go test ./... -count=1` 8.75 s wall (was 10.0 s); cli 4.9 s, releasetest 2.1 s (skipped by `-short`).
 
 ## Needs PJ's green light (ranked)
