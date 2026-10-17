@@ -1,4 +1,4 @@
-// The `rc project env verify` view. Names only: this renderer must never be able to print a secret
+// The `rp project env verify` view. Names only: this renderer must never be able to print a secret
 // value, so it takes three lists of KEY names and nothing else.
 
 package render
@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // EnvDrift is the names-only drift between a local .env and the server's env.

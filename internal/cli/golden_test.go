@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
 // Table-mode golden tests: each pins one renderer's human output against testdata/*.golden.
@@ -196,7 +196,7 @@ func TestBashRunLargeJSONManifestAndRawOutput(t *testing.T) {
 	}
 }
 
-// TestRunFullJSONL locks the cross-repo seam: `rc run trace <id> -o json` must emit a `type:run`
+// TestRunFullJSONL locks the cross-repo seam: `rp run trace <id> -o json` must emit a `type:run`
 // header line followed by one `type:event` line per event (JSONL), each carrying its fields verbatim.
 func TestRunFullJSONL(t *testing.T) {
 	srv := stubServer(t)
@@ -253,7 +253,7 @@ func TestRunFullJSONL(t *testing.T) {
 	}
 }
 
-// TestRunDebug locks `rc run debug`'s two output files against goldens: a thin markdown index
+// TestRunDebug locks `rp run debug`'s two output files against goldens: a thin markdown index
 // and the jq-able JSONL (type:run header + type:event lines keyed by disp). The printed PATHS are
 // non-deterministic (a temp out-dir), so we golden the FILE CONTENTS, not stdout.
 func TestRunDebug(t *testing.T) {
@@ -441,7 +441,7 @@ func TestConfigSetObjectClear(t *testing.T) {
 	}
 }
 
-// TestActionConfigSetBoolCoercion locks the bool-coercion contract: `rc project action-settings set
+// TestActionConfigSetBoolCoercion locks the bool-coercion contract: `rp project action-settings set
 // actions_enabled=true` must send a JSON boolean, not the string "true" (asserted in the PATCH handler).
 func TestActionConfigSetBoolCoercion(t *testing.T) {
 	srv := stubServer(t)
@@ -455,7 +455,7 @@ func TestActionConfigSetBoolCoercion(t *testing.T) {
 // JSON-mode passthrough tests: -o json must emit the canned server body verbatim (re-indented only),
 // so it round-trips to the same value the server sent.
 
-// TestEventsNDJSON asserts -o json on `rc run events` emits one event object per line (NDJSON), not a
+// TestEventsNDJSON asserts -o json on `rp run events` emits one event object per line (NDJSON), not a
 // wrapping array — the streamable, jq-friendly contract.
 func TestEventsNDJSON(t *testing.T) {
 	srv := stubServer(t)
@@ -558,7 +558,7 @@ func TestAPIErrorPath(t *testing.T) {
 	}
 }
 
-// TestNotLoggedIn asserts a clear "run `rc auth login`" error when an EXPLICIT profile has no token
+// TestNotLoggedIn asserts a clear "run `rp auth login`" error when an EXPLICIT profile has no token
 // (the auto/no-profile case gets the richer hint — TestNoProfileOutsideBrainHint).
 func TestNotLoggedIn(t *testing.T) {
 	srv := stubServer(t)
@@ -572,7 +572,7 @@ func TestNotLoggedIn(t *testing.T) {
 	}
 }
 
-// TestNoProfileOutsideBrainHint asserts the "silently defaulted profile" case (no .rootcause.toml, no
+// TestNoProfileOutsideBrainHint asserts the "silently defaulted profile" case (no .replypen.toml, no
 // --profile) names the missing ingredient and lists what could be picked — and that RC_PROFILE counts
 // as "given", so a named-but-unauthenticated profile keeps the plain error.
 func TestNoProfileOutsideBrainHint(t *testing.T) {
@@ -582,16 +582,16 @@ func TestNoProfileOutsideBrainHint(t *testing.T) {
 	newEnv := func(t *testing.T) *env {
 		t.Helper()
 		t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // isolate the token store
-		t.Setenv("ROOTCAUSE_BASE_URL", "")
+		t.Setenv("REPLYPEN_BASE_URL", "")
 		t.Setenv("RC_PROFILE", "")
-		t.Chdir(t.TempDir()) // no .rootcause.toml above cwd
+		t.Chdir(t.TempDir()) // no .replypen.toml above cwd
 		var out, errb bytes.Buffer
 		return &env{output: "table", baseURLOvr: srv.URL, out: &out, err: &errb}
 	}
 
 	t.Run("empty store", func(t *testing.T) {
 		err := run(t, newEnv(t), "status")
-		want := "no .rootcause.toml here and no --profile given — pass --profile <name> or cd into the brain checkout (no profiles logged in yet — run `rc auth login`)"
+		want := "no .replypen.toml (or legacy .rootcause.toml) here and no --profile given — pass --profile <name> or cd into the brain checkout (no profiles logged in yet — run `rp auth login`)"
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("got %v\nwant substring %q", err, want)
 		}
@@ -728,7 +728,7 @@ func TestErrorIsTyped(t *testing.T) {
 // The server answers these 200 with the normal envelope and NO detail. Every renderer must say
 // "withheld"; an empty trace must never read as a run that did nothing.
 
-// TestRunTraceRedactedTable pins `rc run trace` on a redacted bundle: the header still renders, the
+// TestRunTraceRedactedTable pins `rp run trace` on a redacted bundle: the header still renders, the
 // timeline is replaced by the withheld notice, and the draft (not part of what redaction hides) stays.
 func TestRunTraceRedactedTable(t *testing.T) {
 	srv := stubServer(t)
@@ -743,7 +743,7 @@ func TestRunTraceRedactedTable(t *testing.T) {
 	}
 }
 
-// TestRunEventsRedactedTable pins `rc run events` on the empty+marked envelope: the notice, not "No events."
+// TestRunEventsRedactedTable pins `rp run events` on the empty+marked envelope: the notice, not "No events."
 func TestRunEventsRedactedTable(t *testing.T) {
 	srv := stubServer(t)
 	defer srv.Close()
@@ -798,7 +798,7 @@ func TestRunDebugRedacted(t *testing.T) {
 	}
 }
 
-// TestPatternsRedactedTable pins `rc fleet patterns` over redacted feeds: an explicit "mining
+// TestPatternsRedactedTable pins `rp fleet patterns` over redacted feeds: an explicit "mining
 // unavailable" notice, never the clean-fleet line.
 func TestPatternsRedactedTable(t *testing.T) {
 	srv := stubServer(t)

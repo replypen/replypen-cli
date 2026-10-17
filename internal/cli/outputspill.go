@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/outputspill"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/localstate"
+	"github.com/replypen/replypen-cli/internal/outputspill"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 func (e *env) spillConfig() outputspill.Config {
@@ -129,7 +130,7 @@ func writeFileTree(dir string, files []treeFile) (root string, written int, skip
 	if err := os.RemoveAll(root); err != nil {
 		return root, 0, nil, fmt.Errorf("wipe %s: %w", root, err)
 	}
-	if err := os.MkdirAll(root, 0o755); err != nil {
+	if err := mkdirLocal(root, 0o755); err != nil {
 		return root, 0, nil, fmt.Errorf("create %s: %w", root, err)
 	}
 	for _, f := range files {
@@ -147,4 +148,12 @@ func writeFileTree(dir string, files []treeFile) (root string, written int, skip
 		written++
 	}
 	return root, written, skipped, nil
+}
+
+// mkdirLocal is os.MkdirAll that also keeps a local-state (.replypen/) target uncommittable.
+func mkdirLocal(dir string, perm os.FileMode) error {
+	if err := os.MkdirAll(dir, perm); err != nil {
+		return err
+	}
+	return localstate.SeedIgnore(dir)
 }

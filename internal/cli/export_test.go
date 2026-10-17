@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
-// Golden + contract tests for local synthesis (`rc project mailbox harvest` and
-// `rc project corpus ls/get/download`) plus a pure corpus-splitter unit test. A stub server returns
+// Golden + contract tests for local synthesis (`rp project mailbox harvest` and
+// `rp project corpus ls/get/download`) plus a pure corpus-splitter unit test. A stub server returns
 // canned JSON/Markdown; tests pin rendered output or the on-disk split tree.
 
-// --- rc project corpus ls / get ---
+// --- rp project corpus ls / get ---
 
 func TestExportGetSurveyShowsBlankFormat(t *testing.T) {
 	srv := stubServer(t)
@@ -29,7 +29,7 @@ func TestExportGetSurveyShowsBlankFormat(t *testing.T) {
 	}
 }
 
-// --- rc project mailbox harvest ---
+// --- rp project mailbox harvest ---
 
 // TestMailboxHarvestAccepted: the no-wait path prints {export_id,status} and a poll hint on stderr.
 func TestMailboxHarvestAccepted(t *testing.T) {
@@ -42,7 +42,7 @@ func TestMailboxHarvestAccepted(t *testing.T) {
 	if !strings.Contains(out.String(), "export_id: eeee1111-0000-0000-0000-000000000001") {
 		t.Errorf("missing export_id in stdout: %q", out.String())
 	}
-	if !strings.Contains(errb.String(), "rc project corpus get") {
+	if !strings.Contains(errb.String(), "rp project corpus get") {
 		t.Errorf("missing poll hint on stderr: %q", errb.String())
 	}
 }
@@ -54,7 +54,7 @@ func TestMailboxTemplatesAccepted(t *testing.T) {
 	if err := run(t, e, "project", "mailbox", "templates", "11111111-1111-1111-1111-111111111111"); err != nil {
 		t.Fatalf("project mailbox templates: %v", err)
 	}
-	if !strings.Contains(out.String(), "export_id: templates-export") || !strings.Contains(errb.String(), "rc project corpus get") {
+	if !strings.Contains(out.String(), "export_id: templates-export") || !strings.Contains(errb.String(), "rp project corpus get") {
 		t.Fatalf("stdout=%q stderr=%q", out.String(), errb.String())
 	}
 }
@@ -104,7 +104,7 @@ func TestMailboxIMAPEnvWritesSecretFile0600(t *testing.T) {
 	if err := run(t, e, "project", "mailbox", "imap-env", id); err != nil {
 		t.Fatalf("project mailbox imap-env: %v", err)
 	}
-	wantPath := filepath.Join(".rootcause", "imap", id+".env")
+	wantPath := filepath.Join(".replypen", "imap", id+".env")
 	if strings.TrimSpace(out.String()) != wantPath {
 		t.Fatalf("stdout = %q, want path %q", out.String(), wantPath)
 	}
@@ -133,12 +133,12 @@ func TestMailboxIMAPEnvWritesSecretFile0600(t *testing.T) {
 	if got := info.Mode().Perm(); got != 0o600 {
 		t.Fatalf("env mode = %o, want 600", got)
 	}
-	gi, err := os.ReadFile(filepath.Join(".rootcause", ".gitignore"))
+	gi, err := os.ReadFile(filepath.Join(".replypen", ".gitignore"))
 	if err != nil {
-		t.Fatalf("read .rootcause/.gitignore: %v", err)
+		t.Fatalf("read .replypen/.gitignore: %v", err)
 	}
 	if strings.TrimSpace(string(gi)) != "*" {
-		t.Fatalf(".rootcause/.gitignore = %q, want *", string(gi))
+		t.Fatalf(".replypen/.gitignore = %q, want *", string(gi))
 	}
 }
 
@@ -162,7 +162,7 @@ func TestMailboxIMAPEnvJSONOmitsSecretValues(t *testing.T) {
 	}
 }
 
-// --- rc project corpus download ---
+// --- rp project corpus download ---
 
 func TestExportDownloadStdout(t *testing.T) {
 	srv := stubServer(t)
@@ -274,7 +274,7 @@ func TestExportDownloadSplitFailureOffersOutRescue(t *testing.T) {
 	defer srv.Close()
 	e, _, _ := newTestEnv(t, srv, "table")
 	err := run(t, e, "project", "corpus", "download", "unsupported", "--split", t.TempDir())
-	if err == nil || !strings.Contains(err.Error(), "rc project corpus download unsupported --out <file>") ||
+	if err == nil || !strings.Contains(err.Error(), "rp project corpus download unsupported --out <file>") ||
 		!strings.Contains(err.Error(), "~48h") || !strings.Contains(err.Error(), "server may evict") {
 		t.Fatalf("split rescue offer = %v", err)
 	}
@@ -406,8 +406,8 @@ func TestExportDownloadSplitV2(t *testing.T) {
 	}
 }
 
-// TestExportDownloadSplitDefaultDir: --split with an empty value defaults to .rootcause/exports/<id>/
-// and seeds a .rootcause/.gitignore with "*" so the harvested corpus can't be committed.
+// TestExportDownloadSplitDefaultDir: --split with an empty value defaults to .replypen/exports/<id>/
+// and seeds a .replypen/.gitignore with "*" so the harvested corpus can't be committed.
 func TestExportDownloadSplitDefaultDir(t *testing.T) {
 	srv := stubServer(t)
 	defer srv.Close()
@@ -422,15 +422,15 @@ func TestExportDownloadSplitDefaultDir(t *testing.T) {
 	if err := run(t, e, "project", "corpus", "download", id, "--split", ""); err != nil {
 		t.Fatalf("project corpus download --split '': %v", err)
 	}
-	wantDir := filepath.Join(".rootcause", "exports", id)
+	wantDir := filepath.Join(".replypen", "exports", id)
 	if strings.TrimSpace(out.String()) != wantDir {
 		t.Errorf("default split dir = %q, want %q", strings.TrimSpace(out.String()), wantDir)
 	}
-	gi, err := os.ReadFile(filepath.Join(".rootcause", ".gitignore"))
+	gi, err := os.ReadFile(filepath.Join(".replypen", ".gitignore"))
 	if err != nil {
-		t.Fatalf("read .rootcause/.gitignore: %v", err)
+		t.Fatalf("read .replypen/.gitignore: %v", err)
 	}
 	if strings.TrimSpace(string(gi)) != "*" {
-		t.Errorf(".rootcause/.gitignore = %q, want *", string(gi))
+		t.Errorf(".replypen/.gitignore = %q, want *", string(gi))
 	}
 }

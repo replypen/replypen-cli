@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestThreadTranscriptJSON pins the machine contract of `rc run thread <session> --transcript -o json`:
+// TestThreadTranscriptJSON pins the machine contract of `rp run thread <session> --transcript -o json`:
 // the {session_id, turns[]} envelope, turns in created_at order, the folded form answer flagged (and
 // carrying the seq of the turn it answers), and the per-turn feedback the thread trace attributes.
 func TestThreadTranscriptJSON(t *testing.T) {
@@ -14,7 +14,7 @@ func TestThreadTranscriptJSON(t *testing.T) {
 	defer srv.Close()
 	e, out, _ := newTestEnv(t, srv, "json")
 	if err := run(t, e, "run", "thread", "chat-session", "--transcript"); err != nil {
-		t.Fatalf("rc run thread --transcript: %v", err)
+		t.Fatalf("rp run thread --transcript: %v", err)
 	}
 	var doc struct {
 		SessionID string `json:"session_id"`
@@ -76,7 +76,7 @@ func TestRunTraceBriefJSON(t *testing.T) {
 	defer srv.Close()
 	e, out, _ := newTestEnv(t, srv, "json")
 	if err := run(t, e, "run", "trace", "chat-turn-1", "--brief"); err != nil {
-		t.Fatalf("rc run trace --brief: %v", err)
+		t.Fatalf("rp run trace --brief: %v", err)
 	}
 	var body map[string]json.RawMessage
 	if err := json.Unmarshal(out.Bytes(), &body); err != nil {
@@ -112,11 +112,11 @@ func TestRunTraceBriefIsSmallerThanRaw(t *testing.T) {
 
 	eRaw, rawOut, _ := newTestEnv(t, srv, "json")
 	if err := run(t, eRaw, "run", "trace", "chat-turn-1", "--stream"); err != nil {
-		t.Fatalf("rc run trace: %v", err)
+		t.Fatalf("rp run trace: %v", err)
 	}
 	eBrief, briefOut, _ := newTestEnv(t, srv, "json")
 	if err := run(t, eBrief, "run", "trace", "chat-turn-1", "--brief"); err != nil {
-		t.Fatalf("rc run trace --brief: %v", err)
+		t.Fatalf("rp run trace --brief: %v", err)
 	}
 	if briefOut.Len() >= rawOut.Len() {
 		t.Fatalf("brief (%d bytes) is not smaller than the raw bundle (%d bytes)", briefOut.Len(), rawOut.Len())

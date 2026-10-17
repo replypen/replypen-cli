@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 const (
@@ -80,7 +80,7 @@ func hintFor(err error) string {
 	}
 	var apiErr *client.APIError
 	if errors.As(err, &apiErr) && apiErr.Hint == "" && apiErr.Code == "TENANT_REQUIRED" {
-		return "this project is tenant-enabled: add --tenant <slug> (list them: rc project tenant ls)"
+		return "this project is tenant-enabled: add --tenant <slug> (list them: rp project tenant ls)"
 	}
 	return ""
 }

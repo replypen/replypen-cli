@@ -5,14 +5,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/dnsdetect"
+	"github.com/replypen/replypen-cli/internal/dnsdetect"
 )
 
 // `provider detect` and `id` are fully LOCAL commands: no token, no base URL, no network beyond DNS
 // (for `provider detect`). They are pure functions over their input, so they never call newClient.
 
-// newProviderCmd builds `rc provider detect <domain|email>` — classify the email backend from public DNS
-// and report whether rootcause can onboard it. rootcause has DNS-detectable channel adapters for google
+// newProviderCmd builds `rp provider detect <domain|email>` — classify the email backend from public DNS
+// and report whether ReplyPen can onboard it. ReplyPen has DNS-detectable channel adapters for google
 // (Gmail/Workspace) and microsoft (M365/Graph); intercom is app-config, not DNS-detectable. The DNS
 // resolver is the live one here; the logic lives in internal/dnsdetect (unit-tested offline with a fake
 // resolver).
@@ -75,7 +75,7 @@ func printDetect(e *env, r dnsdetect.Result) {
 	if len(r.IMAPCandidates) > 0 {
 		_, _ = fmt.Fprintf(e.out, "  imap hosts to try (unverified, best first):\n")
 		for _, c := range r.IMAPCandidates {
-			_, _ = fmt.Fprintf(e.out, "    rc project mailbox connect-imap --email you@%s --imap-host %s --imap-port %d --smtp-host %s --smtp-port %d  # %s\n",
+			_, _ = fmt.Fprintf(e.out, "    rp project mailbox connect-imap --email you@%s --imap-host %s --imap-port %d --smtp-host %s --smtp-port %d  # %s\n",
 				r.Domain, c.IMAPHost, c.IMAPPort, c.SMTPHost, c.SMTPPort, c.Source)
 		}
 	}

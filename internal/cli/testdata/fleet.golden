@@ -16,7 +16,7 @@ Aggregate:
   turns: median 4 · max 14
   blocked-egress: 1 run(s) with blocked attempts
 
-Worst offenders (full ids — `rc run debug <id>`):
+Worst offenders (full ids — `rp run debug <id>`):
   Top turns:
     aaaaaaaa-0000-0000-0000-000000000001 14t — analysis, error · 200s · 14t · ERR×3 (+12 explore) · FB
     aaaaaaaa-0000-0000-0000-000000000002 5t — analysis, done · 40s · 5t · ERR×0 (+12 explore)

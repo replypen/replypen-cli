@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/config"
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
 // loadResolvedToken loads a profile token and, when the brain names a machine-token environment
@@ -39,7 +39,7 @@ func loadResolvedToken(res config.Resolved, baseURL string) (token.Token, bool, 
 			stored, ok = token.Token{}, false
 		} else if baseURL != config.DefaultBaseURL {
 			return token.Token{}, false, fmt.Errorf(
-				"refusing to send machine token %q to non-production base URL %q\n  fix: unset ROOTCAUSE_BASE_URL or use `rc auth login` for that environment",
+				"refusing to send machine token %q to non-production base URL %q\n  fix: unset REPLYPEN_BASE_URL or use `rp auth login` for that environment",
 				stored.MachineTokenEnv,
 				baseURL,
 			)
@@ -58,7 +58,7 @@ func loadResolvedToken(res config.Resolved, baseURL string) (token.Token, bool, 
 			return token.Token{}, false, nil
 		}
 		return token.Token{}, false, fmt.Errorf(
-			"machine token environment variable %q is not set\n  fix: set it or run `rc auth login` from this checkout",
+			"machine token environment variable %q is not set\n  fix: set it or run `rp auth login` from this checkout",
 			res.Brain.MachineTokenEnv,
 		)
 	}
@@ -67,7 +67,7 @@ func loadResolvedToken(res config.Resolved, baseURL string) (token.Token, bool, 
 			return stored, true, nil
 		}
 		return token.Token{}, false, fmt.Errorf(
-			"refusing to send machine token %q to non-production base URL %q\n  fix: unset ROOTCAUSE_BASE_URL or use `rc auth login` for that environment",
+			"refusing to send machine token %q to non-production base URL %q\n  fix: unset REPLYPEN_BASE_URL or use `rp auth login` for that environment",
 			res.Brain.MachineTokenEnv,
 			baseURL,
 		)
@@ -97,7 +97,7 @@ func noteSelectedBinding(e *env) {
 		return
 	}
 	_, _ = fmt.Fprintf(e.err, "binding: %s via %s (%s [[also]])\n",
-		res.Brain.Project, res.Brain.MachineTokenEnv, config.MarkerFileName)
+		res.Brain.Project, res.Brain.MachineTokenEnv, res.MarkerName())
 }
 
 func machineTokenEnvActive(res config.Resolved) bool {

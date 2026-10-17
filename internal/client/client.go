@@ -1,4 +1,4 @@
-// Package client is the one thin HTTP wrapper over the rootcause JSON API: it sets the bearer
+// Package client is the one thin HTTP wrapper over the ReplyPen JSON API: it sets the bearer
 // key + base URL, speaks JSON, and on any non-2xx decodes the error envelope into a typed APIError
 // (code+message+details carried through verbatim). It holds NO business logic — every method is one
 // request mapping straight onto one endpoint, returning the wire struct for the render layer to show.
@@ -80,11 +80,11 @@ func httpTimeout() time.Duration {
 }
 
 // BaseURL is the resolved API base URL (no trailing slash). Exposed so a command that composes a
-// dashboard URL for a human (e.g. `rc project mailbox connect`) points at the same server the client talks to.
+// dashboard URL for a human (e.g. `rp project mailbox connect`) points at the same server the client talks to.
 func (c *Client) BaseURL() string { return c.baseURL }
 
 // RunsParams are the query filters for GET /api/v1/runs. Zero values are omitted (the server applies
-// its defaults), so `rc status` (no filters) and `rc run list --limit 10` share one path. Project is the
+// its defaults), so `rp status` (no filters) and `rp run list --limit 10` share one path. Project is the
 // explicit scope an all-projects admin token names per request (the `--all` fan-out); a pinned token
 // ignores it server-side.
 type RunsParams struct {
@@ -105,7 +105,7 @@ type RunsParams struct {
 	Tenant   string
 }
 
-// Runs fetches GET /api/v1/runs — the shared endpoint behind both `rc status` and `rc run list`.
+// Runs fetches GET /api/v1/runs — the shared endpoint behind both `rp status` and `rp run list`.
 func (c *Client) Runs(ctx context.Context, p RunsParams) (*RunsResponse, json.RawMessage, error) {
 	q := url.Values{}
 	if p.Limit > 0 {
@@ -154,7 +154,7 @@ func (c *Client) Runs(ctx context.Context, p RunsParams) (*RunsResponse, json.Ra
 }
 
 // Projects fetches GET /api/v1/projects — the fleet handles an all-projects admin token may see. Used by
-// `rc project list` and the seed of every `--all` fan-out.
+// `rp project list` and the seed of every `--all` fan-out.
 func (c *Client) Projects(ctx context.Context) (*ProjectsResponse, json.RawMessage, error) {
 	return fetchBoth[ProjectsResponse](ctx, c, http.MethodGet, "/api/v1/projects", nil)
 }
@@ -198,7 +198,7 @@ func (c *Client) Events(ctx context.Context, id, project, tenant string) (*Event
 }
 
 // Full fetches GET /api/v1/runs/{id}/trace — the whole bundle (run header + per-event trace with the
-// ai_usage join). Used by the table view of `rc run trace <id>`; the JSON path goes through Raw to
+// ai_usage join). Used by the table view of `rp run trace <id>`; the JSON path goes through Raw to
 // keep the renderer's JSONL seam byte-faithful.
 func (c *Client) Full(ctx context.Context, id, project, tenant string) (*FullResponse, error) {
 	var out FullResponse
@@ -213,7 +213,7 @@ func RunTracePath(id, project, tenant string) string {
 }
 
 // BrainDiff fetches GET /api/v1/runs/{id}/brain-diff — the ONE journal commit the run wrote to its
-// brain. Used by the table view of `rc run brain-diff <id>`; the JSON path goes through Raw to keep
+// brain. Used by the table view of `rp run brain-diff <id>`; the JSON path goes through Raw to keep
 // the passthrough byte-faithful (render, don't reshape).
 func (c *Client) BrainDiff(ctx context.Context, id, project, tenant string) (*BrainDiff, error) {
 	var out BrainDiff
@@ -230,7 +230,7 @@ func RunBrainDiffPath(id, project, tenant string) string {
 
 // Submit posts POST /api/v1/runs to trigger a run. It returns BOTH the typed 202 body (for the
 // poll/render logic) AND the verbatim bytes, so a caller that must echo the response to a jq pipeline
-// (`rc ask --no-wait -o json`) never drops a server field — same "render, don't reshape" invariant as
+// (`rp ask --no-wait -o json`) never drops a server field — same "render, don't reshape" invariant as
 // the GET passthroughs. A pinned token supplies the project; an all-projects admin token may name one
 // with req.Project. brain_ref (when set) names a non-main ref for a test run. Older deployed Prompt API
 // builds rejected scenario/sender/subject as unknown fields, so a schema-malformed BAD_BODY retries the
@@ -432,7 +432,7 @@ func (c *Client) PatchTenantSettings(ctx context.Context, slug, project string, 
 }
 
 // GetTenantSettingsSchema fetches GET /api/v1/tenant-profiles/schema — the enriched profile JSON
-// Schema (x-* render metadata included). Returned as raw bytes: `rc tenant profile schema` dumps it
+// Schema (x-* render metadata included). Returned as raw bytes: `rp tenant profile schema` dumps it
 // verbatim, and `set` parses it for client-side type/enum coercion. Not project-specific, but
 // bearer-gated.
 func (c *Client) GetTenantSettingsSchema(ctx context.Context, project string) (json.RawMessage, error) {
@@ -443,7 +443,7 @@ func (c *Client) GetTenantSettingsSchema(ctx context.Context, project string) (j
 	return raw, nil
 }
 
-// Routes fetches GET /api/v1/meta/routes — the canonical route manifest (`rc dev routes`).
+// Routes fetches GET /api/v1/meta/routes — the canonical route manifest (`rp dev routes`).
 func (c *Client) Routes(ctx context.Context) (*RouteManifest, json.RawMessage, error) {
 	return fetchBoth[RouteManifest](ctx, c, http.MethodGet, "/api/v1/meta/routes", nil)
 }

@@ -1,4 +1,4 @@
-// Views for `rc project knowledge` content: the collection list, the search summary printed to
+// Views for `rp project knowledge` content: the collection list, the search summary printed to
 // stdout, and the HITS.md written into the artifact directory.
 
 package render
@@ -29,7 +29,7 @@ type KBCollection struct {
 	ArticleCount int
 }
 
-// KBListView is `rc project knowledge list`'s output.
+// KBListView is `rp project knowledge list`'s output.
 type KBListView struct {
 	Project     string
 	Provider    string

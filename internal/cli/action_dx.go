@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 func actionProbeCmd(e *env) *cobra.Command {

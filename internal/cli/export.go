@@ -9,10 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/localstate"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newCorpusCmd builds the `rc project corpus` group over the local-synthesis export API: `ls`/`get` read the
+// newCorpusCmd builds the `rp project corpus` group over the local-synthesis export API: `ls`/`get` read the
 // harvest/survey corpus exports, and `download` fetches the Markdown corpus — to stdout, to a file, or
 // split into a per-thread tree the local dream-cycle can grep. All endpoints need a connections:manage
 // token; an all-projects token scopes with --project.
@@ -103,7 +104,7 @@ func exportGetCmd(e *env) *cobra.Command {
 
 // exportDownloadCmd: GET /api/v1/exports/{id}/download → the Markdown corpus. By default it writes to
 // stdout (or --out <file>). --split <dir> runs the client-side splitter, materializing an
-// INDEX.md + per-thread files under <dir> (default .rootcause/exports/<id>/ when --split is given the
+// INDEX.md + per-thread files under <dir> (default .replypen/exports/<id>/ when --split is given the
 // empty string). --out and --split may be combined: the raw corpus is written before parsing so a
 // format-drift failure cannot discard the downloaded bytes. The download marks the export consumed
 // server-side, but remains re-downloadable for about 48 hours before eviction.
@@ -135,7 +136,7 @@ func exportDownloadCmd(e *env) *cobra.Command {
 			if splitSet {
 				dir := strings.TrimSpace(split)
 				if dir == "" {
-					dir = filepath.Join(".rootcause", "exports", args[0])
+					dir = localstate.Path("exports", args[0])
 				}
 				res, err := splitExport(args[0], body, dir)
 				if err != nil {
@@ -153,7 +154,7 @@ func exportDownloadCmd(e *env) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&out, "out", "", "write the raw corpus to this file (may be combined with --split)")
-	cmd.Flags().StringVar(&split, "split", "", "split into a per-thread tree under this dir (empty → .rootcause/exports/<id>/)")
+	cmd.Flags().StringVar(&split, "split", "", "split into a per-thread tree under this dir (empty → .replypen/exports/<id>/)")
 	return cmd
 }
 
@@ -161,7 +162,7 @@ func splitExportRescueError(exportID, out string, splitErr error) error {
 	if out != "" {
 		return fmt.Errorf("split corpus: %w; raw download preserved at %s (the export can also be re-downloaded for ~48h after first download, before server eviction)", splitErr, out)
 	}
-	return fmt.Errorf("split corpus: %w; raw bytes were not saved — re-download within ~48h using `rc project corpus download %s --out <file>` (the server may evict the export after that window)", splitErr, exportID)
+	return fmt.Errorf("split corpus: %w; raw bytes were not saved — re-download within ~48h using `rp project corpus download %s --out <file>` (the server may evict the export after that window)", splitErr, exportID)
 }
 
 // splitResult reports where the split wrote and how many threads it materialized.
@@ -172,14 +173,14 @@ type splitResult struct {
 
 // splitExport parses the corpus (verifying harvest_format), then writes <dir>/INDEX.md and one
 // <dir>/threads/<file>.md per thread (each with an export_id/thread front-matter). It ensures the
-// default .rootcause tree is gitignored so a harvested corpus (customer email) is never committed.
+// default .replypen tree is gitignored so a harvested corpus (customer email) is never committed.
 func splitExport(exportID string, corpus []byte, dir string) (*splitResult, error) {
 	parsed, err := parseCorpus(string(corpus))
 	if err != nil {
 		return nil, err
 	}
 
-	if err := ensureRootcauseGitignore(dir); err != nil {
+	if err := localstate.SeedIgnore(dir); err != nil {
 		return nil, err
 	}
 	threadsDir := filepath.Join(dir, "threads")
@@ -296,37 +297,4 @@ func writeIndexRow(b *strings.Builder, t splitThread, name string) {
 // escapeTableCell neutralizes the `|` that would break a Markdown table cell.
 func escapeTableCell(s string) string {
 	return strings.ReplaceAll(s, "|", "\\|")
-}
-
-// ensureRootcauseGitignore makes sure a corpus written under a .rootcause tree can never be committed:
-// when dir lives under a .rootcause directory, it writes a `*` .gitignore at that .rootcause root
-// (idempotent). For an explicit out-of-tree --split dir the caller owns gitignoring, so this is a no-op.
-func ensureRootcauseGitignore(dir string) error {
-	root := rootcauseRoot(dir)
-	if root == "" {
-		return nil
-	}
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", root, err)
-	}
-	gi := filepath.Join(root, ".gitignore")
-	if _, err := os.Stat(gi); err == nil {
-		return nil // already present — leave any operator edits alone
-	}
-	if err := os.WriteFile(gi, []byte("*\n"), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", gi, err)
-	}
-	return nil
-}
-
-// rootcauseRoot returns the `.rootcause` directory dir sits under (so its .gitignore can be seeded), or
-// "" when dir isn't under a .rootcause tree.
-func rootcauseRoot(dir string) string {
-	parts := strings.Split(filepath.ToSlash(dir), "/")
-	for i, p := range parts {
-		if p == ".rootcause" {
-			return filepath.Join(parts[:i+1]...)
-		}
-	}
-	return ""
 }

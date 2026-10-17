@@ -19,15 +19,15 @@ linters:
               desc: renderers are pure functions of rows
             - pkg: os/exec
               desc: renderers are pure functions of rows
-            - pkg: github.com/rootcause-org/rootcause-cli/internal/outputspill
+            - pkg: github.com/replypen/replypen-cli/internal/outputspill
               desc: map the artifact into a render-owned type (audit F15)
         digest-pure:
           files: ["**/internal/digest/**", "!**/*_test.go"]
           list-mode: lax
           allow:
-            - github.com/rootcause-org/rootcause-cli/internal/client
+            - github.com/replypen/replypen-cli/internal/client
           deny:
-            - pkg: github.com/rootcause-org/rootcause-cli/internal
+            - pkg: github.com/replypen/replypen-cli/internal
               desc: digest is pure analysis over internal/client wire rows; it imports no other sibling
             - pkg: os
               desc: digest is pure (no I/O); the CLI fetches, probes and threads `now` in
@@ -37,20 +37,20 @@ linters:
           files: ["**/internal/render/**"]
           list-mode: lax
           allow:
-            - github.com/rootcause-org/rootcause-cli/internal/client
-            - github.com/rootcause-org/rootcause-cli/internal/digest
+            - github.com/replypen/replypen-cli/internal/client
+            - github.com/replypen/replypen-cli/internal/digest
           deny:
-            - pkg: github.com/rootcause-org/rootcause-cli/internal
+            - pkg: github.com/replypen/replypen-cli/internal
               desc: renderers see wire rows (client) and their analysis (digest) only
         client-leaf:
           files: ["**/internal/client/**"]
           deny:
-            - pkg: github.com/rootcause-org/rootcause-cli/internal
+            - pkg: github.com/replypen/replypen-cli/internal
               desc: internal/client imports no sibling package
         token-leaf:
           files: ["**/internal/token/**"]
           deny:
-            - pkg: github.com/rootcause-org/rootcause-cli/internal/config
+            - pkg: github.com/replypen/replypen-cli/internal/config
               desc: the token store does not depend on config resolution (audit S4)
     forbidigo:
       # Rules are global; each msg carries a [tag] and linters.exclusions below scopes it to its packages.
@@ -63,7 +63,7 @@ linters:
           pkg: '^os$'
           msg: "[pure] renderers and digest read no environment"
         - pattern: '^render\.JSON$'
-          pkg: '^github.com/rootcause-org/rootcause-cli/internal/render$'
+          pkg: '^github.com/replypen/replypen-cli/internal/render$'
           msg: "[spill] every JSON write in internal/cli picks spill vs inline: e.renderJSON(label, raw), or e.renderJSONInline(raw) for one-time secrets / script-parsed stdout"
   exclusions:
     rules:

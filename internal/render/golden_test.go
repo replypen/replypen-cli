@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // Golden tests for the views the CLI hands a view model. They exist because these renderers used to
@@ -41,23 +41,23 @@ func assertGolden(t *testing.T, name, got string) {
 func TestDoctorGolden(t *testing.T) {
 	report := DoctorReport{
 		Binary: DoctorBinary{
-			Path: "/opt/homebrew/bin/rc", ResolvedPath: "/opt/homebrew/Caskroom/rc/1.2.3/rc",
+			Path: "/opt/homebrew/bin/rp", ResolvedPath: "/opt/homebrew/Caskroom/rp/1.2.3/rp",
 			Version: "1.2.3", ModuleVersion: "v1.2.3", Install: "Homebrew",
 		},
 		Path: []DoctorBinary{
-			{Path: "/opt/homebrew/bin/rc", Version: "1.2.3", Install: "Homebrew", Active: true},
-			{Path: "/Users/me/go/bin/rc", Version: "1.1.0", Install: "Go install",
-				Note: "shadowed by the Homebrew copy", Hint: "rc self update --migrate"},
+			{Path: "/opt/homebrew/bin/rp", Version: "1.2.3", Install: "Homebrew", Active: true},
+			{Path: "/Users/me/go/bin/rp", Version: "1.1.0", Install: "Go install",
+				Note: "shadowed by the Homebrew copy", Hint: "rp self update --migrate"},
 		},
 		Scope: DoctorScope{
-			Profile: "default", Project: "acme", ProjectSource: ".rootcause.toml",
+			Profile: "default", Project: "acme", ProjectSource: ".replypen.toml",
 			BaseURL: "https://app.replypen.com", BaseURLSource: "built-in production",
 		},
 		Capabilities: DoctorCapabilities{
 			HarvestCorpusFormats: []string{"v1", "v2", "v3"}, ServerHarvestCorpus: "v4", Unsupported: true,
 		},
 		Update:   DoctorUpdate{Current: "1.2.3", Latest: "v1.2.4", Available: true},
-		Findings: []DoctorFinding{{Path: "/Users/me/go/bin/rc", Message: "duplicate rc on PATH", Hint: "remove it"}},
+		Findings: []DoctorFinding{{Path: "/Users/me/go/bin/rp", Message: "duplicate rp on PATH", Hint: "remove it"}},
 	}
 	var out bytes.Buffer
 	if err := Doctor(&out, report); err != nil {
@@ -69,7 +69,7 @@ func TestDoctorGolden(t *testing.T) {
 func TestUpdateCheckGolden(t *testing.T) {
 	var out bytes.Buffer
 	UpdateCheck(&out, UpdateStatus{
-		Source: "github", RunningPath: "/Users/me/go/bin/rc", InstallKind: "Go install",
+		Source: "github", RunningPath: "/Users/me/go/bin/rp", InstallKind: "Go install",
 		Current: "v1.1.3", Latest: "v1.2.4", UpdateAvailable: true,
 		InstallProblem: true, Installations: 2, OfferMigrate: true,
 	})
@@ -122,7 +122,7 @@ func TestHierarchySettingsGolden(t *testing.T) {
 
 func TestKBSearchGolden(t *testing.T) {
 	view := KBSearchView{
-		ArticlesMatched: 2, Hits: 3, ArtifactDir: ".rootcause/kb/refunds", Truncated: true,
+		ArticlesMatched: 2, Hits: 3, ArtifactDir: ".replypen/kb/refunds", Truncated: true,
 		Articles: []KBArticle{
 			{Title: "Refund policy", URL: "https://help.example/refunds", Path: "billing/refund-policy.md",
 				Hits: []KBHit{{Line: 12, Snippet: "refunds are issued within 14 days"}, {Line: 40, Snippet: "partial refunds"}}},

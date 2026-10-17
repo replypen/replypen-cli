@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
 // TestProjectScopeRidesAsQueryParam pins the core of the --project rework: the flag is a SERVER-SIDE
@@ -254,7 +254,7 @@ func TestBrainDefaultProfileFallbackAddsProjectScope(t *testing.T) {
 	isolatedConfig(t)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".replypen.toml"),
 		[]byte("project = \"pro-backup\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +272,7 @@ func TestBrainDefaultProfileFallbackAddsProjectScope(t *testing.T) {
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
-	t.Setenv("ROOTCAUSE_BASE_URL", srv.URL)
+	t.Setenv("REPLYPEN_BASE_URL", srv.URL)
 	seedToken(t, "default", token.Token{
 		AccessToken: "test-key", RefreshToken: "rcor_x",
 		ExpiresAt: time.Now().Add(time.Hour), BaseURL: srv.URL,
@@ -343,7 +343,7 @@ func TestNoSurfaceRendersModelIdentity(t *testing.T) {
 		})
 	}
 
-	// `rc run debug` writes its two files instead of printing them, so it is driven separately.
+	// `rp run debug` writes its two files instead of printing them, so it is driven separately.
 	t.Run("run debug files", func(t *testing.T) {
 		outDir := t.TempDir()
 		e, _, _ := newTestEnv(t, srv, "table")
@@ -449,7 +449,7 @@ func TestFleetAgentDigestRendersWhenPiped(t *testing.T) {
 		"Aggregate:",
 		"Daily timeline:",
 		"Worst offenders (full ids",
-		"aaaaaaaa-0000-0000-0000-000000000001", // full UUID, one paste from rc run debug
+		"aaaaaaaa-0000-0000-0000-000000000001", // full UUID, one paste from rp run debug
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("piped agent digest missing %q:\n%s", want, got)
@@ -513,7 +513,7 @@ func TestFleetExplicitJSONWinsOverFormat(t *testing.T) {
 	}
 }
 
-// TestPatternsAgentRendersWhenPiped: `rc fleet patterns --format agent` emits the clustered view over a
+// TestPatternsAgentRendersWhenPiped: `rp fleet patterns --format agent` emits the clustered view over a
 // pipe (it used to dump the raw high-volume feeds — the "table only" caveat this fix removes).
 func TestPatternsAgentRendersWhenPiped(t *testing.T) {
 	srv := stubServer(t)
@@ -753,7 +753,7 @@ func TestRunListEnvelopeFilters(t *testing.T) {
 	if err := run(t, e, "run", "list", "--from", want["from"], "--subject", want["subject"], "--since", want["since"], "--until", want["until"]); err != nil {
 		t.Fatalf("run list: %v", err)
 	}
-	if got := errOut.String(); !strings.Contains(got, "rc run thread jara@example.test") {
+	if got := errOut.String(); !strings.Contains(got, "rp run thread jara@example.test") {
 		t.Fatalf("missing thread hint on stderr: %q", got)
 	}
 }

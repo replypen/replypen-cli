@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 func SessionSearch(w io.Writer, result *digest.SessionSearchResult) {
@@ -24,9 +24,9 @@ func SessionSearch(w io.Writer, result *digest.SessionSearchResult) {
 		if match.Snippet != "" {
 			_, _ = fmt.Fprintf(w, "  %s: %s\n", match.Source, match.Snippet)
 		}
-		_, _ = fmt.Fprintf(w, "  rc%s run thread %s --transcript\n", scope, sessionSearchQuote(row.SessionID))
+		_, _ = fmt.Fprintf(w, "  rp%s run thread %s --transcript\n", scope, sessionSearchQuote(row.SessionID))
 		if match.RunID != "" {
-			_, _ = fmt.Fprintf(w, "  rc%s run debug %s\n", scope, sessionSearchQuote(match.RunID))
+			_, _ = fmt.Fprintf(w, "  rp%s run debug %s\n", scope, sessionSearchQuote(match.RunID))
 		}
 	}
 	c := result.Coverage

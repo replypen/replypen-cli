@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newSchemaCmd builds `rc schema [resource]` over GET /api/v1/meta/schema — the self-describing config
+// newSchemaCmd builds `rp schema [resource]` over GET /api/v1/meta/schema — the self-describing config
 // registry (fields, types, enums, write scopes, defaults, help). One registry on the server drives
 // this, the web form, the API validation, and the agent's tool synthesis.
 func newSchemaCmd(e *env) *cobra.Command {
@@ -40,7 +40,7 @@ func newSchemaCmd(e *env) *cobra.Command {
 	}
 }
 
-// newExplainCmd builds `rc explain <key>` — the full schema of one setting (type, enum, write scopes,
+// newExplainCmd builds `rp explain <key>` — the full schema of one setting (type, enum, write scopes,
 // default, help), found across all resources. The human twin of /meta/schema for a single knob.
 func newExplainCmd(e *env) *cobra.Command {
 	return &cobra.Command{
@@ -59,7 +59,7 @@ func newExplainCmd(e *env) *cobra.Command {
 			}
 			resource, field, ok := findField(resp, key)
 			if !ok {
-				return fmt.Errorf("unknown config key %q (try `rc schema`)", key)
+				return fmt.Errorf("unknown config key %q (try `rp schema`)", key)
 			}
 			if e.jsonOut() {
 				raw, err := json.Marshal(field)
@@ -74,9 +74,9 @@ func newExplainCmd(e *env) *cobra.Command {
 	}
 }
 
-// newAccessCmd builds `rc access` over GET /api/v1/meta/capabilities — what THIS token may do
+// newAccessCmd builds `rp access` over GET /api/v1/meta/capabilities — what THIS token may do
 // (effective scopes, writable keys, reachable resources, console reach). Named `access` to avoid
-// colliding with `rc capabilities`, which lists the console's DB/script/action primitives.
+// colliding with `rp capabilities`, which lists the console's DB/script/action primitives.
 func newAccessCmd(e *env) *cobra.Command {
 	return &cobra.Command{
 		Use:   "access",

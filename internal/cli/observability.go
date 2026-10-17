@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // Shared helpers for the observability commands (fleet / patterns / health) — the cap warning, the
@@ -53,7 +53,7 @@ func fanOutProjects(e *env, c *client.Client) ([]client.Project, error) {
 			name = resp.Projects[0].Name
 		}
 		return nil, fmt.Errorf("--all needs an all-projects token, but this token is scoped to %s — "+
-			"drop --all to review just that project, or `rc auth login` with an all-projects token", name)
+			"drop --all to review just that project, or `rp auth login` with an all-projects token", name)
 	}
 	return resp.Projects, nil
 }
@@ -62,7 +62,7 @@ func fanOutProjects(e *env, c *client.Client) ([]client.Project, error) {
 // reads it in JSON mode without importing render twice for one symbol.
 func healthVerdict(h *client.HealthResponse) bool { return render.HealthVerdict(h, nowFunc()) }
 
-// silenceUsage marks a command so Cobra doesn't dump its help on the returned error — `rc fleet health`'s
+// silenceUsage marks a command so Cobra doesn't dump its help on the returned error — `rp fleet health`'s
 // non-zero exit is a verdict, not a usage mistake. (The root already sets SilenceUsage, but a child that
 // returns an error after a successful render should not re-trigger help either.)
 func silenceUsage(cmd *cobra.Command) { cmd.SilenceUsage = true }

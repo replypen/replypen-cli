@@ -14,7 +14,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 const (
@@ -171,10 +171,10 @@ func TestRunAttachmentsList(t *testing.T) {
 	}}, nil)
 	e, out, _ := newTestEnv(t, srv, "table")
 	if err := run(t, e, "run", "attachments", attSession); err != nil {
-		t.Fatalf("rc run attachments: %v", err)
+		t.Fatalf("rp run attachments: %v", err)
 	}
 	for _, want := range []string{"Session " + attSession + " (embed)", "screen.mp4", "3.0 MiB", "assistant",
-		"processed (1536px JPEG)", "original photo.heic 5 B", "rc run attachments " + attSession + " --download"} {
+		"processed (1536px JPEG)", "original photo.heic 5 B", "rp run attachments " + attSession + " --download"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("list output lacks %q:\n%s", want, out.String())
 		}
@@ -183,7 +183,7 @@ func TestRunAttachmentsList(t *testing.T) {
 	// A run id falls back to its session after the session lookup 404s; JSON is the body verbatim.
 	e, out, _ = newTestEnv(t, srv, "json")
 	if err := run(t, e, "run", "attachments", attRun); err != nil {
-		t.Fatalf("rc run attachments <run>: %v", err)
+		t.Fatalf("rp run attachments <run>: %v", err)
 	}
 	var doc struct {
 		SessionID   string           `json:"session_id"`
@@ -351,7 +351,7 @@ func TestThreadTranscriptFilesSection(t *testing.T) {
 		t.Fatalf("transcript: %v", err)
 	}
 	for _, want := range []string{"## Files", "- photo.jpg · 3 B · d1000000-0000-4000-8000-000000000001",
-		"rc run attachments sess_chat42 --download"} {
+		"rp run attachments sess_chat42 --download"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("transcript lacks %q:\n%s", want, out.String())
 		}

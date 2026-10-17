@@ -1,5 +1,5 @@
-// One run, three depths: the `rc run show` header, the lean `rc run events` trace, and the full
-// decomposed `rc run trace` bundle (timeline + grounding + tenant-settings drift).
+// One run, three depths: the `rp run show` header, the lean `rp run events` trace, and the full
+// decomposed `rp run trace` bundle (timeline + grounding + tenant-settings drift).
 // The renderers are pure functions of the wire structs (no I/O beyond the passed writer, no clock) so
 // golden tests pin them exactly. Timestamps are shown as the server sent them, keeping goldens stable.
 
@@ -11,8 +11,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // Run renders one run's high-level view — the promised set: status, category, draft?/note?, turns/bash,

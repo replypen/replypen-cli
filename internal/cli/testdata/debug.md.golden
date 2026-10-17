@@ -49,7 +49,7 @@ Careful: when this run happened, these tenant settings differed from the current
 
 | section | on | gate | chars |
 |---|---|---|---|
-| `preamble` | yes | always | 50 |
+| `preamble` | yes | always | 49 |
 | `persona` | yes | customer-facing mode | 39 |
 | `db_cheatsheet` | yes | project has a database connection | 39 |
 | `source_pr_policy` | no | project allows source PRs | - |
@@ -149,4 +149,4 @@ jq -r 'select((.command // "") + (.kept.command // "") | contains("invoice")).di
 jq -r 'select(.reasoning) | .disp + " " + .reasoning' 11111111-coca-cola.jsonl   # reasoning per step
 ```
 
-For the full three-step opening context each model received, with per-section sources: `rc dev context-export` (offline, operator).
+For the full three-step opening context each model received, with per-section sources: `rp dev context-export` (offline, operator).

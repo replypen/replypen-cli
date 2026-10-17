@@ -13,11 +13,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// askFlags holds `rc ask`'s flags, bound per-command so each invocation is isolated. Tenant scope is
+// askFlags holds `rp ask`'s flags, bound per-command so each invocation is isolated. Tenant scope is
 // normally login-bound; the persistent --tenant remains an explicit override.
 type askFlags struct {
 	brainRef      string
@@ -40,11 +40,11 @@ type askFlags struct {
 	timeout       time.Duration
 }
 
-const defaultAskFrom = "rc-ask@example.test"
+const defaultAskFrom = "rp-ask@example.test"
 
-// newAskCmd builds `rc ask "<question>"` — the trigger verb. It POSTs the prompt to /api/v1/runs
+// newAskCmd builds `rp ask "<question>"` — the trigger verb. It POSTs the prompt to /api/v1/runs
 // (OAuth-authed, optionally ?project=-scoped), then by DEFAULT waits, polling /runs/{id} until the run
-// reaches a terminal status, and prints the same summary as `rc run show <id>`. --no-wait returns the run_id
+// reaches a terminal status, and prints the same summary as `rp run show <id>`. --no-wait returns the run_id
 // immediately. --brain-ref runs the question against a non-main brain ref (a dev/* branch) and --mirror-ref
 // mounts another ref of a source mirror for this run only — the project dev's "test without pushing main"
 // loop. The CLI stays thin: it triggers + polls + renders; all run
@@ -59,7 +59,7 @@ func newAskCmd(e *env) *cobra.Command {
 			"prior turns and principal as a test run (a simulation: no action executes, nothing is placed or " +
 			"committed); the original conversation is untouched. The question becomes optional: given, it replaces " +
 			"that turn's message. Combine with --brain-ref / --mirror-ref to test a fix. Needs the developer grant " +
-			"that `rc run debug` needs on that run. Refuses --principal-*, --file, --scenario, --from, --subject " +
+			"that `rp run debug` needs on that run. Refuses --principal-*, --file, --scenario, --from, --subject " +
 			"and --session (the replay keeps the turn's own).",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(f.replayChatRun) != "" {
@@ -160,7 +160,7 @@ func newAskCmd(e *env) *cobra.Command {
 					return e.renderJSONInline(raw)
 				}
 				_, _ = fmt.Fprintln(e.out, sub.RunID)
-				_, _ = fmt.Fprintf(e.err, "submitted — poll with: rc run show %s\n", sub.RunID)
+				_, _ = fmt.Fprintf(e.err, "submitted — poll with: rp run show %s\n", sub.RunID)
 				return nil
 			}
 
@@ -213,7 +213,7 @@ func newAskCmd(e *env) *cobra.Command {
 // the stored ones, so each would silently mean something else.
 var askReplayConflicts = []string{"principal-kind", "principal-id", "asserted-by", "assurance", "file", "attach", "scenario", "from", "subject", "session"}
 
-// runAskReplay is `rc ask --replay-chat-run`: replay a stored chat turn as a simulation, then wait and
+// runAskReplay is `rp ask --replay-chat-run`: replay a stored chat turn as a simulation, then wait and
 // print the chat answer like a raw ask. --simulation is implied (accepted, never needed).
 func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMode bool) error {
 	for _, name := range askReplayConflicts {
@@ -271,7 +271,7 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 			return e.renderJSONInline(raw)
 		}
 		_, _ = fmt.Fprintln(e.out, sub.RunID)
-		_, _ = fmt.Fprintf(e.err, "submitted — poll with: rc run show %s\n", sub.RunID)
+		_, _ = fmt.Fprintf(e.err, "submitted — poll with: rp run show %s\n", sub.RunID)
 		return nil
 	}
 	detail, err := waitForRun(e, c, sub, f.timeout)
@@ -315,7 +315,7 @@ func parseMirrorRefs(vals []string) (map[string]string, error) {
 // and --principal-id are a pair (both or neither — a lone half is a scoping mistake, so error rather
 // than silently under- or over-scope). --asserted-by/--assurance are refinements meaningless without
 // the pair. Returns nil when no principal flags were given (the dormant default). asserted_by/assurance
-// stay omitempty so the server applies its own defaults. Shared by `rc ask` and the `rc dev console`
+// stay omitempty so the server applies its own defaults. Shared by `rp ask` and the `rp dev console`
 // verbs (which pass no asserted_by/assurance), so a principal is validated identically everywhere.
 func principalFromFlags(principalKind, principalID, assertedByFlag, assuranceFlag string) (*client.Principal, error) {
 	kind := strings.TrimSpace(principalKind)
@@ -395,7 +395,7 @@ func compactAskSubject(prompt string) string {
 	}
 	line = strings.Join(strings.Fields(line), " ")
 	if line == "" {
-		return "rc ask"
+		return "rp ask"
 	}
 	r := []rune(line)
 	if len(r) > 80 {

@@ -8,22 +8,23 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/config"
-	"github.com/rootcause-org/rootcause-cli/internal/contextexport"
+	"github.com/replypen/replypen-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/contextexport"
+	"github.com/replypen/replypen-cli/internal/localstate"
 )
 
-// newContextExportCmd builds `rc dev context-export` — the one command that shells OUT of the CLI: the
-// renderer lives in the host repo because it reuses the production assembly packages, so rc locates a
+// newContextExportCmd builds `rp dev context-export` — the one command that shells OUT of the CLI: the
+// renderer lives in the host repo because it reuses the production assembly packages, so rp locates a
 // host checkout and runs it there. Fully local: no token, no API call (hence no newClient).
 func newContextExportCmd(e *env) *cobra.Command {
 	var opts contextexport.Options
 	cmd := &cobra.Command{
 		Use:   "context-export",
-		Short: "Render a project's full opening context offline (needs a rootcause host checkout)",
+		Short: "Render a project's full opening context offline (needs a ReplyPen host checkout)",
 		Long: "Render, offline, the complete opening context each model receives across a run's three model " +
 			"steps — triage, the grounding pre-step, the main loop — as one markdown file per project, with " +
 			"per-section sources and token estimates.\n\n" +
-			"It runs the host repo's renderer (`go run ./cmd/context-export`), so it needs a local rootcause " +
+			"It runs the host repo's renderer (`go run ./cmd/context-export`), so it needs a local ReplyPen " +
 			"host checkout: --host-repo, RC_HOST_REPO, or a sibling directory of this one.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -48,9 +49,9 @@ func newContextExportCmd(e *env) *cobra.Command {
 			return runContextExport(e, plan)
 		},
 	}
-	cmd.Flags().StringVar(&opts.HostRepo, "host-repo", "", "path to a rootcause host checkout (default: RC_HOST_REPO, else a sibling directory)")
+	cmd.Flags().StringVar(&opts.HostRepo, "host-repo", "", "path to a ReplyPen host checkout (default: RC_HOST_REPO, else a sibling directory)")
 	cmd.Flags().StringVar(&opts.Suite, "suite", "", "grounding suite: a bare project name or a path (default: this brain's project)")
-	cmd.Flags().StringVar(&opts.Out, "out", "", "output directory (default: ./.rootcause/context-export)")
+	cmd.Flags().StringVar(&opts.Out, "out", "", "output directory (default: ./.replypen/context-export)")
 	cmd.Flags().StringVar(&opts.KB, "kb", "", "override the suite's knowledge snapshot directory")
 	cmd.Flags().StringVar(&opts.KBMount, "kb-mount", "", "override the suite's knowledge mount path")
 	cmd.Flags().StringVar(&opts.AgentsMD, "agents-md", "", "override the suite's AGENTS.md path")
@@ -65,6 +66,9 @@ func runContextExport(e *env, plan contextexport.Plan) error {
 		progress = e.err
 	}
 	_, _ = fmt.Fprintf(e.err, "host repo: %s · suite: %s · out: %s\n", plan.HostRepo, plan.Suite, plan.OutDir)
+	if err := localstate.SeedIgnore(plan.OutDir); err != nil {
+		return err
+	}
 
 	cmd := exec.CommandContext(e.ctx(), "go", plan.Args...)
 	cmd.Dir = plan.HostRepo

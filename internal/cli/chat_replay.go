@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // chatReplayCmd replays a scripted conversation through the same send path as `send`, one turn at a

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // This file holds the GENERIC collection renderers — one list view, one item view — shared by every
@@ -67,7 +67,7 @@ func Secret(w io.Writer, it client.Item) {
 	Item(w, it)
 }
 
-// ConnectionProbe renders `rc connection probe`: concise diagnostics, while -o json keeps the full raw
+// ConnectionProbe renders `rp connection probe`: concise diagnostics, while -o json keeps the full raw
 // response for scripts.
 func ConnectionProbe(w io.Writer, p *client.ConnectionProbeResult) {
 	if p == nil {

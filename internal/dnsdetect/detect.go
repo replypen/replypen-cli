@@ -1,7 +1,7 @@
 // Package dnsdetect classifies which email backend a domain (or email address)
-// uses — and whether rootcause can onboard it.
+// uses — and whether ReplyPen can onboard it.
 //
-// rootcause has two DNS-detectable NATIVE channel adapters: "google" (Gmail /
+// ReplyPen has two DNS-detectable NATIVE channel adapters: "google" (Gmail /
 // Google Workspace) and "microsoft" (Microsoft 365 / Graph). Everything else —
 // self-hosted IMAP/SMTP, cPanel/Plesk hosting, regional ISPs — is still onboardable
 // over the GENERIC IMAP/SMTP adapter, which needs host/port/TLS/credentials instead
@@ -91,7 +91,7 @@ type Result struct {
 	Notes             []string `json:"notes"`
 	// IMAPCandidates are host guesses for the GENERIC IMAP adapter, best-first. Present only when there
 	// is no native adapter — a Workspace/M365 domain connects over OAuth and never needs them. They are
-	// candidates, NOT verified: only `rc project mailbox connect-imap` proves a host actually works.
+	// candidates, NOT verified: only `rp project mailbox connect-imap` proves a host actually works.
 	IMAPCandidates []IMAPCandidate `json:"imap_candidates,omitempty"`
 }
 
@@ -273,7 +273,7 @@ func Detect(ctx context.Context, r Resolver, target string) Result {
 		spPtr = &sp
 	}
 	if !native && supported {
-		notes = append(notes, "No native adapter — connect over generic IMAP/SMTP with `rc project mailbox connect-imap`; the candidate hosts below are unverified guesses")
+		notes = append(notes, "No native adapter — connect over generic IMAP/SMTP with `rp project mailbox connect-imap`; the candidate hosts below are unverified guesses")
 	}
 
 	return Result{

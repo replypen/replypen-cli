@@ -3,12 +3,12 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newStatusCmd builds `rc status`: the fixed five-row view of GET /api/v1/runs, leading with the health
-// summary then a compact recent-runs table. `rc run list` owns filtering and deeper pagination.
+// newStatusCmd builds `rp status`: the fixed five-row view of GET /api/v1/runs, leading with the health
+// summary then a compact recent-runs table. `rp run list` owns filtering and deeper pagination.
 func newStatusCmd(e *env) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",

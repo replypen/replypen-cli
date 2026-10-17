@@ -14,10 +14,16 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-const rcCommandPath = "github.com/rootcause-org/rootcause-cli/cmd/rc"
+const (
+	modulePathCurrent = "github.com/replypen/replypen-cli"
+	rpCommandPath     = modulePathCurrent + "/cmd/rp"
+	// Pre-rename identity of installed rc <= 1.51 builds.
+	modulePathLegacy  = "github.com/rootcause-org/rootcause-cli"
+	legacyCommandPath = modulePathLegacy + "/cmd/rc"
+)
 
 type binaryInfo struct {
 	Path           string `json:"path"`
@@ -28,6 +34,7 @@ type binaryInfo struct {
 	Install        string `json:"install"`
 	Active         bool   `json:"active"`
 	Dispatcher     bool   `json:"dispatcher,omitempty"`
+	Alias          bool   `json:"alias,omitempty"`
 	Note           string `json:"note,omitempty"`
 	Hint           string `json:"remediation,omitempty"`
 	ReadError      string `json:"read_error,omitempty"`
@@ -91,7 +98,7 @@ func (e doctorFindingsError) Error() string {
 func newSelfDoctorCmd(e *env, version string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
-		Short: "Diagnose the active rc install, PATH copies, scope, and updates",
+		Short: "Diagnose the active rp install, PATH copies, scope, and updates",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			report, err := collectDoctorReport(e, version)
@@ -183,7 +190,7 @@ func serverHarvestCorpusFormat(e *env) (format, note string) {
 func currentBinaryInfo(version string) (binaryInfo, error) {
 	exe, err := os.Executable()
 	if err != nil {
-		return binaryInfo{}, fmt.Errorf("cannot locate the running rc binary: %w", err)
+		return binaryInfo{}, fmt.Errorf("cannot locate the running rp binary: %w", err)
 	}
 	resolved := exe
 	if real, err := filepath.EvalSymlinks(exe); err == nil {
@@ -210,7 +217,7 @@ func markCurrentActive(current binaryInfo, copies []binaryInfo) binaryInfo {
 		if !copy.Active {
 			continue
 		}
-		current.Active = physicalBinaryKey(copy) == physicalBinaryKey(current)
+		current.Active = physicalBinaryKey(copy) == physicalBinaryKey(current) || isAliasBeside(current, copy, copies)
 		break
 	}
 	current.Hint = remediationHint(current)
@@ -271,7 +278,7 @@ func ldflagsVersion(bi *debug.BuildInfo) string {
 }
 
 // scanPathBinaries is doctor's view of the shared PATH walk (scanPathRC, install.go): it reads each
-// candidate's embedded build info to report provenance and version. `rc self update` reads the same
+// candidate's embedded build info to report provenance and version. `rp self update` reads the same
 // walk through inspectRCInstallations, which classifies by path shape instead.
 func scanPathBinaries(pathEnv string, current binaryInfo, goos string) []binaryInfo {
 	copies := make([]binaryInfo, 0)
@@ -283,7 +290,7 @@ func scanPathBinaries(pathEnv string, current binaryInfo, goos string) []binaryI
 				info.ResolvedPath = current.Path
 				info.Active = true
 				info.Dispatcher = true
-				info.Note = "mise dispatcher; version is from the running rc executable"
+				info.Note = "mise dispatcher; version is from the running rp executable"
 				info.Hint = remediationHint(info)
 				copies = append(copies, info)
 				continue
@@ -291,17 +298,33 @@ func scanPathBinaries(pathEnv string, current binaryInfo, goos string) []binaryI
 			info := readPathBinary(cand.Path, cand.Resolved)
 			info.Active = true
 			info.Dispatcher = true
-			info.Note = "mise dispatcher; selected rc cannot be resolved safely from this invocation"
+			info.Note = "mise dispatcher; selected rp cannot be resolved safely from this invocation"
 			copies = append(copies, info)
 			continue
 		}
 
 		info := readPathBinary(cand.Path, cand.Resolved)
 		info.Active = cand.Selected
+		info.Alias = cand.Alias
+		if info.Alias {
+			info.Note = "legacy rc alias of the rp beside it"
+		}
 		info.Hint = remediationHint(info)
 		copies = append(copies, info)
 	}
 	return copies
+}
+
+// isAliasBeside reports whether current is the legacy rc copy kept in the same directory as active —
+// the same installation entered under its old name, not a second copy.
+func isAliasBeside(current, active binaryInfo, copies []binaryInfo) bool {
+	for _, copy := range copies {
+		if copy.Alias && physicalBinaryKey(copy) == physicalBinaryKey(current) &&
+			filepath.Dir(copy.Path) == filepath.Dir(active.Path) {
+			return true
+		}
+	}
+	return false
 }
 
 func readPathBinary(path, resolved string) binaryInfo {
@@ -309,8 +332,8 @@ func readPathBinary(path, resolved string) binaryInfo {
 	if err != nil {
 		return binaryInfo{Path: path, ResolvedPath: differentPath(path, resolved), Version: "unknown", Install: "unknown", ReadError: err.Error()}
 	}
-	if bi.Path != rcCommandPath && bi.Main.Path != "github.com/rootcause-org/rootcause-cli" {
-		return binaryInfo{Path: path, ResolvedPath: differentPath(path, resolved), Version: "unknown", Install: "unknown", ReadError: fmt.Sprintf("not a rootcause rc binary (build path %s)", bi.Path)}
+	if !isOurBuild(bi.Path, bi.Main.Path) {
+		return binaryInfo{Path: path, ResolvedPath: differentPath(path, resolved), Version: "unknown", Install: "unknown", ReadError: fmt.Sprintf("not a ReplyPen rp binary (build path %s)", bi.Path)}
 	}
 	return binaryInfoFromBuildInfo(path, resolved, bi)
 }
@@ -346,14 +369,14 @@ func analyzePathBinaries(copies []binaryInfo, current binaryInfo, goos string) [
 	if active == nil {
 		return []doctorFinding{{
 			Code: "active_missing", Path: current.Path,
-			Message: "the running rc is not reachable as `rc` on PATH",
-			Hint:    "put the canonical rc directory on PATH, then run `rc self doctor` again",
+			Message: "the running rp is not reachable as `rp` on PATH",
+			Hint:    "put the canonical rp directory on PATH, then run `rp self doctor` again",
 		}}
 	}
-	if physicalBinaryKey(*active) != physicalBinaryKey(current) {
-		hint := "invoke the PATH-selected rc and remove the non-selected copy"
+	if physicalBinaryKey(*active) != physicalBinaryKey(current) && !isAliasBeside(current, *active, copies) {
+		hint := "invoke the PATH-selected rp and remove the non-selected copy"
 		if goos == "darwin" {
-			hint = "rc self update --migrate"
+			hint = "rp self update --migrate"
 		}
 		findings = append(findings, doctorFinding{
 			Code: "running_not_selected", Path: current.Path,
@@ -363,7 +386,7 @@ func analyzePathBinaries(copies []binaryInfo, current binaryInfo, goos string) [
 	if goos == "darwin" && active.Install != "homebrew" {
 		findings = append(findings, doctorFinding{
 			Code: "active_noncanonical", Path: active.Path,
-			Message: "macOS canonical installation is Homebrew", Hint: "rc self update --migrate",
+			Message: "macOS canonical installation is Homebrew", Hint: "rp self update --migrate",
 		})
 	} else if active.Install != "release" && active.Install != "homebrew" {
 		findings = append(findings, doctorFinding{
@@ -376,7 +399,7 @@ func analyzePathBinaries(copies []binaryInfo, current binaryInfo, goos string) [
 	seen := map[string]bool{activeKey: true}
 	for _, copy := range copies {
 		key := physicalBinaryKey(copy)
-		if copy.Active || seen[key] {
+		if copy.Active || copy.Alias || seen[key] {
 			continue
 		}
 		seen[key] = true
@@ -389,7 +412,7 @@ func analyzePathBinaries(copies []binaryInfo, current binaryInfo, goos string) [
 		}
 		hint := copy.Hint
 		if goos == "darwin" {
-			hint = "rc self update --migrate"
+			hint = "rp self update --migrate"
 		}
 		findings = append(findings, doctorFinding{
 			Code: code, Path: copy.Path, Message: message, Hint: hint,
@@ -449,7 +472,7 @@ func isGoBin(dir string) bool {
 }
 
 // doctorView maps the JSON report onto the render view. The report struct stays here because its JSON
-// shape is the machine contract of `rc self doctor -o json`; the view carries only what the human
+// shape is the machine contract of `rp self doctor -o json`; the view carries only what the human
 // output prints, plus the one derived flag (unsupported) whose answer depends on this binary's
 // supported format list.
 func doctorView(report doctorReport) render.DoctorReport {

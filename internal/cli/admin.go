@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // errMissingCatalogKey is the clear "key= required" error for catalog upsert (the catalog is keyed on it).
@@ -138,7 +138,7 @@ func newAdminCatalogCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// adminCatalogUpsertCmd: `rc admin catalog upsert key=<k> …` over POST /api/v1/admin/catalog (the
+// adminCatalogUpsertCmd: `rp admin catalog upsert key=<k> …` over POST /api/v1/admin/catalog (the
 // catalog is keyed on `key`; POST is an upsert).
 func adminCatalogUpsertCmd(e *env) *cobra.Command {
 	return &cobra.Command{

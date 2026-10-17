@@ -271,7 +271,7 @@ func (c *Client) ProcessInboxThread(ctx context.Context, id, project, tenant str
 	return c.raw(ctx, http.MethodPost, path, map[string]any{})
 }
 
-// --- Action drafts (the authoring plane behind `rc project action draft …`) ---
+// --- Action drafts (the authoring plane behind `rp project action draft …`) ---
 
 // actionDraftPath is the draft resource, optionally with a lifecycle verb (validate/submit/approve/test).
 func actionDraftPath(id, verb string) string {

@@ -30,7 +30,7 @@ func TestRunAttachmentsNeverOverwritesSuffixedFile(t *testing.T) {
 	if err != nil || string(next) != "new upload" {
 		t.Fatalf("upload not installed under next free name: %q %v", next, err)
 	}
-	left, _ := filepath.Glob(filepath.Join(dir, ".rc-attachment-*"))
+	left, _ := filepath.Glob(filepath.Join(dir, ".rp-attachment-*"))
 	if len(left) != 0 {
 		t.Fatalf("temp files left behind: %v", left)
 	}

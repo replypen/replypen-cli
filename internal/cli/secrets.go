@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // readSecretStdin reads a secret VALUE from stdin so it never lands in argv / the process table /
@@ -30,7 +30,7 @@ func readSecretStdin(e *env, label string) (string, error) {
 		return "", fmt.Errorf("read %s from stdin: %w", label, err)
 	}
 	if line == "" {
-		return "", fmt.Errorf("no %s on stdin — pipe it in (e.g. `printf '%%s' \"$KEY\" | rc …`)", label)
+		return "", fmt.Errorf("no %s on stdin — pipe it in (e.g. `printf '%%s' \"$KEY\" | rp …`)", label)
 	}
 	return line, nil
 }

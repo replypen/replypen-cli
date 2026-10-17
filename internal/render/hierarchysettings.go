@@ -1,4 +1,4 @@
-// The `rc config settings get` view: one hierarchy node's local overrides plus, when the server sent
+// The `rp config settings get` view: one hierarchy node's local overrides plus, when the server sent
 // them, the resolved values with the level each one came from.
 
 package render
@@ -9,7 +9,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // HierarchySettings prints the scope header, the node's own overrides, and the resolved view.

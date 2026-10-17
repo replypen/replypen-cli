@@ -1,8 +1,8 @@
 Deploy state — acme @ 2026-06-19T09:05:00Z (UTC)
 
-Host (rootcause) — release aabbccdd
+Host (ReplyPen) — release aabbccdd
   up since 2026-06-18T21:00:00Z (12.1h)
-  unpromoted: not checked (pass --host-repo <path to rootcause checkout>)
+  unpromoted: not checked (pass --host-repo <path to ReplyPen checkout>)
 
 Brain (acme) — local main 111111111111 · state current
   stable  111111111111  state=current origin=yes main=yes

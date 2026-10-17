@@ -16,7 +16,7 @@ func TestActionSettingsProbeFailurePrintsStableDiagnostic(t *testing.T) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/action/probe" || r.URL.Query().Get("project") != "alpha" {
 			t.Fatalf("request = %s %s", r.Method, r.URL.String())
 		}
-		_, _ = w.Write([]byte(`{"reachable":true,"status":405,"health":null,"latency_ms":2,"code":"EMBASSY_SIGNATURE_REJECTED","hint":"Use the same reverse secret on both sides.","docs":"https://github.com/rootcause-org/rootcause-embassy/blob/main/docs/integrator/errors.md#embassy_signature_rejected"}`))
+		_, _ = w.Write([]byte(`{"reachable":true,"status":405,"health":null,"latency_ms":2,"code":"EMBASSY_SIGNATURE_REJECTED","hint":"Use the same reverse secret on both sides.","docs":"https://github.com/replypen/replypen-embassy/blob/main/docs/integrator/errors.md#embassy_signature_rejected"}`))
 	}))
 	defer srv.Close()
 	e, out, errOut := newTestEnv(t, srv, "table")
@@ -27,7 +27,7 @@ func TestActionSettingsProbeFailurePrintsStableDiagnostic(t *testing.T) {
 	if out.Len() != 0 {
 		t.Fatalf("stdout = %q", out.String())
 	}
-	want := "EMBASSY_SIGNATURE_REJECTED: Use the same reverse secret on both sides. — https://github.com/rootcause-org/rootcause-embassy/blob/main/docs/integrator/errors.md#embassy_signature_rejected\n"
+	want := "EMBASSY_SIGNATURE_REJECTED: Use the same reverse secret on both sides. — https://github.com/replypen/replypen-embassy/blob/main/docs/integrator/errors.md#embassy_signature_rejected\n"
 	if errOut.String() != want {
 		t.Fatalf("stderr = %q, want %q", errOut.String(), want)
 	}

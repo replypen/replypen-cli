@@ -1,16 +1,16 @@
 ---
-name: rootcause-cli
-description: "Architecture & intent of the `rc` CLI — a scriptable Go client over rootcause's public JSON /api/v1. Read before changing code: adding or reshaping a command, the HTTP client, OAuth/token-store/config resolution, the scope contract, or the table/JSON render + output-spill layer. Command reference and usage live in README.md; AGENTS.md is the router."
+name: replypen-cli
+description: "Architecture & intent of the `rp` CLI — a scriptable Go client over ReplyPen's public JSON /api/v1. Read before changing code: adding or reshaping a command, the HTTP client, OAuth/token-store/config resolution, the scope contract, or the table/JSON render + output-spill layer. Command reference and usage live in README.md; AGENTS.md is the router."
 ---
 
-# rootcause-cli (`rc`) — architecture & intent
+# replypen-cli (`rp`) — architecture & intent
 
 Command reference: **[README.md](README.md)** (inventory generated from Cobra + `docs/cli-help.txt`).
 Code map + toolchain: **[AGENTS.md](AGENTS.md)**. This doc is the *why* and the recipes for changing code.
 
 ## Fat client, thin server
 
-rootcause endpoints stay simple and return **raw, token-scoped rows**; `rc` may compute views on top
+ReplyPen endpoints stay simple and return **raw, token-scoped rows**; `rp` may compute views on top
 locally (digests, clustering, health roll-ups, diagnosis). Two constraints keep that honest:
 
 - **`-o json` always reaches the raw rows** — our rendering is never the only way to the data.
@@ -31,23 +31,23 @@ authoring a skill:
 
 | Rung | Command | Endpoint |
 |---|---|---|
-| conversations | `rc run sessions` | `GET /api/v1/sessions` (chat only: which conversations happened, with turn/feedback rollups) |
-| feedback | `rc run feedback list` | `GET /api/v1/feedback` (rated/commented runs, windowed on rating time, not run creation) |
-| index | `rc status` / `rc run list` | `GET /api/v1/runs` (`status` = fixed health-led page; `run list` = filterable) |
-| one run | `rc run show <id>` | `GET /api/v1/runs/{id}` |
-| detail | `rc run events <id>` | `GET /api/v1/runs/{id}/events` (NDJSON in `-o json`) |
-| one turn, read | `rc run trace <id> --brief` | same `/trace`, minus the input context (prompt/grounding/tenant-settings) and the timeline |
-| bundle | `rc run trace <id>` | `GET /api/v1/runs/{id}/trace` (JSONL in `-o json`) |
-| decompose | `rc run debug <id>` | `/trace` → local jq-able JSONL + thin markdown index |
+| conversations | `rp run sessions` | `GET /api/v1/sessions` (chat only: which conversations happened, with turn/feedback rollups) |
+| feedback | `rp run feedback list` | `GET /api/v1/feedback` (rated/commented runs, windowed on rating time, not run creation) |
+| index | `rp status` / `rp run list` | `GET /api/v1/runs` (`status` = fixed health-led page; `run list` = filterable) |
+| one run | `rp run show <id>` | `GET /api/v1/runs/{id}` |
+| detail | `rp run events <id>` | `GET /api/v1/runs/{id}/events` (NDJSON in `-o json`) |
+| one turn, read | `rp run trace <id> --brief` | same `/trace`, minus the input context (prompt/grounding/tenant-settings) and the timeline |
+| bundle | `rp run trace <id>` | `GET /api/v1/runs/{id}/trace` (JSONL in `-o json`) |
+| decompose | `rp run debug <id>` | `/trace` → local jq-able JSONL + thin markdown index |
 
-`rc run sessions` sits ABOVE the index for chat: a conversation is N runs sharing one session id, so its
-row hands you the id for `rc run thread <session_id> --transcript` (READ the conversation: every turn in
-order, form answers folded under the turn they answer) and from there `rc run trace <run_id> --brief`
+`rp run sessions` sits ABOVE the index for chat: a conversation is N runs sharing one session id, so its
+row hands you the id for `rp run thread <session_id> --transcript` (READ the conversation: every turn in
+order, form answers folded under the turn they answer) and from there `rp run trace <run_id> --brief`
 (one turn's bodies, without the prompt/grounding bulk). The two `--` flags exist because the default
 views are DEBUGGING views: reading a conversation through them costs ~25× the bytes of its content.
-`--raw-output` / `rc run debug` stay the forensic rung.
+`--raw-output` / `rp run debug` stay the forensic rung.
 
-`rc run sessions search` pages the same index and narrows authorized rows locally by exact principal
+`rp run sessions search` pages the same index and narrows authorized rows locally by exact principal
 kind + ID, session-created UTC window, and optional case-insensitive prose. Omitting `days` on the
 index means all history; search stops at its lower creation bound, 20 pages of 100 rows, or its result
 limit. `coverage.complete` and `next_before` distinguish exhausted results from a resumable scan.
@@ -58,22 +58,22 @@ adds matches/coverage; transcript read failures abort rather than inventing a cl
 Implementation: `internal/cli/session_search.go`, `internal/digest/session_search.go`,
 `internal/client/sessions.go`, `internal/render/session_search.go`.
 
-`rc run attachments <session|run> | --resource kind:id` lists/downloads the session's files
+`rp run attachments <session|run> | --resource kind:id` lists/downloads the session's files
 ([attachments.go](internal/cli/attachments.go); wire types isolated in `internal/client/attachments_types.go`):
 streamed to a temp file, sha256-checked against list + `X-Content-SHA256`, renamed 0600; images default to
 the as-uploaded original; expired files never fail the batch silently (non-zero exit). The transcript's
 Files section reuses the same list call, best effort. Not to be confused with
-`rc run session <share-link>`, the account-less dump below.
+`rp run session <share-link>`, the account-less dump below.
 
 `run list` filters are **server-side** so cursor pagination stays correct — never re-implement one
 client-side. Two lanes that must stay distinct: `--learning` (training signal, held-out threads excluded)
 vs `--reviewed` (human audit, held-out threads included). Merging them leaks eval data into training.
 `--from/--subject/--since/--until` match the channel thread's envelope (the forwarded-email entry point);
-a triage-skipped mail has no run, so `rc run thread <address>` is the fallback (server resolves the
+a triage-skipped mail has no run, so `rp run thread <address>` is the fallback (server resolves the
 address to threads).
 
-Fan-out commands (`rc fleet runs|patterns|health`, `rc fleet actions`, `rc run thread`,
-`rc dev learning evidence`, `rc project knowledge content …`) call several raw endpoints and compute the
+Fan-out commands (`rp fleet runs|patterns|health`, `rp fleet actions`, `rp run thread`,
+`rp dev learning evidence`, `rp project knowledge content …`) call several raw endpoints and compute the
 view in `internal/render`; the raw rows stay reachable through `-o json`.
 
 ## Scope model (fail-closed)
@@ -127,10 +127,10 @@ map. The rules that make the layering real:
 ### Output: pipe-first, TTY-aware
 
 `render.IsJSON` — `-o json`/`-o table` wins, else **JSON unless stdout is a terminal**, so
-`rc … | jq` always works. The `-o json` contract has three rules:
+`rp … | jq` always works. The `-o json` contract has three rules:
 
 - **(a) Passthrough commands** print the verbatim server body. A client-side row filter (a flag, or a
-  documented default like `rc project token ls`'s active-only) may drop ROWS, never invent or drop fields
+  documented default like `rp project token ls`'s active-only) may drop ROWS, never invent or drop fields
   (`replaceListItems`, [`token_ls.go`](internal/cli/token_ls.go)).
 - **(b) Computed reports** (`project chat doctor`, `dev action doctor`, `project knowledge content
   search`, `dev console paths`, an explicitly passed fleet `--format` digest — `rawRowsJSON`,
@@ -147,7 +147,7 @@ Console query output is its own streamed shape: normalized `columns` + positiona
 `json|ndjson|csv|tsv`, with a terminal row-count frame so a cut-off stream fails instead of installing a
 partial file.
 
-Large payloads spill to `.rootcause/output/` with a preview/manifest on stdout
+Large payloads spill to `.replypen/output/` with a preview/manifest on stdout
 ([`internal/outputspill`](internal/outputspill/outputspill.go), wired in
 [`outputspill.go`](internal/cli/outputspill.go)). Contract + knobs:
 [docs/specs/progressive-output-disclosure.md](docs/specs/progressive-output-disclosure.md).
@@ -159,10 +159,12 @@ static first-party client `rcocl_cli`: PKCE loopback by default, `--device` for 
 chosen on the browser consent screen, not by CLI flags.** The authorize URL is printed *before* the OS
 opener runs and opener failure is non-fatal, so an agent can hand the URL to a human.
 
-Tokens: `~/.config/rootcause/tokens.json`, 0600, per profile ([`internal/token`](internal/token/store.go)).
+Tokens: `~/.config/replypen/tokens.json`, 0600, per profile ([`internal/token`](internal/token/store.go)).
+A pre-rename `~/.config/rootcause` is moved there once and left as a symlink, never copied (two copies
+would let old `rc` and new `rp` spend the same single-use refresh token) — [`migrate.go`](internal/token/migrate.go).
 Its stored `base_url` is diagnostic metadata only and never overrides transport.
 `liveSource` refreshes pre-emptively and once on a 401, persists the rotated pair, and turns a dead
-refresh into a "run `rc auth login`" prompt. Check → refresh → persist runs inside `token.Update` (a
+refresh into a "run `rp auth login`" prompt. Check → refresh → persist runs inside `token.Update` (a
 per-profile cross-process lock; only the file write takes the store lock), so parallel processes on one
 profile spend the single-use refresh token once while other profiles refresh in parallel. The store lookup is the ONE seam `newClient` allows: tests
 swap `env.tokenSource` (a `tokenSourceFactory`) for a `client.StaticToken` source, and everything after it
@@ -170,7 +172,7 @@ swap `env.tokenSource` (a `tokenSourceFactory`) for a `client.StaticToken` sourc
 runs in the same order as in production.
 
 **Headless machine token:** a committed brain marker may *name* (never contain) a secret env var via
-`machine_token_env`. `rc` seeds that profile, then requires `/whoami` to match the marker project before
+`machine_token_env`. `rp` seeds that profile, then requires `/whoami` to match the marker project before
 any command endpoint, and refuses to send the token to a non-production base URL
 ([`machine_token_env.go`](internal/cli/machine_token_env.go)). A cached machine credential whose
 provenance no longer holds (marker dropped the declaration, or the variable is unset) is ignored, not
@@ -180,7 +182,7 @@ declared-but-missing variable fails rather than falling back to a broader `defau
 A marker may declare extra `[[also]]` bindings (project + its own `machine_token_env`), because tokens are
 one-project-only: `--project`/`RC_PROJECT` naming such a project makes `config.LoadFor` re-point the
 profile, the machine-token variable and the pin check to that binding — same provenance rules, no
-all-projects token. `Resolved.BindingKind` (`primary`/`also`) is what `rc auth status` discloses. Every
+all-projects token. `Resolved.BindingKind` (`primary`/`also`) is what `rp auth status` discloses. Every
 other `--project` value stays a pure server-side scope.
 
 ### The share-token path (no profile, no token source)
@@ -196,10 +198,10 @@ only valid on the host that minted it.
 
 Endpoints live in [`internal/client/share.go`](internal/client/share.go) and return the SAME shapes as
 their authenticated twins (`FullResponse`, `ThreadTrace` + a `share_url` per run row), which is why
-`rc run debug`/`rc run thread` produce byte-identical output on both paths and `internal/debugdump` never
-learns the difference. `rc run session` is the only share-only view: two fetches (`/s/{token}/transcript`
+`rp run debug`/`rp run thread` produce byte-identical output on both paths and `internal/debugdump` never
+learns the difference. `rp run session` is the only share-only view: two fetches (`/s/{token}/transcript`
 + the shared session runs) into one flat markdown file — deliberately not a second progressive-disclosure
-format, since per-run depth stays behind the `rc run debug` command each table row prints.
+format, since per-run depth stays behind the `rp run debug` command each table row prints.
 
 ### Config precedence
 
@@ -208,19 +210,22 @@ format, since per-run depth stays behind the `rc run debug` command each table r
 input here; it is a server-side scope threaded on by the command layer.
 
 - explicit `--profile` (or `RC_PROFILE`, its env default) → that profile, no brain binding (the escape hatch);
-- inside a brain (`.rootcause.toml`) → the marker's project as profile — or an `[[also]]` binding's
+- inside a brain (`.replypen.toml`, or the legacy `.rootcause.toml`; both present must be identical) → the marker's project as profile — or an `[[also]]` binding's
   project when `--project`/`RC_PROJECT` names it (`LoadFor`); without a project profile, fall
   back to `default` and carry the marker project as `?project=` (`autoProject` in `root.go`);
 - otherwise → `default` — and if that has no token, `notLoggedIn` says so and lists the stored profiles,
   because outside a brain the profile was chosen silently.
 
-Base URL is exactly `ROOTCAUSE_BASE_URL` > built-in production. Rationale: one env var is the only
+Base URL is exactly `REPLYPEN_BASE_URL` (legacy `ROOTCAUSE_BASE_URL` accepted; both set and different is an
+error) > built-in production. Rationale: one env var is the only
 staging/dev escape hatch, so a stale persisted `base_url` in a marker or token record can never silently
-redirect traffic. `.rootcause/local.toml` overlays `tenant` only.
+redirect traffic. `.replypen/local.toml` (else legacy `.rootcause/local.toml`) overlays `tenant` only. Every
+local artifact write goes under `.replypen/` and seeds its `*` .gitignore ([`internal/localstate`](internal/localstate/localstate.go)):
+brains only gitignore the legacy `/.rootcause/`.
 
 ## Invariants worth knowing before you touch these commands
 
-- **`rc ask`** ([ask.go](internal/cli/ask.go)) is the one *run* trigger (`POST /api/v1/runs`): submit,
+- **`rp ask`** ([ask.go](internal/cli/ask.go)) is the one *run* trigger (`POST /api/v1/runs`): submit,
   poll, render — all run logic is server-side. Its legacy-body retry is allowed only when no run-control
   field, principal, or attachment would be dropped: a dropped principal is a silent **under-scope**, so
   that guard is security, not compatibility. Test-run intent:
@@ -233,40 +238,40 @@ redirect traffic. `.rootcause/local.toml` overlays `tenant` only.
   every surface that can receive one prints "withheld" instead of an empty section
   ([`internal/render/redaction.go`](internal/render/redaction.go), `render.Patterns`, the `run debug`
   index). Absent field = older server = full detail.
-- **`rc run debug`** ([`internal/debugdump`](internal/debugdump/dump.go)) writes files and deliberately
+- **`rp run debug`** ([`internal/debugdump`](internal/debugdump/dump.go)) writes files and deliberately
   does **not** summarize into stdout; the agent reads the index, then drills the JSONL. Its JSONL shape
-  (header line + `disp`-keyed events) is a contract shared with rootcause's Python renderer — jq recipes
+  (header line + `disp`-keyed events) is a contract shared with ReplyPen's Python renderer — jq recipes
   in the field depend on it. Header = server run object + CLI overlay (`runHeader` in jsonl.go): a new
   server field needs no CLI change; keys the overlay owns keep the CLI shape, host-only keys drop, and
   event-key collisions become `run_<key>`. Historical `/trace` snapshots are authoritative; current state
   appears only as drift annotations.
-- **`rc dev brain`** ([brain.go](internal/cli/brain.go)) is project-scoped by design: tenant overlays use
+- **`rp dev brain`** ([brain.go](internal/cli/brain.go)) is project-scoped by design: tenant overlays use
   main, have no channels, and a tenant-scoped principal is denied, never redirected. `preflight` is
   promote's dry run over the same server-side canary — it exits non-zero on a refusing verdict, but the
   server enforces the check on `promote` too, so preflight is for *seeing* the answer early, never what
   makes promotion safe. `consumers` (not `checked`) is the authoritative channel-use count.
-- **`rc dev console` principal binding** (`--principal-kind`/`--principal-id` on `bash run`,
+- **`rp dev console` principal binding** (`--principal-kind`/`--principal-id` on `bash run`,
   `database query`, `database schema`) reuses `principalFromFlags` from [ask.go](internal/cli/ask.go): the
   pair is all-or-nothing, because half a principal is a silent under- or over-scope. It is **omitempty on
   the wire** — an unbound call must send the exact legacy body/query an older host accepts. When the server
   echoes a principal it also returns `hidden_tables`; both are rendered above the result, since an empty
   answer that is really "hidden from this identity" must never read as "no such data".
-- **`rc dev console database query --write --dry-run`** runs with **identical authorization** to a commit
+- **`rp dev console database query --write --dry-run`** runs with **identical authorization** to a commit
   and rolls back — a safety net, not a lesser privilege. Rollback doesn't undo sequence bumps or volatile
   side effects, and rehearsal + commit are two executions, so re-check the row count.
-- **`rc project env`** ([env.go](internal/cli/env.go)) is secret-shaped: `keys`/`diff` are names-only,
+- **`rp project env`** ([env.go](internal/cli/env.go)) is secret-shaped: `keys`/`diff` are names-only,
   `pull` writes values only into a 0600 `./.env`, `set` reads STDIN, `reveal` is the single deliberate
   print. `--plane action` targets the operator-only write plane that never enters normal runs. Operator
-  playbook: [README](README.md#rc-project-env--self-serve-grounding-env-sync).
-- **`rc self update`** ([upgrade.go](internal/cli/upgrade.go)) is the one command that reaches outside
+  playbook: [README](README.md#rp-project-env--self-serve-grounding-env-sync).
+- **`rp self update`** ([upgrade.go](internal/cli/upgrade.go)) is the one command that reaches outside
   `/api/v1` (GitHub Releases or `RC_RELEASE_MIRROR`, sha256-verified, Homebrew on macOS). Keep it the only
   one. `--migrate` fails closed on binaries it cannot identify as ours. One narrow exception:
-  `rc dev mirror refresh --accept-descendant` shells out to the cwd checkout's own `git` (`fetch` from its
+  `rp dev mirror refresh --accept-descendant` shells out to the cwd checkout's own `git` (`fetch` from its
   origin, `merge-base --is-ancestor`) to prove ancestry (`gitIsAncestor`, [mirror.go](internal/cli/mirror.go)).
 
 ## Adding a command
 
-1. Wire struct in the endpoint's `internal/client/<endpoint>_types.go` — field names match the server JSON exactly. Grep each new tag in the server handler (`rootcause/internal/api`) before adding it: a field the
+1. Wire struct in the endpoint's `internal/client/<endpoint>_types.go` — field names match the server JSON exactly. Grep each new tag in the server handler (`replypen/internal/api`) before adding it: a field the
    server never sends decodes silently to zero, and a fixture inventing it keeps the golden green (2026-10-16: phantom `debug`/`source_pr` hid every decline reason).
 2. Client method in `internal/client` (one method per endpoint), returning `(typed, raw, error)`.
 3. Render function + golden fixture/test in `internal/render`. JSON goes through `e.renderJSON(label, raw)`

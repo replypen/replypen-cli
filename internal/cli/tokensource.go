@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/oauth"
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/oauth"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
 // refreshSkew refreshes an access token this long before it actually expires, so a request never races
@@ -57,7 +57,7 @@ func (s *liveSource) Refresh(ctx context.Context) (string, error) {
 
 // refresh renews the access token inside the profile's cross-process lock (token.Update). Must hold s.mu.
 //
-// Parallel `rc` processes on one profile all see the same expiring token, and the server's rotating
+// Parallel `rp` processes on one profile all see the same expiring token, and the server's rotating
 // refresh token is single-use: an unserialized second refresh gets invalid_grant even though the login
 // is healthy. So check → refresh → persist is one per-profile token.Update critical section (other
 // profiles refresh in parallel), and after acquiring the lock we re-read: a sibling that renewed while
@@ -103,7 +103,7 @@ func (s *liveSource) refresh(ctx context.Context, force bool) (string, error) {
 		return "", err
 	}
 	// invalid_grant: re-read once before declaring the session dead — a sibling outside our lock (an older
-	// rc) may have rotated the refresh token we presented.
+	// rp) may have rotated the refresh token we presented.
 	if fresh, ok, lerr := token.Load(s.profile); lerr == nil && ok &&
 		fresh.RefreshToken != presented && !fresh.Expired(time.Now(), refreshSkew) {
 		s.last = fresh.AccessToken
@@ -114,5 +114,5 @@ func (s *liveSource) refresh(ctx context.Context, force bool) (string, error) {
 
 // reauthError is the shared "session can't be refreshed — log in again" error.
 func reauthError(profile string) error {
-	return authenticationError(fmt.Sprintf("session expired (profile %q) — run `rc auth login`", profile))
+	return authenticationError(fmt.Sprintf("session expired (profile %q) — run `rp auth login`", profile))
 }

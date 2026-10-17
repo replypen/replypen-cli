@@ -16,7 +16,7 @@ Aggregate:
 Stuck/running (no finish past 30m0s):
   dddddddd-0000-0000-0000-000000000001 120m0s old (email)
 
-Worst offenders (full ids — `rc run debug <id>`):
+Worst offenders (full ids — `rp run debug <id>`):
   Top turns:
     dddddddd-0000-0000-0000-000000000003 4t — email, done · 60s · 4t
     dddddddd-0000-0000-0000-000000000001 3t — email, running · 3t

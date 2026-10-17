@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // mirrorTipServer answers every refresh whose expected_sha != tip with the host's 409

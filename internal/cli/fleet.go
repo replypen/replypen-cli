@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newFleetRunsCmd builds `rc fleet runs`: the fleet digest over GET /api/v1/runs (paged) — the per-run
+// newFleetRunsCmd builds `rp fleet runs`: the fleet digest over GET /api/v1/runs (paged) — the per-run
 // flag line + aggregate + worst offenders. The server ships raw per-run rows (+ the run_health
 // triage block for an operator bearer); the CLI computes the one derived flag the server can't (the T!
 // turn-spike, which needs a per-kind median) and renders the digest. --format agent emits the token-lean
@@ -68,7 +68,7 @@ func newFleetRunsCmd(e *env) *cobra.Command {
 				return err
 			}
 			if capped {
-				warnCapped(e, "fleet: hit the page cap — older runs omitted; narrow --kind or use rc run list --before")
+				warnCapped(e, "fleet: hit the page cap — older runs omitted; narrow --kind or use rp run list --before")
 			}
 
 			if rawJSON {

@@ -58,7 +58,7 @@ func decodeScopeSpec(value string) (scopeSpec, error) {
 }
 
 func commandScope(path string) scopeSpec {
-	path = strings.TrimSpace(strings.TrimPrefix(path, "rc "))
+	path = strings.TrimSpace(strings.TrimPrefix(path, "rp "))
 	projectTenant := scopeSpec{Project: true, Tenant: true}
 	projectOnly := scopeSpec{Project: true}
 	// dev brain preflight is the promote gate's dry run over a SHARED channel, so it is project-only for
@@ -177,7 +177,7 @@ func validateCommandScope(e *env, cmd *cobra.Command) error {
 		if all {
 			// Database query --all exhausts one query's server cursor; it is unrelated to the fleet-wide
 			// --all selector and deliberately remains compatible with project/tenant scope.
-			if cmd.CommandPath() == "rc dev console database query" {
+			if cmd.CommandPath() == "rp dev console database query" {
 				return nil
 			}
 			if !spec.AllProjects {

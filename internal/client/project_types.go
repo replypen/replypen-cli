@@ -2,7 +2,7 @@
 // Field names and omitempty MUST match the server verbatim; the ground rules live in types.go.
 package client
 
-// Project is one row of GET /api/v1/projects — a fleet handle (id + name). It's what `rc project list`
+// Project is one row of GET /api/v1/projects — a fleet handle (id + name). It's what `rp project list`
 // renders and the seed the `--all` fan-out lists before hitting each project's read surface with
 // ?project=<id>. Mirrors the server's projectItem field-for-field.
 type Project struct {
@@ -47,10 +47,10 @@ type WhoamiResponse struct {
 	Tenant      *WhoamiScope `json:"tenant,omitempty"`
 }
 
-// --- observability feeds (rc fleet / patterns / health) ---
+// --- observability feeds (rp fleet / patterns / health) ---
 
 // EnvResponse is GET /api/v1/env — the resolved grounding env. Keys holds live secret VALUES (the
-// whole point: `rc project env pull` writes them to ./.env). The CLI NEVER prints a value: it renders key
+// whole point: `rp project env pull` writes them to ./.env). The CLI NEVER prints a value: it renders key
 // NAMES only and writes values solely to the 0600 file.
 type EnvResponse struct {
 	Project string            `json:"project"`

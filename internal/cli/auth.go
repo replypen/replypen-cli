@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/config"
-	"github.com/rootcause-org/rootcause-cli/internal/oauth"
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/oauth"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
 // loginTimeout bounds the wait for a human to complete the browser/device sign-in before the CLI gives
@@ -44,10 +44,10 @@ type scopeResolution struct {
 	autoProject      string
 }
 
-// newLoginCmd builds `rc auth login` — the OAuth sign-in. By default it runs the PKCE loopback flow (opens a
+// newLoginCmd builds `rp auth login` — the OAuth sign-in. By default it runs the PKCE loopback flow (opens a
 // browser, catches the redirect on a localhost port); --device runs the RFC 8628 device flow for an
 // SSH/headless box (print a code, approve it in a browser anywhere). The resulting access + refresh
-// tokens are stored under the resolved profile in the 0600 token store; every later `rc` refreshes the
+// tokens are stored under the resolved profile in the 0600 token store; every later `rp` refreshes the
 // access token transparently. The project the token is scoped to is chosen on the consent screen in the
 // browser (a project, or — for a global admin — all projects), not on the CLI.
 // devicePollWait overrides the device grant's inter-poll wait, which RFC 8628 puts in the server's
@@ -60,7 +60,7 @@ func newLoginCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Sign in with OAuth (PKCE loopback by default, --device for headless)",
-		Long: "Sign in to rootcause. By default this opens your browser and catches the redirect on a\n" +
+		Long: "Sign in to ReplyPen. By default this opens your browser and catches the redirect on a\n" +
 			"localhost port (PKCE). On a headless/SSH box, use --device to get a short code you approve in\n" +
 			"a browser on any device.\n\n" +
 			"Tokens are stored per profile in " + tokenStorePath() + " (0600). Pick the project (or\n" +
@@ -115,8 +115,8 @@ func newLoginCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// newLogoutCmd builds `rc auth logout` — revoke the profile's tokens server-side (best-effort) and clear them
-// from the local store. After this the profile is signed out; `rc auth login` signs back in.
+// newLogoutCmd builds `rp auth logout` — revoke the profile's tokens server-side (best-effort) and clear them
+// from the local store. After this the profile is signed out; `rp auth login` signs back in.
 func newLogoutCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logout",
@@ -167,7 +167,7 @@ func newLogoutCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// newAuthStatusCmd builds `rc auth status` — answer "which profile/project will rc hit from here, am I signed
+// newAuthStatusCmd builds `rp auth status` — answer "which profile/project will rp hit from here, am I signed
 // in, and which project/tenant is the login bound to?" Local config supplies the checkout/profile view;
 // /api/v1/whoami supplies the token-bound scope when a token is present.
 func newAuthStatusCmd(e *env) *cobra.Command {
@@ -182,7 +182,7 @@ func newAuthStatusCmd(e *env) *cobra.Command {
 			}
 			res, t, loggedIn := scope.resolved, scope.token, scope.loggedIn
 			base, autoProject := scope.BaseURL, scope.autoProject
-			status, expiry := "not logged in — run `rc auth login`", ""
+			status, expiry := "not logged in — run `rp auth login`", ""
 			if loggedIn {
 				status = "logged in"
 				if !t.ExpiresAt.IsZero() {
@@ -231,7 +231,7 @@ func newAuthStatusCmd(e *env) *cobra.Command {
 			_, _ = fmt.Fprintf(e.out, "profile:   %s\n", res.Profile)
 			_, _ = fmt.Fprintf(e.out, "project:   %s\n", emptyDash(project))
 			if scope.BindingKind == config.BindingAlso {
-				_, _ = fmt.Fprintf(e.out, "           (%s [[also]] binding via %s)\n", config.MarkerFileName, scope.BindingEnv)
+				_, _ = fmt.Fprintf(e.out, "           (%s [[also]] binding via %s)\n", res.MarkerName(), scope.BindingEnv)
 			} else if e.project != "" {
 				_, _ = fmt.Fprintf(e.out, "           (--project scope; needs an all-projects token)\n")
 			} else if autoProject != "" {
@@ -278,7 +278,7 @@ func newAuthStatusCmd(e *env) *cobra.Command {
 }
 
 // resolveScope centralizes the exact profile/project/tenant/base-URL precedence. Auth status opts
-// into the soft login lookup; local diagnostics leave it off and never contact the rootcause API.
+// into the soft login lookup; local diagnostics leave it off and never contact the ReplyPen API.
 func (e *env) resolveScope(includeLogin bool) (scopeResolution, error) {
 	res, err := config.LoadFor(e.profile, e.project)
 	if err != nil {
@@ -334,10 +334,10 @@ func (e *env) resolveScope(includeLogin bool) (scopeResolution, error) {
 
 	project, projectSource := res.Project, ""
 	if project != "" {
-		projectSource = config.MarkerFileName
+		projectSource = res.MarkerName()
 	}
 	if res.BindingKind == config.BindingAlso {
-		project, projectSource = res.Project, config.MarkerFileName+" [[also]]"
+		project, projectSource = res.Project, res.MarkerName()+" [[also]]"
 	} else if e.project != "" {
 		project, projectSource = e.project, "--project"
 	} else if autoProject != "" {
@@ -424,7 +424,7 @@ func tokenStorePath() string {
 	if p, err := token.Path(); err == nil {
 		return p
 	}
-	return "~/.config/rootcause/tokens.json"
+	return "~/.config/replypen/tokens.json"
 }
 
 // brainMachineTokenEnv names the variable the effective binding would seed from ("" when none is declared

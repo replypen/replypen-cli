@@ -5,10 +5,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/idutil"
+	"github.com/replypen/replypen-cli/internal/idutil"
 )
 
-// newIDCmd builds `rc id gmail <id>` / `rc id outlook <id>` — provider id translators. Pure math + a
+// newIDCmd builds `rp id gmail <id>` / `rp id outlook <id>` — provider id translators. Pure math + a
 // clickable URL, no network.
 func newIDCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{

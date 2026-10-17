@@ -1,5 +1,5 @@
 Thread: thr-out
-Resolved by: rootcause thread id
+Resolved by: ReplyPen thread id
 
 1 channel thread(s):
 LOCAL     PROVIDER  TENANT  STATUS  OUTCOME   MSG  DRAFT  NOTE  UPDATED               SUBJECT
@@ -15,7 +15,7 @@ No run was enqueued for this channel thread.
 =====
 
 Thread: thr-in
-Resolved by: rootcause thread id
+Resolved by: ReplyPen thread id
 
 1 channel thread(s):
 LOCAL     PROVIDER  TENANT  STATUS   OUTCOME   MSG  DRAFT  NOTE  UPDATED               SUBJECT

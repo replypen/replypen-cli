@@ -2,7 +2,7 @@
 // Field names and omitempty MUST match the server verbatim; the ground rules live in types.go.
 package client
 
-// HealthMirror is one raw mirror_health row from GET /api/v1/health — the input `rc fleet health` applies its
+// HealthMirror is one raw mirror_health row from GET /api/v1/health — the input `rp fleet health` applies its
 // staleness/state rule to. HoursSinceOK is nil when the mirror never succeeded (the CLI renders "never").
 type HealthMirror struct {
 	Repo                string   `json:"repo"`

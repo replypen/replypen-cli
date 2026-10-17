@@ -26,10 +26,10 @@ type SettingField struct {
 type Settings map[string]SettingField
 
 // SchemaResponse is GET /api/v1/meta/schema: the declarative config registry as JSON, keyed by
-// resource name. The self-describing surface `rc schema`/`rc explain` render.
+// resource name. The self-describing surface `rp schema`/`rp explain` render.
 type SchemaResponse struct {
 	Resources map[string]BagSchema `json:"resources"`
-	// HierarchySettings is the nested persona/channel/... surface (`rc project settings behavior set`,
+	// HierarchySettings is the nested persona/channel/... surface (`rp project settings behavior set`,
 	// tenant/mailbox twins) keyed by group prefix. Separate from Resources because those groups live in
 	// the hierarchy JSONB, not in a flat project-row bag.
 	HierarchySettings map[string]HierarchyGroupSchema `json:"hierarchy_settings,omitempty"`
@@ -82,7 +82,7 @@ type Access struct {
 }
 
 // AccessFormats is the wire-format versions THAT box currently writes (token-independent). It is the
-// server's own answer to "can this rc still parse what you produce?" — read it instead of re-pinning the
+// server's own answer to "can this rp still parse what you produce?" — read it instead of re-pinning the
 // server's current corpus version here. Empty against a server older than the field.
 type AccessFormats struct {
 	HarvestCorpus string `json:"harvest_corpus"`

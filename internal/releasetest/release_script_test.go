@@ -57,7 +57,7 @@ func TestReleasePublishesMainBeforeTag(t *testing.T) {
 	write(t, filepath.Join(mirror, "cloud-setup.sh"), string(cloudSetup), 0o644)
 	write(t, filepath.Join(mirror, "v9.9.9", "cloud-setup.sh"), string(cloudSetup), 0o644)
 	write(t, filepath.Join(mirror, "latest"), "v9.9.9\n", 0o644)
-	write(t, filepath.Join(mirror, "v9.9.9", "checksums.txt"), "deadbeef  rc_9.9.9_linux_amd64.tar.gz\n", 0o644)
+	write(t, filepath.Join(mirror, "v9.9.9", "checksums.txt"), "deadbeef  rp_9.9.9_linux_amd64.tar.gz\nfeedface  rc_9.9.9_linux_amd64.tar.gz\n", 0o644)
 
 	run(t, checkout, "git", "add", "README.md", "scripts/cloud-setup.sh", "scripts/lint-contracts.sh")
 	run(t, checkout, "git", "commit", "-m", "initial")
@@ -88,7 +88,7 @@ func TestReleasePublishesMainBeforeTag(t *testing.T) {
 		write(t, filepath.Join(fakeBin, linter), "#!/usr/bin/env bash\nprintf '"+linter+"\\n' >> "+invoked+"\nexit 0\n", 0o755)
 	}
 	write(t, filepath.Join(fakeBin, "go"), `#!/usr/bin/env bash
-if [[ "$*" == *"rootcause-org/rootcause-cli@latest"* ]]; then
+if [[ "$*" == *"replypen/replypen-cli@latest"* ]]; then
   printf 'v9.9.9\n'
 fi
 exit 0
@@ -98,18 +98,18 @@ if [[ "$1 $2" == "auth status" ]]; then
   exit 0
 fi
 if [[ "$1 $2" == "release view" && "$*" == *"--json assets"* ]]; then
-  printf '7\n'
+  printf '13\n'
   exit 0
 fi
 if [[ "$1 $2" == "release view" && "$*" == *"--json url"* ]]; then
   printf 'https://example.test/releases/v9.9.9\n'
   exit 0
 fi
-if [[ "$1" == "api" && "$*" == *"rootcause-cli/releases/latest"* ]]; then
+if [[ "$1" == "api" && "$*" == *"replypen-cli/releases/latest"* ]]; then
   printf 'v9.9.9\n'
   exit 0
 fi
-if [[ "$1" == "api" && "$*" == *"homebrew-tap/contents/Casks/rc.rb"* ]]; then
+if [[ "$1" == "api" && "$*" == *"homebrew-tap/contents/Casks/rp.rb"* ]]; then
   printf '  version "9.9.9"\n'
   exit 0
 fi
@@ -138,7 +138,7 @@ exit 0
 	}
 	for _, key := range []string{
 		"layer contracts", "mirror v9.9.9/cloud-setup.sh", "mirror cloud-setup.sh",
-		"mirror latest is v9.9.9", "mirror v9.9.9/checksums.txt",
+		"mirror latest is v9.9.9", "mirror v9.9.9/checksums.txt", "legacy rc_* archives",
 	} {
 		if !strings.Contains(string(out), key) {
 			t.Fatalf("release output omitted release mirror verification (%s):\n%s", key, out)

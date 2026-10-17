@@ -10,11 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/debugdump"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
-	"github.com/rootcause-org/rootcause-cli/internal/outputspill"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/debugdump"
+	"github.com/replypen/replypen-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/localstate"
+	"github.com/replypen/replypen-cli/internal/outputspill"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // newRunCmd owns the explicit run lifecycle verbs. The group itself accepts no positional shorthand;
@@ -46,7 +47,7 @@ func newRunCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// runIDCommand is the shared skeleton of every `rc run <view> <id>` command: one positional run id, one
+// runIDCommand is the shared skeleton of every `rp run <view> <id>` command: one positional run id, one
 // client, one output-mode decision. Each view supplies only its own fetch+render.
 func runIDCommand(e *env, use, short string, run func(c *client.Client, id string, jsonMode bool) error) *cobra.Command {
 	return &cobra.Command{
@@ -109,7 +110,7 @@ func newRunTraceCmd(e *env) *cobra.Command {
 			"messages, answer/notes, outcome, guards, egress summary — without the system prompt, prompt " +
 			"sections, manifest/bootstrap turns, grounding snapshots, tenant-settings blobs or the event " +
 			"timeline (on a real chat turn that is ~90% of the bytes). Default + `--raw-output` is the " +
-			"DEBUGGING view: everything, JSONL in `-o json`, for `rc run debug`-style forensics.",
+			"DEBUGGING view: everything, JSONL in `-o json`, for `rp run debug`-style forensics.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			target, err := parseRunTarget(args[0], shareToken)
@@ -153,9 +154,9 @@ func newRunDebugCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "debug <id|url>",
 		Short: "Decompose a run into local debug artifacts",
-		Long: "Write a run's trace to .rootcause/debug/ as a jq-able JSONL plus a thin markdown index. " +
+		Long: "Write a run's trace to .replypen/debug/ as a jq-able JSONL plus a thin markdown index. " +
 			"Accepts a run id (using your login) or a run link someone shared with you " +
-			"(https://app.replypen.com/runs/<id>?t=<token>) — a link needs no `rc auth login` and no profile.",
+			"(https://app.replypen.com/runs/<id>?t=<token>) — a link needs no `rp auth login` and no profile.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			target, err := parseRunTarget(args[0], shareToken)
@@ -262,7 +263,7 @@ func newRunGuardsCmd(e *env) *cobra.Command {
 			return err
 		}
 		if resp.Redacted() || resp.Run.Guards == nil {
-			_, _ = fmt.Fprintf(e.err, "run %s: no guards on this trace — they need a project-level admin token and a server that exposes them.\nSanity-check the trace itself with: rc run trace %s\n", id, id)
+			_, _ = fmt.Fprintf(e.err, "run %s: no guards on this trace — they need a project-level admin token and a server that exposes them.\nSanity-check the trace itself with: rp run trace %s\n", id, id)
 			return nil
 		}
 		if jsonMode {
@@ -295,7 +296,7 @@ func addStreamFlag(cmd *cobra.Command, stream *bool) {
 	cmd.Flags().BoolVar(stream, "stream", false, "stream JSONL to stdout even when it is large")
 }
 
-// runFeedbackCmd: `rc run feedback <id>` over the run's feedback sub-resource. Two planes on one verb:
+// runFeedbackCmd: `rp run feedback <id>` over the run's feedback sub-resource. Two planes on one verb:
 // --score/--comment POST the reviewer signal that feeds the consolidation plane (run-trace feedback);
 // --processed/--unprocessed/--resolution-note PATCH the operator triage state (admin-tier server-side).
 // Combining both runs POST first, then PATCH, so the printed/JSON state is the merged one. At least one
@@ -310,7 +311,7 @@ func runFeedbackCmd(e *env) *cobra.Command {
 		Short: "Record score/comment feedback on a run's trace, or mark it processed; `list` reviews rated runs",
 		Long: "Record a reviewer score (1..5) and/or comment on one run, or set the operator triage state " +
 			"(--processed/--unprocessed/--resolution-note). To review feedback across runs, use " +
-			"`rc run feedback list`.",
+			"`rp run feedback list`.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cc *cobra.Command, args []string) error {
 			if processed && unprocessed {
@@ -391,7 +392,7 @@ func feedbackPatchSummary(processed, unprocessed, noteSet bool) string {
 	}
 }
 
-// runRetryCmd: `rc run retry <id> [--tier …] [--comment …|--comment-file …]` over
+// runRetryCmd: `rp run retry <id> [--tier …] [--comment …|--comment-file …]` over
 // POST /api/v1/runs/{id}/retry. Prints the NEW run id (the server re-enqueues the run). A `comment` is
 // reviewer steering for the rerun (e.g. the corrected answer); the server keeps the original tier when
 // one is given, and otherwise escalates a finished run one tier.
@@ -490,17 +491,17 @@ func cellOf(it client.Item, key string) string {
 	return ""
 }
 
-// defaultDebugDir is where `rc run debug <id>` writes its two files unless --out-dir overrides it.
-// All rc local artifacts live under the wholesale-gitignored `.rootcause/` dir (one ignore rule covers
-// every subfolder); brains seed `/.rootcause/` so these dumps (real run data, PII) never get committed.
-const defaultDebugDir = ".rootcause/debug"
+// defaultDebugDir is where `rp run debug <id>` writes its two files unless --out-dir overrides it.
+// All rp local artifacts live under the wholesale-gitignored `.replypen/` dir (one ignore rule covers
+// every subfolder); brains seed `/.replypen/` so these dumps (real run data, PII) never get committed.
+var defaultDebugDir = localstate.Path("debug")
 
 // writeRunDebug turns a /trace bundle into the raw jq-able JSONL event log + a thin markdown index,
 // printing both paths. It does NOT render the run into stdout — the whole point is to hand the agent
 // primitives (the two files) it drills into itself. Credential-blind: the bearer and share-token paths
 // hand it the same bundle. raw is that bundle's verbatim body — the base of the JSONL run header.
 func writeRunDebug(e *env, full *client.FullResponse, raw json.RawMessage, outDir string) error {
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	if err := mkdirLocal(outDir, 0o755); err != nil {
 		return fmt.Errorf("create out dir %s: %w", outDir, err)
 	}
 	jsonlPath := filepath.Join(outDir, debugdump.JSONLName(full))
@@ -541,7 +542,7 @@ func writeRunDebug(e *env, full *client.FullResponse, raw json.RawMessage, outDi
 				"sed -n '1,160p' " + outputspill.ShellQuote(indexArt.Path),
 				"jq -r 'select(.type==\"event\")' " + outputspill.ShellQuote(jsonlArt.Path),
 				"jq -r 'select(.disp==\"1\")' " + outputspill.ShellQuote(jsonlArt.Path),
-				"rc dev context-export  # the full three-step opening context (offline, operator)",
+				"rp dev context-export  # the full three-step opening context (offline, operator)",
 			},
 			RawModeHint: "rerun with --raw-output to print the debug paths to stdout",
 		})

@@ -1,4 +1,4 @@
-// This file renders `rc run thread <id> --transcript`: one chat conversation as compact Markdown,
+// This file renders `rp run thread <id> --transcript`: one chat conversation as compact Markdown,
 // in reading order. Markdown, not a table: a question and an answer are multi-line bodies, and a table
 // cell would either mangle them or truncate them into uselessness.
 package render
@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // Transcript writes the conversation: a header with the honest counts, one block per turn (folded form
@@ -18,7 +18,7 @@ func Transcript(w io.Writer, t digest.Transcript) {
 	_, _ = fmt.Fprintf(w, "# Conversation %s\n\n", orDash(t.SessionID, "(unknown session)"))
 	_, _ = fmt.Fprintf(w, "%d turns · %s · %s\n", len(t.Turns), countLabel(t.Questions, "question"), countLabel(t.FormAnswers, "form answer"))
 	if t.AnswersTruncated {
-		_, _ = fmt.Fprintf(w, "\n> Long conversation: answers are clipped to their first %d characters. Read one turn in full with `rc run trace <run-id> --brief`.\n",
+		_, _ = fmt.Fprintf(w, "\n> Long conversation: answers are clipped to their first %d characters. Read one turn in full with `rp run trace <run-id> --brief`.\n",
 			digest.TranscriptAnswerHeadChars)
 	}
 	if len(t.Turns) == 0 {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 func TestTenantSettingsGet404(t *testing.T) {
@@ -218,7 +218,7 @@ func TestTenantSettingsSetRejectsUnknownAndBadEnum(t *testing.T) {
 		arg  string
 		want []string
 	}{
-		{"unknown field", "channel.chat_modee=power", []string{"unknown channel setting", "rc schema"}},
+		{"unknown field", "channel.chat_modee=power", []string{"unknown channel setting", "rp schema"}},
 		{"unknown group", "persoona.tone=x", []string{"unknown settings group", "channel or persona"}},
 		{"enum violation", "channel.chat_mode=turbo", []string{"consumer, power"}},
 	}
@@ -318,7 +318,7 @@ func TestRoutesAndOpenAPILargeJSONSpillUnlessRaw(t *testing.T) {
 func newTestEnvAt(t *testing.T, baseURL, output string) *env {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("ROOTCAUSE_BASE_URL", "")
+	t.Setenv("REPLYPEN_BASE_URL", "")
 	var out, errb bytes.Buffer
 	return &env{profile: "default", output: output, baseURLOvr: baseURL, tokenSource: testTokenSource("test-key"), out: &out, err: &errb}
 }
@@ -337,7 +337,7 @@ func hierarchyBodyCaptureServer(t *testing.T, dst *string) *httptest.Server {
 		_, _ = w.Write([]byte(`{"project":{"id":"aaaaaaaa-0000-0000-0000-000000000001","name":"alpha","slug":"alpha"}}`))
 	})
 	// A `settings set` validates its keys against the server's registry, so the capture server has to
-	// serve discovery too — the same fixture `rc schema` renders.
+	// serve discovery too — the same fixture `rp schema` renders.
 	mux.HandleFunc("GET /api/v1/meta/schema", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		w.Header().Set("Content-Type", "application/json")

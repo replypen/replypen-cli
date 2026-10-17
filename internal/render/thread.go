@@ -1,4 +1,4 @@
-// This file renders `rc run thread <id>` — provider/local thread resolution, the pre-agent pipeline
+// This file renders `rp run thread <id>` — provider/local thread resolution, the pre-agent pipeline
 // outcome, then its newest-first runs with health + placement.
 package render
 
@@ -9,7 +9,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // ThreadTrace renders the provider-neutral channel row before the run table. That makes a triage skip or
@@ -144,7 +144,7 @@ func plural(n int) string {
 func resolvedLabel(by string) string {
 	switch by {
 	case "local_thread":
-		return "rootcause thread id"
+		return "ReplyPen thread id"
 	case "external_thread":
 		return "provider conversation id"
 	case "address":
@@ -216,7 +216,7 @@ func placement(r client.RunSummary) string {
 
 // healthFlags compresses the safe per-run health counts/flags into a terse triage cell — only the
 // signals that are ON show, so a clean run reads "-". These are the same fields the run index ships and
-// `rc fleet runs` flags on. nil health (the server omitted the block) → "-".
+// `rp fleet runs` flags on. nil health (the server omitted the block) → "-".
 func healthFlags(h *client.RunHealth) string {
 	if h == nil {
 		return "-"
@@ -279,21 +279,21 @@ func threadFailureHint(r *client.RunSummary) string {
 	switch r.Outcome {
 	case "answered":
 		// A draft/note was produced. If no reply is visible in the mailbox, check placement rather than the
-		// run: the draft/note write to the mailbox is the last step (`rc run trace <id>` shows what was placed).
+		// run: the draft/note write to the mailbox is the last step (`rp run trace <id>` shows what was placed).
 		if !r.HasDraft && !r.HasNote {
-			return "the run answered but nothing is recorded as placed — check placement to the mailbox (`rc run trace <id>`)."
+			return "the run answered but nothing is recorded as placed — check placement to the mailbox (`rp run trace <id>`)."
 		}
 		return ""
 	case "stuck":
-		return "the run is stuck (running past the timeout) — it was likely reaped at a guardrail; check the run trace (`rc run trace <id>`)."
+		return "the run is stuck (running past the timeout) — it was likely reaped at a guardrail; check the run trace (`rp run trace <id>`)."
 	case "error":
-		return "the run errored on our side — read it with `rc run trace <id>`; runs.error names the cause."
+		return "the run errored on our side — read it with `rp run trace <id>`; runs.error names the cause."
 	case "declined":
 		why := strings.TrimSpace(r.DeclinedReason)
 		if why != "" {
-			return "the agent declined to draft — " + truncate(why, 120) + " (its own words; full text in `rc run trace <id>`)."
+			return "the agent declined to draft — " + truncate(why, 120) + " (its own words; full text in `rp run trace <id>`)."
 		}
-		return "the agent declined to draft a reply — see `rc run trace <id>` for its reasoning."
+		return "the agent declined to draft a reply — see `rp run trace <id>` for its reasoning."
 	case "failed":
 		// A guardrail fallback note (no real answer). The two guardrail classes need OPPOSITE fixes, so
 		// distinguish them from the run's own words when present (mirrors rc_thread_debug.py).
@@ -304,13 +304,13 @@ func threadFailureHint(r *client.RunSummary) string {
 		case containsAny(why, budgetMarkers...):
 			return "the run hit its budget (a guardrail fallback note) — raise the run's budget/time cap or tighten the brain skill so it answers in fewer steps."
 		default:
-			return "the run produced a guardrail fallback note, not a real answer — read `rc run trace <id>` to see which guardrail tripped."
+			return "the run produced a guardrail fallback note, not a real answer — read `rp run trace <id>` to see which guardrail tripped."
 		}
 	}
 
 	// running (not yet stuck) or any other non-terminal status: nothing failed yet.
 	if r.Status == "running" {
-		return "the newest run is still running — check back, or trace it with `rc run trace <id>`."
+		return "the newest run is still running — check back, or trace it with `rp run trace <id>`."
 	}
 	return ""
 }

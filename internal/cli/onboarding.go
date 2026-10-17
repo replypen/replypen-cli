@@ -2,11 +2,11 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/config"
 )
 
 // newDevOnboardingCmd drives a local `make dev` server's onboarding worlds (cmd/devserver/onboarding.go).
@@ -21,15 +21,19 @@ func newDevOnboardingCmd(e *env) *cobra.Command {
 			"website-partial, personal, empty-inbox, few-sent, sorting-failed. A named preset (slow-analysis,\n" +
 			"inbox-reading, website-reading, draft-loading, …) owns its step: no --step, the server sets its holds\n" +
 			"and clock first. The server lists both sets on an unknown world. The dev url comes from --url, else\n" +
-			"ROOTCAUSE_BASE_URL.",
-		Example: "  rc dev onboarding goto --step 4\n  rc dev onboarding goto --step email_types --world sorting-failed --url http://localhost:24729\n  rc dev onboarding goto --world slow-analysis",
+			"REPLYPEN_BASE_URL.",
+		Example: "  rp dev onboarding goto --step 4\n  rp dev onboarding goto --step email_types --world sorting-failed --url http://localhost:24729\n  rp dev onboarding goto --world slow-analysis",
 		Args:    cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if devURL == "" {
-				devURL = os.Getenv("ROOTCAUSE_BASE_URL")
+				envURL, _, err := config.EnvBaseURL()
+				if err != nil {
+					return err
+				}
+				devURL = envURL
 			}
 			if devURL == "" {
-				return fmt.Errorf("no dev url: pass --url http://localhost:<port> (make dev prints it) or set ROOTCAUSE_BASE_URL")
+				return fmt.Errorf("no dev url: pass --url http://localhost:<port> (make dev prints it) or set REPLYPEN_BASE_URL")
 			}
 			out, err := client.DevOnboardingGoto(e.ctx(), devURL, step, world)
 			if err != nil {
@@ -44,7 +48,7 @@ func newDevOnboardingCmd(e *env) *cobra.Command {
 	}
 	gotoCmd.Flags().StringVar(&step, "step", "", "step number 1-6 or key (inbox, website, tools, tone_profile, email_types, draft_example); not for a preset")
 	gotoCmd.Flags().StringVar(&world, "world", "northwind", "fixture world")
-	gotoCmd.Flags().StringVar(&devURL, "url", "", "make dev url (default ROOTCAUSE_BASE_URL)")
+	gotoCmd.Flags().StringVar(&devURL, "url", "", "make dev url (default REPLYPEN_BASE_URL)")
 	cmd.AddCommand(gotoCmd)
 	return cmd
 }

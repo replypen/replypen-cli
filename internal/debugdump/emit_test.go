@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 func TestHTMLFallbackDraftRendersInDebugDump(t *testing.T) {
@@ -245,7 +245,7 @@ func TestPromptContextAbsenceIsStated(t *testing.T) {
 			Project:      "pj-mailbox",
 			Status:       "done",
 			Kind:         "email",
-			SystemPrompt: "You are rootcause.",
+			SystemPrompt: "You are ReplyPen.",
 		},
 	}
 

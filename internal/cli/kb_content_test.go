@@ -40,18 +40,18 @@ func TestKBSearchWritesProgressiveArtifacts(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(oldwd) })
 
 	e, out, _ := newTestEnv(t, srv, "table")
-	if err := run(t, e, "project", "knowledge", "content", "search", "--out", ".rootcause/tmp/kb-searches/fixed-restore", "restore as new"); err != nil {
+	if err := run(t, e, "project", "knowledge", "content", "search", "--out", ".replypen/tmp/kb-searches/fixed-restore", "restore as new"); err != nil {
 		t.Fatalf("project knowledge content search: %v", err)
 	}
 	got := out.String()
-	if !strings.Contains(got, "Found 1 articles, 2 matching lines") || !strings.Contains(got, "Artifacts: .rootcause/tmp/kb-searches/fixed-restore") {
+	if !strings.Contains(got, "Found 1 articles, 2 matching lines") || !strings.Contains(got, "Artifacts: .replypen/tmp/kb-searches/fixed-restore") {
 		t.Fatalf("project knowledge content search summary missing expected handles:\n%s", got)
 	}
 	if strings.Contains(got, "Choose Restore as new") {
 		t.Fatalf("project knowledge content search leaked article body:\n%s", got)
 	}
 
-	dir := filepath.Join(wd, ".rootcause/tmp/kb-searches/fixed-restore")
+	dir := filepath.Join(wd, ".replypen/tmp/kb-searches/fixed-restore")
 	for _, rel := range []string{"manifest.json", "hits.md", "articles/intercom/restore-amp-recovery/9286853-how-to-recover-deleted-data.md"} {
 		if _, err := os.Stat(filepath.Join(dir, rel)); err != nil {
 			t.Fatalf("expected artifact %s: %v", rel, err)
@@ -80,14 +80,14 @@ func TestKBSearchJSONIncludesArtifactPath(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(oldwd) })
 
 	e, out, _ := newTestEnv(t, srv, "json")
-	if err := run(t, e, "project", "knowledge", "content", "search", "--out", ".rootcause/tmp/kb-searches/fixed-json", "restore as new"); err != nil {
+	if err := run(t, e, "project", "knowledge", "content", "search", "--out", ".replypen/tmp/kb-searches/fixed-json", "restore as new"); err != nil {
 		t.Fatalf("project knowledge content search json: %v", err)
 	}
 	var got kbCommandSummary
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("decode json: %v\n%s", err, out.String())
 	}
-	if got.ArtifactDir != ".rootcause/tmp/kb-searches/fixed-json" || got.ArticlesMatched != 1 || got.Hits != 2 {
+	if got.ArtifactDir != ".replypen/tmp/kb-searches/fixed-json" || got.ArticlesMatched != 1 || got.Hits != 2 {
 		t.Fatalf("unexpected project knowledge content search json: %+v", got)
 	}
 }

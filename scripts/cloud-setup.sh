@@ -1,10 +1,10 @@
 #!/bin/bash
-# Canonical source: rootcause-cli/scripts/cloud-setup.sh.
-# Published by .github/workflows/release.yml to the RootCause release mirror.
+# Canonical source: replypen-cli/scripts/cloud-setup.sh.
+# Published by .github/workflows/release.yml to the ReplyPen release mirror.
 # Install: curl -fsSL https://app.replypen.com/install/cloud.sh | bash
 #
 # Every download targets a host available in our cloud-agent environments without the GitHub proxy:
-#   rc   -> S3 mirror (*.amazonaws.com)
+#   rp   -> S3 mirror (*.amazonaws.com)
 #   uv   -> PyPI wheel (files.pythonhosted.org)
 #   pnpm -> corepack / npm registry tarball (registry.npmjs.org)
 # uv and pnpm follow a MINIMUM-version policy: a preinstalled build that already satisfies UV_MIN /
@@ -12,7 +12,7 @@
 # tool is missing or too old do we install our pinned + checksum-verified build -- and then into the
 # directory of the shadowing binary when that is writable, so the new one actually wins on PATH.
 # Every install is pinned + checksum-verified: this script can already read the environment's
-# long-lived secrets, so nothing unreviewed may execute here. rc follows the release checksums in
+# long-lived secrets, so nothing unreviewed may execute here. rp follows the release checksums in
 # our HTTPS mirror. Re-runs are idempotent.
 set -euo pipefail
 
@@ -40,7 +40,7 @@ case "${RC_CLOUD_PLATFORM:-}" in
     ;;
   *) echo "unsupported RC_CLOUD_PLATFORM: $RC_CLOUD_PLATFORM (want claude, codex, or generic)" >&2; exit 1 ;;
 esac
-printf 'RootCause cloud setup (%s)\n' "$cloud_platform"
+printf 'ReplyPen cloud setup (%s)\n' "$cloud_platform"
 
 case "$(uname -m)" in
   x86_64|amd64)
@@ -94,13 +94,13 @@ install_dir_for() { # cmd
   printf '%s\n' "$bindir"
 }
 
-# --- rc (RootCause CLI) — the only connection to production data --------------
+# --- rp (ReplyPen CLI, alias rc) — the only connection to production data --------------
 # The release workflow publishes the latest tag, archive, and checksums to this public mirror.
 latest_rc_tag() {
   local tag
   tag="$(curl -fsSL --retry 3 --retry-delay 1 "${RC_MIRROR}/latest")"
   [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-    echo "invalid rc mirror tag: $tag" >&2
+    echo "invalid rp mirror tag: $tag" >&2
     return 1
   }
   printf '%s\n' "$tag"
@@ -122,12 +122,18 @@ verify_rc_archive() { # tag archive checksums dest
 }
 
 rc_tag="$(latest_rc_tag)"
-if [ "$(rc --version 2>/dev/null | awk '{print $3}')" != "${rc_tag#v}" ]; then
-  asset="rc_${rc_tag#v}_linux_${RC_ARCH}.tar.gz"
-  curl -fsSL --retry 3 --retry-delay 1 "${RC_MIRROR}/${rc_tag}/checksums.txt" -o "$tmp/rc-checksums.txt"
-  verify_rc_archive "$rc_tag" "$asset" "$tmp/rc-checksums.txt" "$tmp/rc.tar.gz"
-  tar -xzf "$tmp/rc.tar.gz" -C "$tmp" rc
-  install -m 0755 "$tmp/rc" "$bindir/rc"
+if [ "$(rp --version 2>/dev/null | awk '{print $3}')" != "${rc_tag#v}" ]; then
+  asset="rp_${rc_tag#v}_linux_${RC_ARCH}.tar.gz"
+  curl -fsSL --retry 3 --retry-delay 1 "${RC_MIRROR}/${rc_tag}/checksums.txt" -o "$tmp/rp-checksums.txt"
+  verify_rc_archive "$rc_tag" "$asset" "$tmp/rp-checksums.txt" "$tmp/rp.tar.gz"
+  tar -xzf "$tmp/rp.tar.gz" -C "$tmp" rp
+  install -m 0755 "$tmp/rp" "$bindir/rp"
+  hash -r
+fi
+# `rc` is the pre-rename command name; keep it working (replaces an older standalone rc copy, never an
+# unrelated rc, and only beside an rp this script manages).
+if [ -x "$bindir/rp" ] && { [ ! -e "$bindir/rc" ] || [ -L "$bindir/rc" ] || grep -qaE 'replypen/replypen-cli|rootcause-org/rootcause-cli' "$bindir/rc"; }; then
+  ln -sfn rp "$bindir/rc"
   hash -r
 fi
 
@@ -228,7 +234,7 @@ if [ "${RC_CLOUD_SKIP_PNPM:-0}" != 1 ]; then
     else
       pnpm_state=failed
       rm -f "$pnpm_dir/pnpm"
-      echo "warning: pnpm ${PNPM_VERSION} could not be installed; rc and uv are ready" >&2
+      echo "warning: pnpm ${PNPM_VERSION} could not be installed; rp and uv are ready" >&2
     fi
   fi
 fi
@@ -241,7 +247,7 @@ for rcfile in "$HOME/.bashrc" "$HOME/.profile"; do
 done
 
 hash -r
-rc --version
+rp --version
 case "$uv_state" in
   skipped) echo "uv: skipped" ;;
   *) echo "uv ${uv_reported} (${uv_state})" ;;

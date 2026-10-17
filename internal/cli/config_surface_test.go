@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // Golden + contract tests for grouped project/dev surfaces (mailbox / env / database / model key /
@@ -18,7 +18,7 @@ import (
 // collections_test.go pattern: a stub server returns canned JSON, the test pins the rendered output (or
 // the load-bearing stdout/stderr split for secrets).
 
-// --- watched mailboxes (rc project mailbox ls/mode/connect) ---
+// --- watched mailboxes (rp project mailbox ls/mode/connect) ---
 
 // TestMailboxConnectURL: connect makes NO API call beyond whoami — it composes + prints the dashboard
 // Connections URL to stdout (with --project resolving the slug) and a one-line hint to stderr.
@@ -163,7 +163,7 @@ func TestBrandingLogoSetTable(t *testing.T) {
 
 // --- dev brain status / sync / edit / consolidate / developer access ---
 
-// A 409 BRAIN_BOOT_CHECK_FAILED is terminal, not a transient sync failure: `rc dev brain sync` must
+// A 409 BRAIN_BOOT_CHECK_FAILED is terminal, not a transient sync failure: `rp dev brain sync` must
 // exit non-zero and say the box kept its last-good commit rather than parroting the raw API error.
 func TestBrainSyncBootCheckRefusal(t *testing.T) {
 	mux := http.NewServeMux()
@@ -465,7 +465,7 @@ func TestBrainDeveloperInviteActiveOutput(t *testing.T) {
 		_, _ = w.Write([]byte(`{"projects":[{"id":"p1","name":"alpha"}]}`))
 	})
 	mux.HandleFunc("POST /api/v1/projects/alpha/tenants/evident/brain/developers/invitations", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"project":"alpha","tenant":"evident","repository":"rootcause-org/rootcause-brain-dentai-tenant-evident","github_handle":"ardeae-praktijk","permission":"write","state":"active"}`))
+		_, _ = w.Write([]byte(`{"project":"alpha","tenant":"evident","repository":"replypen/replypen-brain-dentai-tenant-evident","github_handle":"ardeae-praktijk","permission":"write","state":"active"}`))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -479,7 +479,7 @@ func TestBrainDeveloperInviteActiveOutput(t *testing.T) {
 func TestBrainDeveloperInviteUsesTenantBrainMarker(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause.toml"), []byte("project = \"dentai\"\ntenant = \"evident\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".replypen.toml"), []byte("project = \"dentai\"\ntenant = \"evident\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	var gotPath string

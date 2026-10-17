@@ -8,10 +8,10 @@ import (
 )
 
 // replayAnswerChars bounds the table's answer cell: enough to recognise the answer, the full text is
-// in `-o json` or `rc run trace <run_id> --brief`.
+// in `-o json` or `rp run trace <run_id> --brief`.
 const replayAnswerChars = 80
 
-// ChatTurn is one sent chat turn (`rc project chat send`/`replay`); the `-o json` row of replay.
+// ChatTurn is one sent chat turn (`rp project chat send`/`replay`); the `-o json` row of replay.
 type ChatTurn struct {
 	Turn      int     `json:"turn,omitempty"`
 	Message   string  `json:"message,omitempty"`

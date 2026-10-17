@@ -11,7 +11,7 @@ import (
 // the env commands produce (it may only ever land in the 0600 ./.env file).
 const secretValue = "sk_live_SECRET"
 
-// TestEnvKeys covers `rc project env keys` in table + JSON: names only, never a value.
+// TestEnvKeys covers `rp project env keys` in table + JSON: names only, never a value.
 func TestEnvKeys(t *testing.T) {
 	srv := stubServer(t)
 	defer srv.Close()
@@ -90,7 +90,7 @@ func TestEnvKeys(t *testing.T) {
 	}
 }
 
-// TestEnvPull covers `rc project env pull`: it writes a 0600 ./.env with the real VALUES, but prints only
+// TestEnvPull covers `rp project env pull`: it writes a 0600 ./.env with the real VALUES, but prints only
 // NAMES + count.
 func TestEnvPull(t *testing.T) {
 	srv := stubServer(t)
@@ -163,7 +163,7 @@ func TestEnvPull(t *testing.T) {
 	})
 }
 
-// TestEnvDiff covers `rc project env diff`: in-sync (exit 0) vs drift (nonzero exit, names-only report).
+// TestEnvDiff covers `rp project env diff`: in-sync (exit 0) vs drift (nonzero exit, names-only report).
 func TestEnvDiff(t *testing.T) {
 	srv := stubServer(t)
 	defer srv.Close()

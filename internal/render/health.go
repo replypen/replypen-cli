@@ -1,4 +1,4 @@
-// This file is the FAT side of `rc fleet health`: it rolls up the THIN /api/v1/health raw rows into the
+// This file is the FAT side of `rp fleet health`: it rolls up the THIN /api/v1/health raw rows into the
 // healthy/unhealthy sections health.py renders, and reports the overall verdict so the command can exit
 // non-zero (CI/cron usable). The server ships raw mirror/KB/mailbox/dead-letter rows plus grouped
 // follow-up subject-resolution failures and PII-proxy withheld columns
@@ -15,7 +15,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // staleHours mirrors health.py STALE_HOURS: a mirror whose last_ok is older than this is stale even in

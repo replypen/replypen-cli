@@ -9,7 +9,7 @@
     "trigger": "embed",
     "session_id": "sess_chat42",
     "question": "Wanneer start de inschrijving voor het zomerkamp?",
-    "system_prompt": "You are rootcause. Answer from grounded data only. (…60 KB of prompt…)",
+    "system_prompt": "You are ReplyPen. Answer from grounded data only. (…60 KB of prompt…)",
     "bootstrap_turn": "=== /brain/AGENTS.md ===",
     "tenant_settings": "{\"source\":\"cli\",\"settings\":{\"practice_name\":\"LBV\"}}",
     "tenant_settings_current": "{\"source\":\"cli\",\"settings\":{\"practice_name\":\"LBV vzw\"}}",

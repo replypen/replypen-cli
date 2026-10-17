@@ -1,4 +1,4 @@
-// This file renders the ONE artifact `rc run session` writes: a markdown file joining a shared chat
+// This file renders the ONE artifact `rp run session` writes: a markdown file joining a shared chat
 // session's transcript to the runs behind it, each row ending in the drill command for that run.
 package render
 
@@ -7,11 +7,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // SessionMarkdown writes the shared-session artifact. It is deliberately ONE flat document, not a
-// second progressive-disclosure format: the per-run depth already lives behind `rc run debug`, which
+// second progressive-disclosure format: the per-run depth already lives behind `rp run debug`, which
 // each table row spells out as a copy-pasteable command.
 func SessionMarkdown(w io.Writer, s *client.SharedSession, t *client.SharedTranscript) {
 	_, _ = fmt.Fprintf(w, "# %s\n\n", sessionTitle(s, t))
@@ -97,7 +97,7 @@ func drillCommand(r client.RunSummary) string {
 	if r.ShareURL == "" {
 		return "-"
 	}
-	return "`rc run debug '" + r.ShareURL + "'`"
+	return "`rp run debug '" + r.ShareURL + "'`"
 }
 
 // mdCell keeps a value inside its table cell: a raw pipe would silently add a column.

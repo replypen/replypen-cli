@@ -1,4 +1,4 @@
-module github.com/rootcause-org/rootcause-cli
+module github.com/replypen/replypen-cli
 
 go 1.25.9
 

@@ -1,9 +1,9 @@
 ---
 name: release
-description: Cut a rootcause-cli release so consuming projects can pull the latest `rc`. Use when asked to release, tag, ship, publish, or bump the version of rootcause-cli, or to make a new `rc` build available to consumers.
+description: Cut a replypen-cli release so consuming projects can pull the latest `rp`. Use when asked to release, tag, ship, publish, or bump the version of replypen-cli, or to make a new `rp` build available to consumers.
 ---
 
-# Releasing rootcause-cli
+# Releasing replypen-cli
 
 ```bash
 scripts/release.sh patch          # fixes      (also: minor = additive, major = breaking, or vX.Y.Z)
@@ -32,12 +32,15 @@ published tag, or a HEAD that moved during the gates.
   green — fix it, don't bypass it.
 - **`@latest` lags `@vX.Y.Z`.** The proxy's `@latest`/version-list endpoints are cached for a few minutes
   after the explicit version already resolves. Normal — don't re-cut.
-- **Homebrew is a cask, not a formula, on purpose.** Never re-add a `brews:` formula: a formula named `rc`
+- **Two archive families per release.** `rp_*` for current installs and the cask; `rc_*` (build
+  `rc-legacy`, same program named `rc`) only because installed `rc` ≤ 1.51 self-update by extracting `rc`
+  from `rc_*`. Both land on GitHub and on the `cloud-bootstrap/rc` mirror; the script checks both.
+- **Homebrew is a cask, not a formula, on purpose.** Never re-add a `brews:` formula: a formula named `rp`
   shadows the cask on bare `brew install` and reintroduces the sandbox/PTY install failure. Reasoning and
   the tap wiring: [README](../../../README.md#releasing).
 
 ## Done looks like
 
 ```bash
-go install github.com/rootcause-org/rootcause-cli/cmd/rc@vX.Y.Z
+go install github.com/replypen/replypen-cli/cmd/rp@vX.Y.Z
 ```

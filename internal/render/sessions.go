@@ -6,15 +6,15 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // sessionLabelChars bounds the label column: a conversation list is for recognising a conversation, not
-// for reading it — the transcript is one `rc run thread <session_id>` away.
+// for reading it — the transcript is one `rp run thread <session_id>` away.
 const sessionLabelChars = 60
 
-// Sessions renders the conversation table of `rc run sessions`. One row per chat conversation, newest
+// Sessions renders the conversation table of `rp run sessions`. One row per chat conversation, newest
 // first, ending in the session id so the next drill command can be copy-pasted.
 func Sessions(w io.Writer, resp *client.SessionsResponse) {
 	if len(resp.Sessions) == 0 {
@@ -44,7 +44,7 @@ func Sessions(w io.Writer, resp *client.SessionsResponse) {
 
 	_ = tw.Flush()
 	if resp.NextBefore != "" {
-		_, _ = fmt.Fprintf(w, "\nMore: rc run sessions --before %s\n", resp.NextBefore)
+		_, _ = fmt.Fprintf(w, "\nMore: rp run sessions --before %s\n", resp.NextBefore)
 	}
 }
 

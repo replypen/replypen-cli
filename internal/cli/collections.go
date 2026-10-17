@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 func collectionTenant(e *env, resource string) string {
@@ -205,7 +205,7 @@ func verbSubCmd(e *env, resource, idHelp, verb, short string) *cobra.Command {
 	}
 }
 
-// newRepoCmd: `rc repo ls/add/set/rm` over the repos collection (id = repo name).
+// newRepoCmd: `rp repo ls/add/set/rm` over the repos collection (id = repo name).
 func newRepoCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "repo", Short: "Manage source repos (mirrors + per-repo PR config)"}
 	cmd.AddCommand(
@@ -217,7 +217,7 @@ func newRepoCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// newConnectionCmd: `rc connection ls/add/reveal/rotate/rm` over the connections collection (id = uuid).
+// newConnectionCmd: `rp connection ls/add/reveal/rotate/rm` over the connections collection (id = uuid).
 // reveal prints the connection's secret to stdout ONCE — a sensitive, audited read.
 func newConnectionCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "connection", Short: "Manage outbound integration connections"}
@@ -330,7 +330,7 @@ func connectionRmCmd(e *env) *cobra.Command {
 	}
 }
 
-// newMemberCmd: `rc member ls/add/rm` over the members collection (no read/update server-side → 405).
+// newMemberCmd: `rp member ls/add/rm` over the members collection (no read/update server-side → 405).
 func newMemberCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "member", Short: "Manage project members"}
 	cmd.AddCommand(
@@ -341,7 +341,7 @@ func newMemberCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// newTokenCmd: `rc token ls/mint/revoke` over the tokens collection. mint (POST) returns the refresh
+// newTokenCmd: `rp token ls/mint/revoke` over the tokens collection. mint (POST) returns the refresh
 // token ONCE — printed plainly with a sensitivity warning.
 func newTokenCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "token", Short: "Manage API tokens"}

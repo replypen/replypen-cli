@@ -66,7 +66,7 @@ type SessionsParams struct {
 	Tenant  string
 }
 
-// Sessions fetches GET /api/v1/sessions — the conversation index behind `rc run sessions`.
+// Sessions fetches GET /api/v1/sessions — the conversation index behind `rp run sessions`.
 func (c *Client) Sessions(ctx context.Context, p SessionsParams) (*SessionsResponse, json.RawMessage, error) {
 	q := url.Values{}
 	for k, v := range map[string]string{

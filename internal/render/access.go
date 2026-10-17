@@ -1,4 +1,4 @@
-// `rc access`: what this token may do.
+// `rp access`: what this token may do.
 // The renderers are pure functions of the wire structs (no I/O beyond the passed writer, no clock) so
 // golden tests pin them exactly. Timestamps are shown as the server sent them, keeping goldens stable.
 
@@ -10,10 +10,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
-// Access renders `rc access` — what this token may do: its scope (project/all-projects), effective
+// Access renders `rp access` — what this token may do: its scope (project/all-projects), effective
 // scopes, writable settings keys, reachable resources, and console reach.
 func Access(w io.Writer, a *client.Access) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)

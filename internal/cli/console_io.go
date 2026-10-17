@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/outputspill"
+	"github.com/replypen/replypen-cli/internal/outputspill"
 )
 
 const maxConsoleInputBytes = 256 << 10
@@ -85,10 +85,10 @@ func openOutputTarget(e *env, out, autoName, format string) (*outputTarget, erro
 	if out == "auto" {
 		path = filepath.Join(e.spillConfig().Dir, autoName)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := mkdirLocal(filepath.Dir(path), 0o755); err != nil {
 		return nil, fmt.Errorf("create output directory for %s: %w", path, err)
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".rc-output-*")
+	f, err := os.CreateTemp(filepath.Dir(path), ".rp-output-*")
 	if err != nil {
 		return nil, fmt.Errorf("create output file for %s: %w", path, err)
 	}

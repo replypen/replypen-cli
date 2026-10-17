@@ -44,7 +44,7 @@ func TestRunSessionsTable(t *testing.T) {
 	for _, want := range []string{
 		"CREATED", "TENANT", "TURNS", "FEEDBACK", "CONVERSATION", "SESSION",
 		"yes-events", "1–5★💬", "waar vind ik mijn factuur", "Weekly numbers",
-		"rc run sessions --before 22222222-2222-2222-2222-222222222222",
+		"rp run sessions --before 22222222-2222-2222-2222-222222222222",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("table missing %q:\n%s", want, got)
@@ -57,7 +57,7 @@ func TestRunSessionsTable(t *testing.T) {
 }
 
 // JSON mode is a byte-faithful passthrough of the server payload, cursor included: a consumer must be
-// able to page without rc reshaping the body.
+// able to page without rp reshaping the body.
 func TestRunSessionsJSONPassthrough(t *testing.T) {
 	var query string
 	srv := sessionsServer(t, &query)

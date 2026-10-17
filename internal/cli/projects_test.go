@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// TestProjectsTable pins `rc project list`: the fleet handle list (name + id), name-ordered as the server
+// TestProjectsTable pins `rp project list`: the fleet handle list (name + id), name-ordered as the server
 // sends them.
 func TestProjectsTable(t *testing.T) {
 	srv := stubServer(t)
@@ -58,7 +58,7 @@ func TestProjectRenameExplicitScope(t *testing.T) {
 	if gotBody != `{"name":"delta"}` {
 		t.Fatalf("rename body = %s, want name-only body", gotBody)
 	}
-	want := "renamed alpha -> delta (brain rootcause-brain-delta; github yes; local yes)\n"
+	want := "renamed alpha -> delta (brain replypen-brain-delta; github yes; local yes)\n"
 	if out.String() != want {
 		t.Fatalf("rename output = %q, want %q", out.String(), want)
 	}
@@ -86,7 +86,7 @@ func TestProjectRenameUpdatesBrainMarker(t *testing.T) {
 	srv := projectRenameServer(t, `{"projects":[{"id":"aaaaaaaa-0000-0000-0000-000000000001","name":"alpha"}]}`, &gotProject, &gotBody)
 	defer srv.Close()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause.toml"), []byte("project = \"alpha\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".replypen.toml"), []byte("project = \"alpha\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(dir)
@@ -95,7 +95,7 @@ func TestProjectRenameUpdatesBrainMarker(t *testing.T) {
 	if err := run(t, e, "project", "rename", "delta"); err != nil {
 		t.Fatalf("project rename: %v", err)
 	}
-	body, err := os.ReadFile(filepath.Join(dir, ".rootcause.toml"))
+	body, err := os.ReadFile(filepath.Join(dir, ".replypen.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,12 +149,12 @@ func projectRenameServer(t *testing.T, projects string, gotProject, gotBody *str
 		*gotProject = r.PathValue("project")
 		*gotBody = readBody(t, r)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"aaaaaaaa-0000-0000-0000-000000000001","previous_name":"alpha","name":"delta","previous_brain_repo":"rootcause-brain-alpha","brain_repo":"rootcause-brain-delta","github_renamed":true,"local_dir_renamed":true,"url":"/projects/delta","extra":"kept"}`))
+		_, _ = w.Write([]byte(`{"id":"aaaaaaaa-0000-0000-0000-000000000001","previous_name":"alpha","name":"delta","previous_brain_repo":"replypen-brain-alpha","brain_repo":"replypen-brain-delta","github_renamed":true,"local_dir_renamed":true,"url":"/projects/delta","extra":"kept"}`))
 	})
 	return httptest.NewServer(mux)
 }
 
-// TestFleetAllJSON: `rc fleet runs --all` fans out across every project and emits the merged structure
+// TestFleetAllJSON: `rp fleet runs --all` fans out across every project and emits the merged structure
 // {projects:[{project,runs}], total_runs}. Each project pages the fleet fixtures (4 runs), so a
 // two-project fleet totals 8.
 func TestFleetAllJSON(t *testing.T) {
@@ -240,7 +240,7 @@ func TestUnknownProjectScopeFailsBeforeCommand(t *testing.T) {
 	}
 	printError(errb, err)
 	got := errb.String()
-	for _, want := range []string{"UNKNOWN_PROJECT", "charlie", "rc project list"} {
+	for _, want := range []string{"UNKNOWN_PROJECT", "charlie", "rp project list"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}

@@ -1,4 +1,4 @@
-// The wire contract — the exact JSON shapes the rootcause API returns — is spread across one
+// The wire contract — the exact JSON shapes the ReplyPen API returns — is spread across one
 // `<endpoint>_types.go` file per endpoint family, sitting next to the methods that call it
 // (run_types.go, console_types.go, brain_types.go, …). Wherever they live, field names and omitempty
 // MUST match the server verbatim: the CLI only RENDERS these, it never invents or reshapes data.

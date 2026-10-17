@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // hierarchySchema is the nested settings surface as the SERVER describes it: group prefix → bare field
@@ -272,7 +272,7 @@ func putHierarchyValue(root map[string]any, schema hierarchySchema, dotted, val 
 	}
 	f, ok := fields[field]
 	if !ok {
-		return fmt.Errorf("%s: unknown %s setting (try `rc schema`)", dotted, group)
+		return fmt.Errorf("%s: unknown %s setting (try `rp schema`)", dotted, group)
 	}
 	bag, _ := root[group].(map[string]any)
 	if bag == nil {

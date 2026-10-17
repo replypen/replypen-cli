@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // This file factors the config-bag command shape shared by project runtime settings, knowledge sync,
@@ -72,7 +72,7 @@ func newBagSetCmd(e *env, base string) *cobra.Command {
 	}
 }
 
-// newBrandingCmd builds `rc branding get|set` over GET/PATCH /api/v1/branding — white-label appearance
+// newBrandingCmd builds `rp branding get|set` over GET/PATCH /api/v1/branding — white-label appearance
 // + public base URL. (The logo binary is its own endpoint, not part of this bag.)
 func newBrandingCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "branding", Short: "Read or change white-label branding (colours/name/public_base_url)"}
@@ -80,7 +80,7 @@ func newBrandingCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// newBrandingLogoCmd builds `rc branding logo set <file>|clear` over the binary logo endpoint (PUT
+// newBrandingLogoCmd builds `rp branding logo set <file>|clear` over the binary logo endpoint (PUT
 // multipart / DELETE /api/v1/branding/logo) — separate from the branding bag, which carries only the
 // scalar appearance keys.
 func newBrandingLogoCmd(e *env) *cobra.Command {

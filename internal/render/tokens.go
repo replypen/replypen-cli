@@ -7,11 +7,11 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
-// TokenList renders `rc project token ls`: the caller has already filtered and ordered items
+// TokenList renders `rp project token ls`: the caller has already filtered and ordered items
 // (digest.SelectTokens). Columns tolerate a server that predates last-used tracking (empty cells, LAST
 // USED "never"). wide adds SCOPE and USER AGENT, which are otherwise only in -o json.
 func TokenList(w io.Writer, items []client.Item, now time.Time, wide bool) {
@@ -39,9 +39,9 @@ func TokenList(w io.Writer, items []client.Item, now time.Time, wide bool) {
 	_ = tw.Flush()
 }
 
-// TokenFleetList renders `rc project token ls --all`: machine credentials across every project, with
+// TokenFleetList renders `rp project token ls --all`: machine credentials across every project, with
 // owner and expiry. project "" is an all-projects credential. The user agent is clipped unless wide;
-// wide also adds the grant ID (revoke stays per project: rc project token revoke <id> --project <p>).
+// wide also adds the grant ID (revoke stays per project: rp project token revoke <id> --project <p>).
 func TokenFleetList(w io.Writer, items []client.Item, now time.Time, wide bool) {
 	if len(items) == 0 {
 		_, _ = fmt.Fprintln(w, "(none)")

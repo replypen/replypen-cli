@@ -1,21 +1,38 @@
-# GoReleaser builds the cross-platform binaries so nobody needs Go to USE `rc` — tag `vX.Y.Z`, push,
+# GoReleaser builds the cross-platform binaries so nobody needs Go to USE `rp` — tag `vX.Y.Z`, push,
 # and the release workflow (.github/workflows/release.yml) cross-compiles and attaches archives +
 # checksums to the GitHub Release. `go install` stays the path for people who already have Go.
 #   docs: https://goreleaser.com
 version: 2
 
-project_name: rootcause-cli
+project_name: replypen-cli
 
 builds:
-  - id: rc
-    main: ./cmd/rc
-    binary: rc
+  - id: rp
+    main: ./cmd/rp
+    binary: rp
     env:
       - CGO_ENABLED=0 # static binaries — no libc dependency, run anywhere
     ldflags:
       # Release binaries normally resolve GitHub first. This mirror is the trusted fallback for cloud
       # sandboxes that reject GitHub release traffic; developers keep it empty in ordinary local builds.
-      - -s -w -X main.version={{ .Version }} -X github.com/rootcause-org/rootcause-cli/internal/cli.defaultMirror=https://kampkompas-eu-central-1.s3.eu-central-1.amazonaws.com/cloud-bootstrap/rc
+      # The `cloud-bootstrap/rc` prefix is legacy on purpose: installed rc <= 1.51 binaries bake it in.
+      - -s -w -X main.version={{ .Version }} -X github.com/replypen/replypen-cli/internal/cli.defaultMirror=https://kampkompas-eu-central-1.s3.eu-central-1.amazonaws.com/cloud-bootstrap/rc
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+  # The same program under the legacy name, ONLY for the rc_* archives below: an installed rc <= 1.51
+  # self-updates by downloading rc_<ver>_<os>_<arch> and extracting a file named `rc` from it.
+  - id: rc-legacy
+    main: ./cmd/rp
+    binary: rc
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X github.com/replypen/replypen-cli/internal/cli.defaultMirror=https://kampkompas-eu-central-1.s3.eu-central-1.amazonaws.com/cloud-bootstrap/rc
     goos:
       - linux
       - darwin
@@ -25,8 +42,16 @@ builds:
       - arm64
 
 archives:
-  - id: rc
-    # e.g. rc_0.1.0_darwin_arm64.tar.gz
+  - id: rp
+    ids: [rp]
+    # e.g. rp_0.1.0_darwin_arm64.tar.gz
+    name_template: "rp_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+  - id: rc-legacy
+    ids: [rc-legacy]
     name_template: "rc_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     formats: [tar.gz]
     format_overrides:
@@ -46,13 +71,13 @@ changelog:
 
 release:
   github:
-    owner: rootcause-org
-    name: rootcause-cli
+    owner: replypen
+    name: replypen-cli
 
 # --- Homebrew (macOS) --------------------------------------------------------
-# Publishes a `brew install rootcause-org/tap/rc` CASK on every release by committing
-# Casks/rc.rb to rootcause-org/homebrew-tap. Two one-time prerequisites (both done):
-#   1. public repo rootcause-org/homebrew-tap exists
+# Publishes a `brew install replypen/tap/rp` CASK on every release by committing
+# Casks/rp.rb to replypen/homebrew-tap (the tap's cask_renames.json {"rc":"rp"} migrates old rc casks). Two one-time prerequisites (both done):
+#   1. public repo replypen/homebrew-tap exists
 #   2. repo secret HOMEBREW_TAP_GITHUB_TOKEN holds a token with contents:write on homebrew-tap —
 #      the default GITHUB_TOKEN is scoped to *this* repo only and can't push to a second one.
 #      Wired into release.yml's env block.
@@ -62,28 +87,33 @@ release:
 # "can't get Master/Slave device" (Ruby PTY.open failure — Ruby bug 15607). A CASK installs a prebuilt
 # artifact by *linking the binary* (no sandbox, no PTY), so it sidesteps the failure entirely.
 #
-# WHY MACOS-ONLY: casks are macOS-only AND a cask + a formula can't share the name `rc` — when both
-# exist, bare `brew install …/rc` always resolves to the formula (the broken path). So the formula is
+# WHY MACOS-ONLY: casks are macOS-only AND a cask + a formula can't share the name `rp` — when both
+# exist, bare `brew install …/rp` always resolves to the formula (the broken path). So the formula is
 # gone; Linux/WSL and Windows install via scripts/install.sh and scripts/install.ps1 (see README),
-# which need no Homebrew at all. Go users still have `go install …/cmd/rc@latest`.
+# which need no Homebrew at all. Go users still have `go install …/cmd/rp@latest`.
 homebrew_casks:
-  - name: rc
+  - name: rp
+    ids: [rp]
+    # `rc` stays a working command: a second link to the same binary. Raw Ruby, because goreleaser's
+    # `binaries` list has no target form.
+    custom_block: |
+      binary "rp", target: "rc"
     repository:
-      owner: rootcause-org
+      owner: replypen
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Casks
-    homepage: "https://github.com/rootcause-org/rootcause-cli"
-    description: "Thin scriptable client over rootcause's /api/v1 — consume your project's own run data"
+    homepage: "https://github.com/replypen/replypen-cli"
+    description: "Thin scriptable client over ReplyPen's /api/v1 — consume your project's own run data"
     # NOTE: the old Formula/rc.rb is NOT removed by GoReleaser — it was deleted from the tap by hand and
     # a tap_migrations.json ({"rc":"rc"}) added there so `brew upgrade` migrates formula→cask cleanly.
-    # If the formula ever reappears in the tap, bare `brew install …/rc` resolves to it (the broken PTY
+    # If a formula of the same name ever appears in the tap, bare `brew install …/rp` resolves to it (the broken PTY
     # path) instead of this cask. (homebrew_casks.conflicts is a no-op upstream and was removed.)
     # The binary is unsigned, so Homebrew's download tags it with com.apple.quarantine and Gatekeeper
-    # would block the first run. Strip the xattr on install so `rc` just works.
+    # would block the first run. Strip the xattr on install so `rp` just works.
     hooks:
       post:
         install: |
           if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/rc"]
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/rp"]
           end

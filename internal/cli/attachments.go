@@ -17,8 +17,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/localstate"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 const (
@@ -50,7 +51,7 @@ type sessionFiles struct {
 	raw  json.RawMessage
 }
 
-// newRunAttachmentsCmd builds `rc run attachments`: list (default) or download the files in a chat
+// newRunAttachmentsCmd builds `rp run attachments`: list (default) or download the files in a chat
 // session. The session is named by its id, by one of its run ids, or by a resource an executed action
 // touched (`--resource kind:id`), which outlives the action params' retention scrub.
 func newRunAttachmentsCmd(e *env) *cobra.Command {
@@ -63,7 +64,7 @@ func newRunAttachmentsCmd(e *env) *cobra.Command {
 			"(repeatable). Name the session by its id or one of its run ids, or with --resource kind:id " +
 			"(e.g. support_ticket:<uuid>) for the session whose action touched that resource. Images download " +
 			"as originally uploaded unless --processed; legacy images exist only as the processed 1536px JPEG. " +
-			"Files stream to .rootcause/attachments/<session_id>/ (override with --dir), are verified against " +
+			"Files stream to .replypen/attachments/<session_id>/ (override with --dir), are verified against " +
 			"the server's sha256 and written 0600. Exits non-zero when any file expired or failed.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -103,7 +104,7 @@ func newRunAttachmentsCmd(e *env) *cobra.Command {
 	cmd.Flags().StringArrayVar(&f.ids, "id", nil, "download only this attachment_id, any origin (repeatable; implies --download)")
 	cmd.Flags().BoolVar(&f.includeGenerated, "include-generated", false, "with --download: also download assistant-generated files")
 	cmd.Flags().BoolVar(&f.processed, "processed", false, "download an image's processed 1536px JPEG instead of its original")
-	cmd.Flags().StringVar(&f.dir, "dir", "", "download directory (default .rootcause/attachments/<session_id>)")
+	cmd.Flags().StringVar(&f.dir, "dir", "", "download directory (default .replypen/attachments/<session_id>)")
 	return cmd
 }
 
@@ -209,7 +210,7 @@ func selectAttachmentJobs(sessions []sessionFiles, f attachmentFlags) ([]attachm
 		}
 		switch {
 		case dir == "":
-			dir = filepath.Join(".rootcause", "attachments", s.list.SessionID)
+			dir = localstate.Path("attachments", s.list.SessionID)
 		case len(sessions) > 1:
 			dir = filepath.Join(dir, s.list.SessionID)
 		}
@@ -239,7 +240,7 @@ func downloadAttachments(e *env, c *client.Client, sessions []sessionFiles, f at
 	manifest := render.AttachmentDownload{Files: make([]render.AttachmentFile, 0, len(jobs))}
 	incomplete := 0
 	for _, j := range jobs {
-		if err := os.MkdirAll(j.dir, 0o700); err != nil {
+		if err := mkdirLocal(j.dir, 0o700); err != nil {
 			return fmt.Errorf("create %s: %w", j.dir, err)
 		}
 		r := downloadAttachment(e, c, j, f.processed)
@@ -328,7 +329,7 @@ func downloadAttachment(e *env, c *client.Client, j attachmentJob, processed boo
 		r.Status, r.Message = attachmentFailed, err.Error()
 		return r
 	}
-	tmp, err := os.CreateTemp(j.dir, ".rc-attachment-*")
+	tmp, err := os.CreateTemp(j.dir, ".rp-attachment-*")
 	if err != nil {
 		return fail(err)
 	}

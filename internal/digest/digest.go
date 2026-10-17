@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // TenantSettingValue is one scalar tenant setting surfaced in concise human summaries.

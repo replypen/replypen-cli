@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 const sessionSearchMaxPages = 20
@@ -25,7 +25,7 @@ func newSessionSearchCmd(e *env) *cobra.Command {
 			"cards and attachment contents are not searched. Only matching principal/date candidates need a transcript read. " +
 			"Scans at most 20 pages of 100 rows per call, with no history age limit. " +
 			"Coverage and --before continuation are explicit; -o json retains original matching session rows. " +
-			"Read a match with `rc run thread SESSION --transcript`, then `rc run debug RUN`.",
+			"Read a match with `rp run thread SESSION --transcript`, then `rp run debug RUN`.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			principal, err := principalFromFlags(kind, id, "", "")

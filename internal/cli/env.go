@@ -9,11 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// localEnvPath is the brain-dir-relative file `rc project env` reads/writes — the CLI operates on the current
+// localEnvPath is the brain-dir-relative file `rp project env` reads/writes — the CLI operates on the current
 // directory's ./.env (run it from inside a brain clone), mirroring `rc_env.py`'s 0600 ./.env and the
 // brain-dev convention.
 const localEnvPath = ".env"
@@ -22,7 +22,7 @@ const localEnvPath = ".env"
 // secrets even though they arrived over TLS, so it must never be group/world-readable.
 const envFileMode = 0o600
 
-// newEnvCmd builds `rc project env`: bulk pull/diff/keys for the grounding env plus per-key set/rm/reveal over
+// newEnvCmd builds `rp project env`: bulk pull/diff/keys for the grounding env plus per-key set/rm/reveal over
 // the sealed env collections. SECRET HYGIENE: pull writes values to the 0600 ./.env, diff/keys emit
 // names only, set reads from stdin by default, and reveal is the only command that prints a value.
 func newEnvCmd(e *env) *cobra.Command {
@@ -31,7 +31,7 @@ func newEnvCmd(e *env) *cobra.Command {
 		Short: "Manage this project's sealed env secrets",
 		Long: `Manage this project's sealed env secrets.
 
-A grounding key named ` + "`<PROJECT>_<DBKEY>_DSN`" + ` auto-registers a database (see ` + "`rc project database --help`" + `);
+A grounding key named ` + "`<PROJECT>_<DBKEY>_DSN`" + ` auto-registers a database (see ` + "`rp project database --help`" + `);
 ` + "`*_WRITE_DSN`" + ` belongs on --plane action.`,
 	}
 	cmd.AddCommand(newEnvPullCmd(e), newEnvDiffCmd(e), newEnvKeysCmd(e),
@@ -53,7 +53,7 @@ func envPlaneResource(plane string) (string, error) {
 	}
 }
 
-// newEnvSetCmd: `rc project env set key=<K> value=<V> [--plane action]` — upsert ONE env var via POST
+// newEnvSetCmd: `rp project env set key=<K> value=<V> [--plane action]` — upsert ONE env var via POST
 // /api/v1/<plane> (create is an upsert). The VALUE is a secret, so it's read from STDIN by preference:
 // pass `value=-` (or omit value entirely) to read the value from stdin and keep it off the argv/process
 // table. An inline `value=<V>` is accepted for convenience but lands in shell history.
@@ -64,8 +64,8 @@ func newEnvSetCmd(e *env) *cobra.Command {
 		Short: "Upsert one env var (value from STDIN by default; never echoed)",
 		Long: `Upsert one env var (value from STDIN by default; never echoed).
 
-A grounding key named ` + "`<PROJECT>_<DBKEY>_DSN`" + ` registers a database (` + "`rc project database ls`" + `); e.g.
-` + "`printf %s \"$DSN\" | rc project env set key=PROBACKUP_BACKUPS_DSN`" + ` ⇄ brain ` + "`lib.db(db=\"backups\")`" + `.`,
+A grounding key named ` + "`<PROJECT>_<DBKEY>_DSN`" + ` registers a database (` + "`rp project database ls`" + `); e.g.
+` + "`printf %s \"$DSN\" | rp project env set key=PROBACKUP_BACKUPS_DSN`" + ` ⇄ brain ` + "`lib.db(db=\"backups\")`" + `.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			resource, err := envPlaneResource(plane)
@@ -109,7 +109,7 @@ A grounding key named ` + "`<PROJECT>_<DBKEY>_DSN`" + ` registers a database (` 
 	return cmd
 }
 
-// newEnvRmCmd: `rc project env rm <K> [--plane action]` — DELETE /api/v1/<plane>/<K>.
+// newEnvRmCmd: `rp project env rm <K> [--plane action]` — DELETE /api/v1/<plane>/<K>.
 func newEnvRmCmd(e *env) *cobra.Command {
 	var plane string
 	cmd := &cobra.Command{
@@ -143,7 +143,7 @@ func newEnvRmCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// newEnvRevealCmd: `rc project env reveal <K> [--plane action]` — POST /api/v1/<plane>/<K>/reveal → {secret}.
+// newEnvRevealCmd: `rp project env reveal <K> [--plane action]` — POST /api/v1/<plane>/<K>/reveal → {secret}.
 // Prints the VALUE alone to stdout (capturable) with a stderr sensitivity warning, like connection
 // reveal. The ONE place a per-key value is printed.
 func newEnvRevealCmd(e *env) *cobra.Command {
@@ -177,7 +177,7 @@ func newEnvRevealCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// newEnvKeysCmd: `rc project env keys [--tenant <t>] [--effective]`. With a tenant scope it lists the
+// newEnvKeysCmd: `rp project env keys [--tenant <t>] [--effective]`. With a tenant scope it lists the
 // tenant's OWN names (the tenant env_grounding collection) — the ones `set`/`rm --tenant` manage. The
 // bulk pull is merged project + tenant (what a run sees), so it's only shown on --effective and labelled
 // as such; without a tenant both views are the project env.
@@ -409,12 +409,12 @@ func writeEnvFile(path string, vars map[string]string) error {
 
 // readEnvFile parses a local .env exactly like the host (internal/secret.parseEnv) and rc_env.py: one
 // KEY=VALUE per line, blank lines and '#'-comments skipped, first '=' splits, value verbatim. A
-// missing file is a clear error pointing at `rc project env pull`.
+// missing file is a clear error pointing at `rp project env pull`.
 func readEnvFile(path string) (map[string]string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no %s here — run `rc project env pull` first (run from inside the brain clone)", path)
+			return nil, fmt.Errorf("no %s here — run `rp project env pull` first (run from inside the brain clone)", path)
 		}
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}

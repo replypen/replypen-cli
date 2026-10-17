@@ -195,7 +195,7 @@ type MirrorRefreshResponse struct {
 }
 
 // BrainDeveloperInvitationRequest grants one GitHub user access to one tenant brain repository.
-// The server owns GitHub App credentials; rc only forwards the handle in the JSON body.
+// The server owns GitHub App credentials; rp only forwards the handle in the JSON body.
 type BrainDeveloperInvitationRequest struct {
 	GitHubHandle string `json:"github_handle"`
 }

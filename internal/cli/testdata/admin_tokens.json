@@ -13,7 +13,7 @@
       "revoked_at": null,
       "last_used_at": "2026-10-12T11:00:00Z",
       "last_used_route": "POST /oauth/token",
-      "last_used_user_agent": "rootcause-embassy-ruby/1.4.2 (ruby 3.3.4; x86_64-linux) Faraday",
+      "last_used_user_agent": "replypen-embassy-ruby/1.4.2 (ruby 3.3.4; x86_64-linux) Faraday",
       "last_used_ip": "203.0.113.9"
     },
     {
@@ -45,7 +45,7 @@
       "revoked_at": "2026-10-12T09:00:00Z",
       "last_used_at": "2026-10-12T08:59:00Z",
       "last_used_route": "GET /api/v1/whoami",
-      "last_used_user_agent": "rootcause-embassy-ruby/1.4.2",
+      "last_used_user_agent": "replypen-embassy-ruby/1.4.2",
       "last_used_ip": "198.51.100.7"
     }
   ]

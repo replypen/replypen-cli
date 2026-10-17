@@ -11,7 +11,7 @@ import (
 
 // TestParseShareTarget pins the whole link vocabulary a developer might paste. The failure mode being
 // guarded is a silent misparse: a token dropped from a URL turns an account-less read into a confusing
-// "run `rc auth login`".
+// "run `rp auth login`".
 func TestParseShareTarget(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
@@ -43,7 +43,7 @@ func TestParseShareTarget(t *testing.T) {
 			name: "NonProdOrigin", arg: "http://localhost:8080/runs/run-1?t=shr_abc",
 			wantRun: "run-1", wantToken: "shr_abc", wantOrig: "http://localhost:8080",
 		},
-		{name: "SessionURLRedirectsToSession", arg: "https://app.replypen.com/s/shr_tok", wantErr: "rc run session"},
+		{name: "SessionURLRedirectsToSession", arg: "https://app.replypen.com/s/shr_tok", wantErr: "rp run session"},
 		{name: "UnknownPath", arg: "https://app.replypen.com/inbox/123", wantErr: "not a run link"},
 		{name: "Empty", arg: "   ", wantErr: "expected a run id"},
 	} {
@@ -67,7 +67,7 @@ func TestParseSessionTarget(t *testing.T) {
 		{name: "ShareURLTrailingSlash", arg: "https://app.replypen.com/s/shr_tok/", wantToken: "shr_tok", wantOrig: "https://app.replypen.com"},
 		{name: "BareToken", arg: "shr_tok", wantToken: "shr_tok"},
 		{name: "FlagToken", arg: "https://app.replypen.com/s/stale", flagToken: "shr_fresh", wantToken: "shr_fresh", wantOrig: "https://app.replypen.com"},
-		{name: "RunURLRedirectsToDebug", arg: "https://app.replypen.com/runs/run-1?t=x", wantErr: "rc run debug"},
+		{name: "RunURLRedirectsToDebug", arg: "https://app.replypen.com/runs/run-1?t=x", wantErr: "rp run debug"},
 		{name: "Garbage", arg: "https://app.replypen.com/nope", wantErr: "not a share link"},
 		{name: "Empty", arg: "", wantErr: "expected a share link"},
 	} {
@@ -109,7 +109,7 @@ func TestShareLinkNeedsNoProfile(t *testing.T) {
 
 	link := srv.URL + "/runs/11111111-1111-1111-1111-111111111111?t=shr_abc"
 	if err := run(t, e, "run", "debug", link, "--out-dir", outDir); err != nil {
-		t.Fatalf("rc run debug <link>: %v", err)
+		t.Fatalf("rp run debug <link>: %v", err)
 	}
 	// Identical file names to the logged-in path — the artifacts are the deliverable, not the credential.
 	for _, name := range []string{"11111111-coca-cola.md", "11111111-coca-cola.jsonl"} {
@@ -131,7 +131,7 @@ func TestShareTokenFlagWithBareID(t *testing.T) {
 	e.tokenSource = nil
 	outDir := t.TempDir()
 	if err := run(t, e, "run", "debug", "11111111-1111-1111-1111-111111111111", "--share-token", "shr_abc", "--out-dir", outDir); err != nil {
-		t.Fatalf("rc run debug --share-token: %v", err)
+		t.Fatalf("rp run debug --share-token: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "11111111-coca-cola.jsonl")); err != nil {
 		t.Fatalf("expected the jsonl artifact: %v", err)
@@ -146,12 +146,12 @@ func TestSharedThreadTraceRendersIdentically(t *testing.T) {
 	e, out, _ := newTestEnv(t, srv, "table")
 	e.tokenSource = nil
 	if err := run(t, e, "run", "thread", srv.URL+"/runs/aaaaaaaa-1111-1111-1111-111111111111?t=shr_abc"); err != nil {
-		t.Fatalf("rc run thread <link>: %v", err)
+		t.Fatalf("rp run thread <link>: %v", err)
 	}
 	assertGolden(t, "thread_trace.golden", out.String())
 }
 
-// TestRunSessionWritesMarkdown pins the one artifact `rc run session` produces, including the per-run
+// TestRunSessionWritesMarkdown pins the one artifact `rp run session` produces, including the per-run
 // drill command that is the whole point of the runs table.
 func TestRunSessionWritesMarkdown(t *testing.T) {
 	srv := stubServer(t)
@@ -160,7 +160,7 @@ func TestRunSessionWritesMarkdown(t *testing.T) {
 	e.tokenSource = nil
 	outDir := t.TempDir()
 	if err := run(t, e, "run", "session", srv.URL+"/s/shr_tok", "--out-dir", outDir); err != nil {
-		t.Fatalf("rc run session <link>: %v", err)
+		t.Fatalf("rp run session <link>: %v", err)
 	}
 	path := filepath.Join(outDir, "session-session-9f8e.md")
 	if got := strings.TrimSpace(out.String()); got != path {
@@ -183,7 +183,7 @@ func TestRunSessionJSONPassthrough(t *testing.T) {
 	e, out, _ := newTestEnv(t, srv, "json")
 	e.tokenSource = nil
 	if err := run(t, e, "run", "session", "shr_tok"); err != nil {
-		t.Fatalf("rc run session: %v", err)
+		t.Fatalf("rp run session: %v", err)
 	}
 	var got struct {
 		Transcript json.RawMessage `json:"transcript"`

@@ -11,11 +11,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/localstate"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newMailboxCmd builds the `rc project mailbox` group over the connection-backed watched-mailbox API (the
+// newMailboxCmd builds the `rp project mailbox` group over the connection-backed watched-mailbox API (the
 // channel plane's live inbox watch): `ls` lists watched mailboxes, `mode` controls watch/processing/
 // delivery as one state, and `connect` composes the dashboard Connections URL for browser OAuth.
 // All endpoints need an admin (ManageConnections) token; an all-projects token scopes with --project,
@@ -65,7 +66,7 @@ func mailboxTemplatesCmd(e *env) *cobra.Command {
 				if acc.LookbackDays > 0 {
 					_, _ = fmt.Fprintf(e.out, "lookback_days: %d\n", acc.LookbackDays)
 				}
-				_, _ = fmt.Fprintf(e.err, "queued — poll with: rc project corpus get %s\n", acc.ExportID)
+				_, _ = fmt.Fprintf(e.err, "queued — poll with: rp project corpus get %s\n", acc.ExportID)
 				return nil
 			}
 			x, xraw, err := waitForExport(e, c, acc.ExportID, timeout)
@@ -90,15 +91,15 @@ func mailboxTemplatesCmd(e *env) *cobra.Command {
 func mailboxIMAPEnvCmd(e *env) *cobra.Command {
 	var out string
 	cmd := &cobra.Command{
-		Use:   "imap-env <mailbox-id> --out .rootcause/imap/<mailbox-id>.env",
+		Use:   "imap-env <mailbox-id> --out .replypen/imap/<mailbox-id>.env",
 		Short: "Write an IMAP mailbox env file for local deep harvest (0600; values never printed)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			mailboxID := strings.TrimSpace(args[0])
 			if out == "" {
-				out = filepath.Join(".rootcause", "imap", mailboxID+".env")
+				out = localstate.Path("imap", mailboxID+".env")
 			}
-			if err := ensureRootcauseGitignore(out); err != nil {
+			if err := localstate.SeedIgnore(out); err != nil {
 				return err
 			}
 			c, err := e.newClient()
@@ -112,7 +113,7 @@ func mailboxIMAPEnvCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+			if err := mkdirLocal(filepath.Dir(out), 0o755); err != nil {
 				return fmt.Errorf("create %s: %w", filepath.Dir(out), err)
 			}
 			if err := writeEnvFile(out, resp.Env); err != nil {
@@ -126,7 +127,7 @@ func mailboxIMAPEnvCmd(e *env) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&out, "out", "", "write env file to this path (default .rootcause/imap/<mailbox-id>.env)")
+	cmd.Flags().StringVar(&out, "out", "", "write env file to this path (default .replypen/imap/<mailbox-id>.env)")
 	return cmd
 }
 
@@ -172,7 +173,7 @@ func mailboxHarvestCmd(e *env) *cobra.Command {
 				if acc.LookbackDays > 0 {
 					_, _ = fmt.Fprintf(e.out, "lookback_days: %d\n", acc.LookbackDays)
 				}
-				_, _ = fmt.Fprintf(e.err, "queued — poll with: rc project corpus get %s\n", acc.ExportID)
+				_, _ = fmt.Fprintf(e.err, "queued — poll with: rp project corpus get %s\n", acc.ExportID)
 				return nil
 			}
 
@@ -317,7 +318,7 @@ var validConnectProviders = map[string]bool{"google": true, "microsoft": true, "
 
 // mailboxConnectCmd composes + prints the dashboard Connections URL for the human to open and click
 // "Connect <provider>". It makes NO state-changing API call (OAuth runs in the browser). The project
-// slug resolves from --project, else the brain-bound project, else `rc auth status`; if it can't be resolved
+// slug resolves from --project, else the brain-bound project, else `rp auth status`; if it can't be resolved
 // it prints the dashboard root with an instruction. The URL goes to STDOUT (so it can be captured); a
 // one-line hint goes to STDERR.
 func mailboxConnectCmd(e *env) *cobra.Command {
@@ -332,10 +333,10 @@ func mailboxConnectCmd(e *env) *cobra.Command {
 				return fmt.Errorf("--provider is required (one of: google, microsoft, intercom)")
 			}
 			if provider == "imap" {
-				return fmt.Errorf("IMAP is not a browser-OAuth provider — connect it directly with: rc project mailbox connect-imap --email <addr> --imap-host <host>")
+				return fmt.Errorf("IMAP is not a browser-OAuth provider — connect it directly with: rp project mailbox connect-imap --email <addr> --imap-host <host>")
 			}
 			if !validConnectProviders[provider] {
-				return fmt.Errorf("invalid --provider %q (one of: google, microsoft, intercom; for a generic mailbox use `rc project mailbox connect-imap`)", provider)
+				return fmt.Errorf("invalid --provider %q (one of: google, microsoft, intercom; for a generic mailbox use `rp project mailbox connect-imap`)", provider)
 			}
 			c, err := e.newClient()
 			if err != nil {
@@ -460,7 +461,7 @@ func mailboxConnectIMAPCmd(e *env) *cobra.Command {
 			"The password is read from $" + mailboxPasswordEnv + " or, if unset, prompted on stdin — never passed " +
 			"as an argument. Defaults mirror the server: --username defaults to --email, --smtp-host to --imap-host, " +
 			"and ports/TLS default to 993/implicit (IMAP) and 587/starttls (SMTP).\n\n" +
-			"Don't have the password? Use `rc project mailbox seed-imap` instead and send the customer the " +
+			"Don't have the password? Use `rp project mailbox seed-imap` instead and send the customer the " +
 			"no-login link it prints.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -511,7 +512,7 @@ func mailboxConnectIMAPCmd(e *env) *cobra.Command {
 				render.IMAPProbeSteps(e.out, m.Probe.Steps)
 			}
 			if m != nil {
-				_, _ = fmt.Fprintf(e.err, "connected — start processing with: rc project mailbox mode %s live\n", m.ID)
+				_, _ = fmt.Fprintf(e.err, "connected — start processing with: rp project mailbox mode %s live\n", m.ID)
 			}
 			return nil
 		},
@@ -539,7 +540,7 @@ func mailboxSeedIMAPCmd(e *env) *cobra.Command {
 			"link and enters the password; it goes live automatically when that password passes the live check.\n\n" +
 			"The link does not expire and is reusable: the same URL is how the customer rotates the password " +
 			"later. It can only SET the password for this one mailbox — never read one, and never reach another " +
-			"mailbox. Use `rc project mailbox password-link <id>` to print it again.",
+			"mailbox. Use `rp project mailbox password-link <id>` to print it again.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if err := f.normalize(); err != nil {
@@ -651,7 +652,7 @@ func mailboxTestCmd(e *env) *cobra.Command {
 }
 
 // connectScope resolves the project slug + optional tenant for the Connections URL: --project (or the
-// brain's auto-project) first, else `rc auth status`'s login-bound project. An explicit --tenant (or login
+// brain's auto-project) first, else `rp auth status`'s login-bound project. An explicit --tenant (or login
 // tenant) selects the tenant-scoped Connections page. A best-effort resolution: a whoami failure leaves
 // the slug empty so the caller falls back to the dashboard root.
 func (e *env) connectScope(c *client.Client) (slug, tenant string) {

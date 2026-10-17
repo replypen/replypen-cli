@@ -5,11 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newSpamCmd wires `rc project senders` — the per-project/tenant spam allow/block lists ("never spam" / "always
+// newSpamCmd wires `rp project senders` — the per-project/tenant spam allow/block lists ("never spam" / "always
 // spam"), a plane separate from the drafting sender lists. The spam endpoints address the project (and
 // tenant) in the PATH (/api/v1/projects/{project}[/tenants/{slug}]/spam/…), so every subcommand
 // resolves a concrete project slug (spamProject) rather than riding the ?project= collection scope.
@@ -27,7 +27,7 @@ func newSpamCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// spamListCmd is `rc project senders ls`: both lists in one table (VERDICT PATTERN TYPE SOURCE [CREATED]); -o json
+// spamListCmd is `rp project senders ls`: both lists in one table (VERDICT PATTERN TYPE SOURCE [CREATED]); -o json
 // emits the raw allow+block bodies as a {"allows":…,"blocks":…} envelope so a consumer sees exactly
 // what each endpoint returned.
 func spamListCmd(e *env) *cobra.Command {
@@ -66,7 +66,7 @@ func spamListCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// filterSpamByMailbox keeps only rules whose mailbox scope matches (client-side filter for `rc project senders ls
+// filterSpamByMailbox keeps only rules whose mailbox scope matches (client-side filter for `rp project senders ls
 // --mailbox`). An empty filter is a no-op — every rule passes. The server's GET returns all scopes below
 // the resolved one; this narrows the table to one mailbox without a second round-trip.
 func filterSpamByMailbox(rules []client.SpamRule, mailbox string) []client.SpamRule {
@@ -82,7 +82,7 @@ func filterSpamByMailbox(rules []client.SpamRule, mailbox string) []client.SpamR
 	return out
 }
 
-// spamCreateCmd builds `rc spam allow|block <pattern> [--reason …]` over POST on the matching list. The
+// spamCreateCmd builds `rp spam allow|block <pattern> [--reason …]` over POST on the matching list. The
 // server infers match_type from the pattern shape, so the CLI sends only {pattern, reason}.
 func spamCreateCmd(e *env, verb, list, short string) *cobra.Command {
 	var reason, mailbox string
@@ -115,7 +115,7 @@ func spamCreateCmd(e *env, verb, list, short string) *cobra.Command {
 	return cmd
 }
 
-// spamRmCmd is `rc spam rm <id>`. A row's verdict isn't known from its id alone, so rm tries the block
+// spamRmCmd is `rp spam rm <id>`. A row's verdict isn't known from its id alone, so rm tries the block
 // list first, then the allow list on a 404 — one simple `rm <id>` UX with no verdict flag to remember.
 // --verdict allow|block targets one list directly when the caller already knows it.
 func spamRmCmd(e *env) *cobra.Command {

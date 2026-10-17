@@ -1,4 +1,4 @@
-// `rc spam ls`: a project's allow+block lists as one table.
+// `rp spam ls`: a project's allow+block lists as one table.
 // The renderers are pure functions of the wire structs (no I/O beyond the passed writer, no clock) so
 // golden tests pin them exactly. Timestamps are shown as the server sent them, keeping goldens stable.
 
@@ -9,10 +9,10 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
-// SpamRules renders a project's spam allow+block lists (`rc spam ls`) as one table: verdict, pattern,
+// SpamRules renders a project's spam allow+block lists (`rp spam ls`) as one table: verdict, pattern,
 // match type, source, and — each only when the server populated it on any row — the mailbox scope and
 // created date. The rows are shown in the order the server sent them (the CLI never reorders; -o json
 // carries the raw body).

@@ -69,7 +69,7 @@ func (c *Client) LoginPKCE(ctx context.Context, opener func(string) error, out i
 		// A failed open is non-fatal: the URL is already printed for a manual paste.
 		if err := opener(authURL); err != nil {
 			_, _ = fmt.Fprintf(out, "Browser open failed: %v\n", err)
-			_, _ = fmt.Fprintln(out, "Use the sign-in URL above, or cancel and run `rc auth login --device` on headless/SSH.")
+			_, _ = fmt.Fprintln(out, "Use the sign-in URL above, or cancel and run `rp auth login --device` on headless/SSH.")
 		}
 	}
 
@@ -126,11 +126,11 @@ func send(ch chan<- callbackResult, res callbackResult) {
 // writeClosePage renders the minimal "return to your terminal" page the browser lands on.
 func writeClosePage(w http.ResponseWriter, ok bool) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	title, msg := "Signed in", "You're signed in to rootcause. You can close this tab and return to your terminal."
+	title, msg := "Signed in", "You're signed in to ReplyPen. You can close this tab and return to your terminal."
 	if !ok {
 		title, msg = "Sign-in failed", "Something went wrong signing in. Return to your terminal for details."
 	}
-	_, _ = fmt.Fprintf(w, `<!doctype html><html><head><meta charset="utf-8"><title>rootcause — %s</title>
+	_, _ = fmt.Fprintf(w, `<!doctype html><html><head><meta charset="utf-8"><title>ReplyPen — %s</title>
 <style>body{font-family:system-ui,sans-serif;background:#0f1115;color:#e6e6e6;display:flex;min-height:100vh;margin:0;align-items:center;justify-content:center}
 .card{background:#171a21;padding:2rem;border-radius:12px;max-width:420px;text-align:center}h1{font-size:1.1rem;margin:0 0 .75rem}p{margin:0;color:#9aa0aa;line-height:1.5}</style>
 </head><body><div class="card"><h1>%s</h1><p>%s</p></div></body></html>`, title, title, msg)

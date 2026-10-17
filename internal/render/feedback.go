@@ -5,11 +5,11 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
-// Feedback renders the rated-runs table of `rc run feedback list`, newest rating first. The full run id
-// leads so `rc run show <run_id>` can be copy-pasted; comment and answer are clipped (-o json has them whole).
+// Feedback renders the rated-runs table of `rp run feedback list`, newest rating first. The full run id
+// leads so `rp run show <run_id>` can be copy-pasted; comment and answer are clipped (-o json has them whole).
 func Feedback(w io.Writer, resp *client.FeedbackResponse) {
 	if len(resp.Feedback) == 0 {
 		_, _ = fmt.Fprintln(w, "No feedback.")

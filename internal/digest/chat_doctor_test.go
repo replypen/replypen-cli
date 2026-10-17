@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 var doctorNow = time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)

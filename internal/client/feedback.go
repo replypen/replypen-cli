@@ -50,7 +50,7 @@ type FeedbackParams struct {
 	Tenant  string
 }
 
-// Feedback fetches GET /api/v1/feedback — the rated-runs index behind `rc run feedback list`.
+// Feedback fetches GET /api/v1/feedback — the rated-runs index behind `rp run feedback list`.
 func (c *Client) Feedback(ctx context.Context, p FeedbackParams) (*FeedbackResponse, json.RawMessage, error) {
 	q := url.Values{}
 	for k, v := range map[string]string{

@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // pathsChunkBudget bounds one remote check: both the script and its expected stdout stay under it. The
@@ -176,7 +176,7 @@ func parseTenantsFlag(v string) ([]string, error) {
 	return out, nil
 }
 
-// listActiveTenants is the `rc project tenant ls` call; archived tenants are skipped (they take no runs).
+// listActiveTenants is the `rp project tenant ls` call; archived tenants are skipped (they take no runs).
 func listActiveTenants(ctx context.Context, c *client.Client, project string) ([]string, error) {
 	list, _, err := c.List(ctx, "tenants", project, "")
 	if err != nil {

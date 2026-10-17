@@ -47,7 +47,7 @@ Timeline (5):
     args: {         "pass": "deferral",         "status": "invalid_output",         "called": true,         "changed": false,         "before": "You have 2 open invoices, totalling $480.",         "rejected_diff": "- I'll check and come back to you.\n+ (dropped the whole answer body)"       }
 
 System prompt:
-You are rootcause. Answer from grounded data only.
+You are ReplyPen. Answer from grounded data only.
 
 Draft:
 You have 2 open invoices totalling $480.

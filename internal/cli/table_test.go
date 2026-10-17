@@ -113,10 +113,10 @@ func TestTableGolden(t *testing.T) {
 		// ConfigSetListValue locks the list-coercion contract: `project settings runtime set pr.triggers=inbound,mcp` sends a
 		// JSON ARRAY (asserted in the PATCH handler), not a comma string. The handler fatals if it's not an array.
 		{"ConfigSetListValue", []string{"project", "settings", "runtime", "set", "pr.triggers=inbound,mcp"}, "config_set.golden"},
-		// KBGetTable pins `rc project knowledge sync get` — the generic bag command over a non-settings
+		// KBGetTable pins `rp project knowledge sync get` — the generic bag command over a non-settings
 		// bag renders the same {key:value/effective/default/source} table as project runtime settings.
 		{"KBGetTable", []string{"project", "knowledge", "sync", "get"}, "kb_get.golden"},
-		// KBSetTable pins `rc project knowledge sync set provider=intercom` round-tripping through PATCH /api/v1/kb.
+		// KBSetTable pins `rp project knowledge sync set provider=intercom` round-tripping through PATCH /api/v1/kb.
 		{"KBSetTable", []string{"project", "knowledge", "sync", "set", "provider=intercom", "base_url=https://acme.intercom.io"}, "kb_get.golden"},
 		// The help-centre write path. Dry-run is the review surface: the verdict line plus the FULL
 		// provider calls that would be sent. The real write is one terse line, and an unchanged block
@@ -129,22 +129,22 @@ func TestTableGolden(t *testing.T) {
 		{"SchemaTable", []string{"project", "settings", "schema"}, "schema.golden"},
 		{"ExplainTable", []string{"project", "settings", "describe", "models.agent"}, "explain_models_agent.golden"},
 		{"AccessTable", []string{"auth", "access"}, "access.golden"},
-		// SpamListTable pins `rc project senders ls`: both lists rendered as one VERDICT/PATTERN/TYPE/SOURCE/CREATED
+		// SpamListTable pins `rp project senders ls`: both lists rendered as one VERDICT/PATTERN/TYPE/SOURCE/CREATED
 		// table (allows first, then blocks), in server order.
 		{"SpamListTable", []string{"project", "senders", "ls"}, "spam_ls.golden"},
-		// SpamAllowTable pins `rc project senders allow <pattern> --reason …`: the echoed rule with the
+		// SpamAllowTable pins `rp project senders allow <pattern> --reason …`: the echoed rule with the
 		// server-inferred match_type renders as a one-row table.
 		{"SpamAllowTable", []string{"project", "senders", "allow", "@partner.example", "--reason", "trusted"}, "spam_allow.golden"},
-		// SpamAllowMailboxTable pins `rc project senders allow <pattern> --mailbox <uuid>`: the mailbox_id rides in the
+		// SpamAllowMailboxTable pins `rp project senders allow <pattern> --mailbox <uuid>`: the mailbox_id rides in the
 		// POST body (asserted server-side by echoing it back as "mailbox"), and the echoed rule renders with the
 		// MAILBOX column populated.
 		{"SpamAllowMailboxTable", []string{"project", "senders", "allow", "@partner.example", "--mailbox", "mbx11111-0000-0000-0000-000000000009"}, "spam_allow_mailbox.golden"},
-		// SpamListMailboxFilter pins `rc project senders ls --mailbox <uuid>`: the client-side filter narrows the table
+		// SpamListMailboxFilter pins `rp project senders ls --mailbox <uuid>`: the client-side filter narrows the table
 		// to the two rules (one allow, one block) scoped to that mailbox, dropping the project-scoped rows.
 		{"SpamListMailboxFilter", []string{"project", "senders", "ls", "--mailbox", "mbx11111-0000-0000-0000-000000000001"}, "spam_ls_mailbox.golden"},
-		// SpamBlockTable pins `rc project senders block <pattern>` (no reason).
+		// SpamBlockTable pins `rp project senders block <pattern>` (no reason).
 		{"SpamBlockTable", []string{"project", "senders", "block", "junk@spammy.example"}, "spam_block.golden"},
-		// The guarded console read/exec views (`rc dev console …`) had no golden at all — the renderers were
+		// The guarded console read/exec views (`rp dev console …`) had no golden at all — the renderers were
 		// dead to the test suite. One case each, over fixtures that exercise the optional blocks: capabilities
 		// with every plane populated, an action manifest with autonomy floors / connections / params / stats,
 		// and both arms of the exec view (a result body vs an error body).
@@ -166,7 +166,7 @@ func TestTableGolden(t *testing.T) {
 		// HealthCleanExitsZero: a clean fleet renders healthy AND returns nil (zero exit).
 		{"HealthCleanExitsZero", []string{"fleet", "health", "--hours", "999"}, "health_clean.golden"},
 		{"TenantSettingsGetTable", []string{"project", "tenant", "settings", "get", "de-kies"}, "tenant_get.golden"},
-		// RepliesListTable pins `rc dev replies list`: one line per turn, the decomposed send state, and the
+		// RepliesListTable pins `rp dev replies list`: one line per turn, the decomposed send state, and the
 		// next-page cursor hint.
 		{"RepliesListTable", []string{"--project", "alpha", "--tenant", "de-kies", "dev", "replies", "list", "--limit", "2"}, "replies_ls.golden"},
 	} {
@@ -175,7 +175,7 @@ func TestTableGolden(t *testing.T) {
 			defer srv.Close()
 			e, out, _ := newTestEnv(t, srv, "table")
 			if err := run(t, e, tc.args...); err != nil {
-				t.Fatalf("rc %s: %v", strings.Join(tc.args, " "), err)
+				t.Fatalf("rp %s: %v", strings.Join(tc.args, " "), err)
 			}
 			assertGolden(t, tc.golden, out.String())
 		})
@@ -242,7 +242,7 @@ func TestJSONPassthrough(t *testing.T) {
 			defer srv.Close()
 			e, out, _ := newTestEnv(t, srv, "json")
 			if err := run(t, e, tc.args...); err != nil {
-				t.Fatalf("rc %s: %v", strings.Join(tc.args, " "), err)
+				t.Fatalf("rp %s: %v", strings.Join(tc.args, " "), err)
 			}
 			assertJSONEqual(t, fixture(t, tc.fixture), out.Bytes())
 		})
@@ -281,10 +281,10 @@ func TestTableLine(t *testing.T) {
 			defer srv.Close()
 			e, out, _ := newTestEnv(t, srv, "table")
 			if err := run(t, e, tc.args...); err != nil {
-				t.Fatalf("rc %s: %v", strings.Join(tc.args, " "), err)
+				t.Fatalf("rp %s: %v", strings.Join(tc.args, " "), err)
 			}
 			if got := out.String(); got != tc.want {
-				t.Errorf("rc %s output = %q, want %q", strings.Join(tc.args, " "), got, tc.want)
+				t.Errorf("rp %s output = %q, want %q", strings.Join(tc.args, " "), got, tc.want)
 			}
 		})
 	}
@@ -365,12 +365,12 @@ func TestRejectsBeforeRequest(t *testing.T) {
 			e, _, _ := newTestEnv(t, srv, "table")
 			err := run(t, e, tc.args...)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("rc %s error = %v, want %q", strings.Join(tc.args, " "), err, tc.want)
+				t.Fatalf("rp %s error = %v, want %q", strings.Join(tc.args, " "), err, tc.want)
 			}
 			mu.Lock()
 			defer mu.Unlock()
 			if len(sent) != 0 {
-				t.Fatalf("rc %s reached the server before rejecting: %v", strings.Join(tc.args, " "), sent)
+				t.Fatalf("rp %s reached the server before rejecting: %v", strings.Join(tc.args, " "), sent)
 			}
 		})
 	}
@@ -404,7 +404,7 @@ func TestRejectsWithServerData(t *testing.T) {
 			e, _, _ := newTestEnv(t, srv, "table")
 			err := run(t, e, tc.args...)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("rc %s error = %v, want %q", strings.Join(tc.args, " "), err, tc.want)
+				t.Fatalf("rp %s error = %v, want %q", strings.Join(tc.args, " "), err, tc.want)
 			}
 		})
 	}

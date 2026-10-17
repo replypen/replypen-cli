@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 func TestSessionSearchGolden(t *testing.T) {
@@ -27,7 +27,7 @@ func TestSessionSearchDrillsPinScopeAndQuote(t *testing.T) {
 			Rows: []client.SessionSummary{{SessionID: "session-1"}}, Matches: []digest.SessionSearchMatch{{RunID: "run-1"}}}
 		var out bytes.Buffer
 		SessionSearch(&out, result)
-		scope := "rc --project 'project'\\''$(bad)'"
+		scope := "rp --project 'project'\\''$(bad)'"
 		if tenant == "" {
 			scope += " --scope project"
 		} else {

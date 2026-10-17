@@ -50,7 +50,7 @@ func TestCommandSurface(t *testing.T) {
 			retiredRoot.SetErr(&errOut)
 			retiredRoot.SetArgs([]string{retired})
 			if err := retiredRoot.Execute(); err == nil {
-				t.Fatalf("retired root succeeded: rc %s", retired)
+				t.Fatalf("retired root succeeded: rp %s", retired)
 			}
 		})
 	}
@@ -68,7 +68,7 @@ func TestCommandSurface(t *testing.T) {
 			retiredRoot.SetErr(&errOut)
 			retiredRoot.SetArgs(strings.Fields(retired))
 			if err := retiredRoot.Execute(); err == nil {
-				t.Fatalf("retired path succeeded: rc %s", retired)
+				t.Fatalf("retired path succeeded: rp %s", retired)
 			}
 		})
 	}
@@ -87,7 +87,7 @@ func TestCommandSurface(t *testing.T) {
 		t.Fatalf("root help exposes framework commands:\n%s", help.String())
 	}
 	if cmd, _, err := root.Find([]string{"help", "project"}); err != nil || cmd.Name() != "help" {
-		t.Fatalf("rc help must remain callable: cmd=%v err=%v", cmd, err)
+		t.Fatalf("rp help must remain callable: cmd=%v err=%v", cmd, err)
 	}
 
 	for path, want := range map[string]string{
@@ -108,7 +108,7 @@ func TestCommandSurface(t *testing.T) {
 }
 
 func TestRecursiveHelpAndREADMEInventoryFresh(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", "/tmp/rootcause-cli-help-test")
+	t.Setenv("XDG_CONFIG_HOME", "/tmp/replypen-cli-help-test")
 	e := &env{out: &bytes.Buffer{}, err: &bytes.Buffer{}}
 	root := newRootCmd(e, "VERSION")
 	help := recursiveHelp(t, root)

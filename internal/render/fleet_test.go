@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 func runWithBash(id string, total, real, explore int64) client.RunSummary {

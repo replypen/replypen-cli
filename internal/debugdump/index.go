@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // RenderIndex builds the THIN markdown index: the run header, question, outcome gist, a main-loop
@@ -52,7 +52,7 @@ func RenderIndex(full *client.FullResponse) string {
 	}
 	add(fmt.Sprintf("- **Run ID:** `%s`", r.RunID))
 	if r.ReplayOfRunID != "" {
-		add(fmt.Sprintf("- **Replay of:** `%s` (chat turn replayed by `rc ask --replay-chat-run`)", r.ReplayOfRunID))
+		add(fmt.Sprintf("- **Replay of:** `%s` (chat turn replayed by `rp ask --replay-chat-run`)", r.ReplayOfRunID))
 	}
 	if r.BrainRef != "" || r.Trigger == "test" {
 		add(fmt.Sprintf("- **Test run** · brain_ref `%s` · trigger `%s` — side-effect-free",
@@ -218,7 +218,7 @@ func RenderIndex(full *client.FullResponse) string {
 			fmt.Sprintf(`jq -r 'select(.reasoning) | .disp + " " + .reasoning' %s   # reasoning per step`, jsonlName),
 		}, "\n"), "sh"))
 	add("", "For the full three-step opening context each model received, with per-section sources: "+
-		"`rc dev context-export` (offline, operator).")
+		"`rp dev context-export` (offline, operator).")
 	add("")
 	return strings.Join(L, "\n")
 }
@@ -299,7 +299,7 @@ func renderProjectionInputs(r client.RunHeader) []string {
 }
 
 // mirrorInputs lists each mounted source mirror as `ref @ sha12`, next to the brain ref: together they are
-// the code the run saw. ` · override` flags a per-run `rc ask --mirror-ref` mount instead of the tracked ref.
+// the code the run saw. ` · override` flags a per-run `rp ask --mirror-ref` mount instead of the tracked ref.
 // A requested override with no resolved row (the run failed before provenance) is still listed, marked
 // unresolved: dropping it would make an override run read like a plain one.
 func mirrorInputs(gs *client.GroundingSources, requested map[string]string) []string {

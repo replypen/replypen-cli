@@ -4,7 +4,7 @@ package client
 
 // DeployStateResponse is GET /api/v1/deploy-state — the live SHA per moving plane plus the timelines
 // the server actually stores. There is no host deploy history server-side (the box only knows what it
-// runs now), so `rc fleet deploy-state` derives "what is not deployed yet" from a local rootcause
+// runs now), so `rp fleet deploy-state` derives "what is not deployed yet" from a local ReplyPen
 // checkout instead.
 type DeployStateResponse struct {
 	Project       string              `json:"project"`

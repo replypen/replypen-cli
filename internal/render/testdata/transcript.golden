@@ -2,7 +2,7 @@
 
 3 turns · 2 questions · 1 form answer
 
-> Long conversation: answers are clipped to their first 800 characters. Read one turn in full with `rc run trace <run-id> --brief`.
+> Long conversation: answers are clipped to their first 800 characters. Read one turn in full with `rp run trace <run-id> --brief`.
 
 ## Turn 1 · 2026-06-22T09:30:00Z · principal 4212
 

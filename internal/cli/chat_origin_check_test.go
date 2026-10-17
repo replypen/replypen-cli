@@ -5,7 +5,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 func TestLookupOriginsClassifiesNXDOMAINApartFromTimeouts(t *testing.T) {
