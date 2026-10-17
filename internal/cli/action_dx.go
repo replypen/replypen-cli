@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/rootcause-org/rootcause-cli/internal/digest"
 	"github.com/rootcause-org/rootcause-cli/internal/render"
 )
 
@@ -390,7 +391,7 @@ func actionPreflightFailure(resp *client.ActionExecResponse) (actionDiagnostic, 
 }
 
 func actionDiagnosticForCode(code, hint string) actionDiagnostic {
-	return actionDiagnostic{Code: code, Hint: hint, Docs: embassyDocsFor(code)}
+	return actionDiagnostic{Code: code, Hint: hint, Docs: digest.EmbassyDocsFor(code)}
 }
 
 func actionHint(code, fallback string) string {
@@ -422,53 +423,9 @@ func silentActionFailure(code string) error {
 
 func doctorActionConfig(settings client.Settings) actionDoctorConfig {
 	return actionDoctorConfig{
-		ActionsEnabled:          settingBool(settings, "actions_enabled"),
-		Mode:                    settingString(settings, "action_mode"),
-		RunnerURLConfigured:     settingConfigured(settings, "action_runner_url"),
-		ReverseSecretConfigured: settingConfigured(settings, "action_reverse_secret"),
+		ActionsEnabled:          digest.SettingBool(settings, "actions_enabled"),
+		Mode:                    digest.SettingString(settings, "action_mode"),
+		RunnerURLConfigured:     digest.SettingConfigured(settings, "action_runner_url"),
+		ReverseSecretConfigured: digest.SettingConfigured(settings, "action_reverse_secret"),
 	}
-}
-
-func settingBool(settings client.Settings, key string) bool {
-	var value bool
-	_ = json.Unmarshal(settingValue(settings[key]), &value)
-	return value
-}
-
-func settingString(settings client.Settings, key string) string {
-	var value string
-	_ = json.Unmarshal(settingValue(settings[key]), &value)
-	return value
-}
-
-func settingStrings(settings client.Settings, key string) []string {
-	value := []string{}
-	_ = json.Unmarshal(settingValue(settings[key]), &value)
-	return value
-}
-
-func settingConfigured(settings client.Settings, key string) bool {
-	raw := settingValue(settings[key])
-	if len(raw) == 0 || string(raw) == "null" || string(raw) == `""` {
-		return false
-	}
-	var value interface{}
-	if json.Unmarshal(raw, &value) != nil {
-		return false
-	}
-	switch v := value.(type) {
-	case bool:
-		return v
-	case string:
-		return strings.TrimSpace(v) != ""
-	default:
-		return value != nil
-	}
-}
-
-func settingValue(field client.SettingField) json.RawMessage {
-	if len(field.Effective) > 0 {
-		return field.Effective
-	}
-	return field.Value
 }

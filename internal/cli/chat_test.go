@@ -14,12 +14,13 @@ import (
 	"time"
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/rootcause-org/rootcause-cli/internal/digest"
 )
 
 func TestChatAPIErrorPrintsSharedDiagnosticLine(t *testing.T) {
 	var out strings.Builder
-	printError(&out, &client.APIError{Code: "ORIGIN_NOT_ALLOWED", Message: "origin rejected", Hint: "Add this exact origin.", Docs: embassyDocsFor("ORIGIN_NOT_ALLOWED")})
-	want := "[ReplyPen] ORIGIN_NOT_ALLOWED: Add this exact origin. — " + embassyErrorsBase + "origin_not_allowed\n"
+	printError(&out, &client.APIError{Code: "ORIGIN_NOT_ALLOWED", Message: "origin rejected", Hint: "Add this exact origin.", Docs: digest.EmbassyDocsFor("ORIGIN_NOT_ALLOWED")})
+	want := "[ReplyPen] ORIGIN_NOT_ALLOWED: Add this exact origin. — " + digest.EmbassyErrorsBase + "origin_not_allowed\n"
 	if out.String() != want {
 		t.Fatalf("stderr = %q, want %q", out.String(), want)
 	}
@@ -321,24 +322,6 @@ func TestChatSecretRevealPrintsRotationAttribution(t *testing.T) {
 	}
 }
 
-// The doctor names the ONE run-time principal failure an integrator can act on: the dominant code, and
-// the TOTAL count across both, so "last N turns failed principal verification" is honest.
-func TestRecentPrincipalRejects(t *testing.T) {
-	code, kind, n := recentPrincipalRejects([]doctorReject{
-		{Code: "ORIGIN_NOT_ALLOWED"},
-		{Code: "PRINCIPAL_LOOKUP_FAILED", Kind: "account"},
-		{Code: "PRINCIPAL_UNVERIFIED", Kind: "app_user"},
-		{Code: "PRINCIPAL_UNVERIFIED", Kind: "ignored", Stale: true},
-		{Code: "PRINCIPAL_UNVERIFIED", Kind: "app_user"},
-	})
-	if code != "PRINCIPAL_UNVERIFIED" || kind != "app_user" || n != 2 {
-		t.Fatalf("recentPrincipalRejects = %q/%q/%d, want PRINCIPAL_UNVERIFIED/app_user/2", code, kind, n)
-	}
-	if code, kind, n := recentPrincipalRejects([]doctorReject{{Code: "BAD_TOKEN"}}); code != "" || kind != "" || n != 0 {
-		t.Fatalf("recentPrincipalRejects = %q/%q/%d, want no finding", code, kind, n)
-	}
-}
-
 func TestChatDoctorSinceMarksOldRejectStale(t *testing.T) {
 	now := time.Now().UTC()
 	mux := http.NewServeMux()
@@ -600,7 +583,7 @@ func TestChatDoctorNearMissFindingsAreSorted(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	var bundle doctorBundle
+	var bundle chatDoctorJSON
 	if err := json.Unmarshal(out.Bytes(), &bundle); err != nil {
 		t.Fatalf("bundle: %v (%q)", err, out.String())
 	}

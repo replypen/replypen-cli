@@ -1,0 +1,12 @@
+ok      CHAT_ENABLED                 
+ok      ORIGINS_CONFIGURED           
+warning ORIGIN_UNRESOLVABLE          chat_origins entry https://staging.app.example.com has no DNS record — likely a typo of the real app host.
+warning ORIGIN_NEAR_MISS             recent rejects came from https://app.exampel.com, which is not registered; https://app.example.com is — one of them is probably a typo.
+warning CHAT_SECRET_FALLBACK         Rotate a dedicated chat secret; webhook fallback is temporary.
+warning PRINCIPALS_DORMANT           Declare principal kinds when chat must be user-scoped.
+warning PRINCIPAL_UNVERIFIED         last 1 turn(s) for principal kind app_user failed principal verification — check the asserted external ID against the manifest's verify query.
+failed  BRANDING_UNAVAILABLE         Check the branding API and project scope.
+ok      WIDGET_LOADER_REACHABLE      
+recent  ORIGIN_NOT_ALLOWED           2026-10-17T11:55:00Z
+recent  PRINCIPAL_UNVERIFIED         2026-10-17T11:50:00Z
+stale   BAD_TOKEN                    2026-10-17T09:00:00Z

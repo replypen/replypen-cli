@@ -7,9 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"slices"
@@ -20,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/rootcause-org/rootcause-cli/internal/digest"
 	"github.com/rootcause-org/rootcause-cli/internal/render"
 )
 
@@ -35,10 +34,10 @@ func chatBriefCmd(e *env) *cobra.Command {
 		if target != "bubble" && target != "page" {
 			return fmt.Errorf("--target must be bubble or page")
 		}
-		if !containsCLI([]string{"", "en", "nl", "fr"}, locale) {
+		if !slices.Contains([]string{"", "en", "nl", "fr"}, locale) {
 			return fmt.Errorf("--locale must be en, nl, or fr")
 		}
-		if !containsCLI([]string{"", "light", "dark"}, scheme) {
+		if !slices.Contains([]string{"", "light", "dark"}, scheme) {
 			return fmt.Errorf("--color-scheme must be light or dark")
 		}
 		c, err := e.newClient()
@@ -537,44 +536,29 @@ func chatAnswerPart(raw json.RawMessage, flags []string) (map[string]any, error)
 // window, small enough to stay one page.
 const doctorRejectLimit = 100
 
-type chatDoctorFinding struct {
-	Status string `json:"status"`
-	Check  string `json:"check"`
-	Code   string `json:"code"`
-	Hint   string `json:"hint"`
-	Docs   string `json:"docs"`
-}
-
-type doctorBundle struct {
-	Project    string              `json:"project"`
-	RCVersion  string              `json:"rc_version"`
-	Timestamp  time.Time           `json:"timestamp"`
-	Since      string              `json:"since"`
-	Config     map[string]any      `json:"config"`
-	Principals map[string]any      `json:"principals"`
-	Secret     map[string]any      `json:"secret"`
-	Branding   map[string]any      `json:"branding"`
-	Rejects    []doctorReject      `json:"rejects"`
-	Probes     map[string]any      `json:"probes"`
-	Findings   []chatDoctorFinding `json:"findings"`
-	// Raw carries every fetched server body verbatim, keyed by source (SKILL.md "Output" rule b). Set for
-	// `-o json` only: the --bundle escalation artifact stays compact.
-	Raw map[string]json.RawMessage `json:"raw,omitempty"`
-}
-
-type doctorReject struct {
-	Code      string    `json:"code"`
-	Kind      string    `json:"kind,omitempty"`
-	Origin    string    `json:"origin,omitempty"`
-	Timestamp time.Time `json:"timestamp"`
-	Stale     bool      `json:"stale,omitempty"`
+// chatDoctorJSON is the `-o json` / --bundle shape: request context, the config/secret bodies as decoded
+// maps, then the diagnosis. Raw carries every fetched server body verbatim, keyed by source (SKILL.md
+// "Output" rule b); it is set for `-o json` only, so the --bundle escalation artifact stays compact.
+type chatDoctorJSON struct {
+	Project    string                      `json:"project"`
+	RCVersion  string                      `json:"rc_version"`
+	Timestamp  time.Time                   `json:"timestamp"`
+	Since      string                      `json:"since"`
+	Config     map[string]any              `json:"config"`
+	Principals digest.ChatDoctorPrincipals `json:"principals"`
+	Secret     map[string]any              `json:"secret"`
+	Branding   digest.ChatDoctorBranding   `json:"branding"`
+	Rejects    []digest.ChatDoctorReject   `json:"rejects"`
+	Probes     digest.ChatDoctorProbes     `json:"probes"`
+	Findings   []digest.ChatDoctorFinding  `json:"findings"`
+	Raw        map[string]json.RawMessage  `json:"raw,omitempty"`
 }
 
 func chatDoctorCmd(e *env, version string) *cobra.Command {
 	var origin, kind, since string
 	var bundle bool
 	cmd := &cobra.Command{Use: "doctor", Short: "Diagnose embedded-chat configuration and recent rejects", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
-		if !containsCLI([]string{"30m", "1h", "24h"}, since) {
+		if !slices.Contains([]string{"30m", "1h", "24h"}, since) {
 			return fmt.Errorf("--since must be 30m, 1h, or 24h")
 		}
 		sinceDuration, _ := time.ParseDuration(since)
@@ -583,7 +567,9 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 			return err
 		}
 		project := e.scopeProject()
-		b := doctorBundle{Project: project, RCVersion: version, Timestamp: time.Now().UTC(), Since: since, Config: map[string]any{}, Principals: map[string]any{}, Secret: map[string]any{}, Branding: map[string]any{}, Probes: map[string]any{}}
+		now := time.Now().UTC()
+		out := chatDoctorJSON{Project: project, RCVersion: version, Timestamp: now, Since: since, Config: map[string]any{}, Secret: map[string]any{}}
+		in := digest.ChatDoctorInputs{Origin: origin, PrincipalKind: kind, Since: sinceDuration}
 		sources := map[string]json.RawMessage{}
 		// A shape the doctor cannot decode is an error, never an empty section: empty rejects would read as a
 		// clean bill of health.
@@ -593,173 +579,68 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 			}
 			return nil
 		}
-		// The bundle carries the bag verbatim (raw passthrough); the checks read the SAME bytes through
-		// the typed settings shape, so a field's Effective-then-Value ladder is decoded in one place.
+		// The report carries the bag as a decoded map; the checks read the SAME bytes through the typed
+		// settings shape, so a field's Effective-then-Value ladder is decoded in one place.
 		settings, raw, err := c.ChatSettings(e.ctx(), project)
 		if err != nil {
 			return err
 		}
-		if err := decodeDoctor("chat settings", raw, &b.Config); err != nil {
+		if err := decodeDoctor("chat settings", raw, &out.Config); err != nil {
 			return err
 		}
-		sources["chat_settings"] = raw
-		config := *settings
+		sources["chat_settings"], in.Settings = raw, *settings
 		manifest, raw, err := c.Principals(e.ctx(), project)
 		if err != nil {
 			return err
 		}
-		sources["principals"] = raw
-		kinds := manifest.KindNames()
-		b.Principals = map[string]any{
-			"configured":              len(kinds) > 0,
-			"kinds":                   kinds,
-			"email_lookup_configured": manifest.HasEmailLookup(),
-		}
+		sources["principals"], in.Principals = raw, *manifest
 		raw, err = c.ChatSecretStatus(e.ctx(), project)
 		if err != nil {
 			return err
 		}
-		if err := decodeDoctor("chat secret status", raw, &b.Secret); err != nil {
+		if err := decodeDoctor("chat secret status", raw, &out.Secret); err != nil {
 			return err
 		}
 		sources["chat_secret"] = raw
+		in.SecretSource, _ = out.Secret["source"].(string)
 		// Branding is a diagnostic input, not a precondition: a doctor that aborts on it reports nothing
 		// about the chat wiring the operator actually came to check.
-		brandingBag, brandingRaw, brandingErr := c.GetBag(e.ctx(), "/api/v1/branding", project)
-		var branding client.Settings
-		if brandingErr == nil {
-			branding = *brandingBag
-			sources["branding"] = brandingRaw
-		}
-		b.Branding = map[string]any{
-			"reachable":                brandingErr == nil,
-			"name_configured":          settingString(branding, "name") != "",
-			"primary_color_configured": settingString(branding, "primary_color") != "",
+		if branding, raw, err := c.GetBag(e.ctx(), "/api/v1/branding", project); err != nil {
+			in.BrandingError = err.Error()
+		} else {
+			sources["branding"], in.Branding = raw, *branding
 		}
 		raw, err = c.ChatRejects(e.ctx(), project, doctorRejectLimit)
 		if err != nil {
 			return err
 		}
-		var rejects struct {
-			Rejects []doctorReject `json:"rejects"`
-		}
+		var rejects client.ChatRejectList
 		if err := decodeDoctor("chat rejects", raw, &rejects); err != nil {
 			return err
 		}
-		sources["chat_rejects"] = raw
-		cutoff := b.Timestamp.Add(-sinceDuration)
-		for i := range rejects.Rejects {
-			rejects.Rejects[i].Stale = rejects.Rejects[i].Timestamp.Before(cutoff)
-		}
-		b.Rejects = rejects.Rejects
-		loaderStatus, probeErr := c.ProbeWidgetLoader(e.ctx())
-		b.Probes["widget_loader_status"] = loaderStatus
-		if probeErr != nil {
-			b.Probes["widget_loader_error"] = "network error"
-		}
+		sources["chat_rejects"], in.Rejects = raw, rejects.Rejects
+		in.OriginDNS = lookupOrigins(e.ctx(), digest.SettingStrings(in.Settings, "chat_origins"), net.DefaultResolver.LookupHost)
+		var probeErr error
+		in.WidgetLoaderStatus, probeErr = c.ProbeWidgetLoader(e.ctx())
+		in.WidgetLoaderNetworkError = probeErr != nil
 
-		add := func(ok bool, good, bad, hint string) {
-			status, code := "ok", "OK"
-			check := good
-			if !ok {
-				status, code = "failed", bad
-				check = bad
-			}
-			// A passing check has no anchor in the integrator error index and no fix to suggest.
-			docs := ""
-			if ok {
-				hint = ""
-			} else {
-				docs = embassyDocsFor(code)
-			}
-			b.Findings = append(b.Findings, chatDoctorFinding{Status: status, Check: check, Code: code, Hint: hint, Docs: docs})
-		}
-		warn := func(code, hint string) {
-			b.Findings = append(b.Findings, chatDoctorFinding{Status: "warning", Check: code, Code: code, Hint: hint, Docs: embassyDocsFor(code)})
-		}
-		add(settingBool(config, "chat_enabled"), "CHAT_ENABLED", "CHAT_DISABLED", "Enable chat for this project.")
-		origins := settingStrings(config, "chat_origins")
-		if origin != "" {
-			add(containsCLI(origins, origin), "ORIGIN_ALLOWED", "ORIGIN_NOT_ALLOWED", "Add this exact origin to chat_origins.")
-		} else {
-			add(len(origins) > 0, "ORIGINS_CONFIGURED", "ORIGIN_NOT_ALLOWED", "Configure at least one exact chat origin.")
-		}
-		for _, o := range unresolvableOrigins(e.ctx(), origins, net.DefaultResolver.LookupHost) {
-			warn("ORIGIN_UNRESOLVABLE", fmt.Sprintf("chat_origins entry %s has no DNS record — likely a typo of the real app host.", o))
-		}
-		if origin != "" && !containsCLI(origins, origin) {
-			if near, ok := nearestOrigin(origin, origins); ok {
-				warn("ORIGIN_NEAR_MISS", fmt.Sprintf("%s is not registered, but %s is — one of them is probably a typo.", origin, near))
-			}
-		}
-		nearMisses := nearMissRejects(b.Rejects, origins)
-		for _, rejected := range slices.Sorted(maps.Keys(nearMisses)) {
-			if rejected == origin {
-				continue
-			}
-			near := nearMisses[rejected]
-			warn("ORIGIN_NEAR_MISS", fmt.Sprintf("recent rejects came from %s, which is not registered; %s is — one of them is probably a typo.", rejected, near))
-		}
-		source, _ := b.Secret["source"].(string)
-		if source == "dedicated" {
-			add(true, "CHAT_SECRET_PRESENT", "", "Dedicated chat signing secret is configured.")
-		} else {
-			warn("CHAT_SECRET_FALLBACK", "Rotate a dedicated chat secret; webhook fallback is temporary.")
-		}
-		if kind != "" {
-			add(containsCLI(kinds, kind), "PRINCIPAL_KIND_DECLARED", "UNKNOWN_PRINCIPAL_KIND", "Add the requested kind to the principal manifest.")
-		} else {
-			if len(kinds) > 0 {
-				add(true, "PRINCIPALS_CONFIGURED", "", "Principal manifest is configured.")
-			} else {
-				warn("PRINCIPALS_DORMANT", "Declare principal kinds when chat must be user-scoped.")
-			}
-		}
-		// A run-time principal failure is invisible in CONFIG: the manifest validates, the token mints, and
-		// only the recent rejects show that the asserted identity never verified against the project's data.
-		if code, principalKind, n := recentPrincipalRejects(b.Rejects); n > 0 {
-			scope := ""
-			if principalKind != "" {
-				scope = " for principal kind " + principalKind
-			}
-			warn(code, fmt.Sprintf("last %d turn(s)%s failed principal verification — check the asserted external ID against the manifest's verify query.", n, scope))
-		}
-		add(brandingErr == nil, "BRANDING_REACHABLE", "BRANDING_UNAVAILABLE", "Check the branding API and project scope.")
-		add(probeErr == nil && loaderStatus == http.StatusOK, "WIDGET_LOADER_REACHABLE", "WIDGET_SCRIPT_BLOCKED", "Allow the ReplyPen loader URL through network and CSP policy.")
-
-		// The verdict is a property of the findings, not of the output mode: fold it BEFORE the mode
-		// branch so a piped `rc project chat doctor | jq` exits non-zero on broken wiring too.
-		failed := false
-		for _, f := range b.Findings {
-			if f.Status == "failed" {
-				failed = true
-				break
-			}
-		}
+		report := digest.ChatDoctor(in, now)
 		if bundle || e.jsonOut() {
+			out.Principals, out.Branding, out.Rejects, out.Probes, out.Findings = report.Principals, report.Branding, report.Rejects, report.Probes, report.Findings
 			if !bundle {
-				b.Raw = sources
+				out.Raw = sources
 			}
-			encoded, marshalErr := json.Marshal(b)
-			if marshalErr != nil {
-				return marshalErr
+			encoded, err := json.Marshal(out)
+			if err != nil {
+				return err
 			}
 			if err := render.JSON(e.out, encoded); err != nil {
 				return err
 			}
 		} else {
-			for _, f := range b.Findings {
-				_, _ = fmt.Fprintf(e.out, "%-7s %-28s %s\n", f.Status, f.Check, f.Hint)
-			}
-			for _, reject := range b.Rejects {
-				state := "recent"
-				if reject.Stale {
-					state = "stale"
-				}
-				_, _ = fmt.Fprintf(e.out, "%-7s %-28s %s\n", state, reject.Code, reject.Timestamp.Format(time.RFC3339))
-			}
+			render.ChatDoctor(e.out, report)
 		}
-		if failed {
+		if report.Failed {
 			return &commandError{code: exitUsage, name: "CHAT_DOCTOR_FAILED", silent: true, message: "chat doctor found failures"}
 		}
 		return nil
@@ -867,37 +748,4 @@ func randomMessageID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
-}
-func containsCLI(values []string, want string) bool {
-	for _, v := range values {
-		if v == want {
-			return true
-		}
-	}
-	return false
-}
-
-// recentPrincipalRejects returns the DOMINANT (code, principal kind) pair in the recent rejects window
-// and its own count — not the total across codes — so the doctor names the ONE failure an integrator can
-// act on, with the kind whose verify query to check. Ties break on code then kind for determinism (map
-// iteration order is random).
-func recentPrincipalRejects(rejects []doctorReject) (string, string, int) {
-	type failure struct{ code, kind string }
-	counts := map[failure]int{}
-	for _, r := range rejects {
-		if r.Stale {
-			continue
-		}
-		switch r.Code {
-		case "PRINCIPAL_UNVERIFIED", "PRINCIPAL_LOOKUP_FAILED":
-			counts[failure{code: r.Code, kind: r.Kind}]++
-		}
-	}
-	best, total := failure{}, 0
-	for f, n := range counts {
-		if total == 0 || n > total || (n == total && (f.code < best.code || (f.code == best.code && f.kind < best.kind))) {
-			best, total = f, n
-		}
-	}
-	return best.code, best.kind, total
 }

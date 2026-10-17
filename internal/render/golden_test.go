@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/rootcause-org/rootcause-cli/internal/digest"
 )
 
 // Golden tests for the views the CLI hands a view model. They exist because these renderers used to
@@ -130,4 +132,29 @@ func TestKBSearchGolden(t *testing.T) {
 	var out bytes.Buffer
 	KBSearch(&out, view)
 	assertGolden(t, "kb_search.golden", out.String())
+}
+
+// The chat doctor table over a real diagnosis (fixed clock): one of each finding status, a near-miss
+// reject, and a stale vs recent reject against the 1h window.
+func TestChatDoctorGolden(t *testing.T) {
+	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+	report := digest.ChatDoctor(digest.ChatDoctorInputs{
+		Settings: client.Settings{
+			"chat_enabled": {Effective: json.RawMessage(`true`)},
+			"chat_origins": {Effective: json.RawMessage(`["https://app.example.com","https://staging.app.example.com"]`)},
+		},
+		SecretSource:  "webhook",
+		BrandingError: "HTTP 403",
+		Rejects: []client.ChatReject{
+			{Code: "ORIGIN_NOT_ALLOWED", Origin: "https://app.exampel.com", Timestamp: now.Add(-5 * time.Minute)},
+			{Code: "PRINCIPAL_UNVERIFIED", Kind: "app_user", Timestamp: now.Add(-10 * time.Minute)},
+			{Code: "BAD_TOKEN", Timestamp: now.Add(-3 * time.Hour)},
+		},
+		OriginDNS:          map[string]digest.DNSResult{"https://app.example.com": digest.DNSResolved, "https://staging.app.example.com": digest.DNSNotFound},
+		WidgetLoaderStatus: 200,
+		Since:              time.Hour,
+	}, now)
+	var out bytes.Buffer
+	ChatDoctor(&out, report)
+	assertGolden(t, "chat_doctor.golden", out.String())
 }

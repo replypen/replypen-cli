@@ -21,6 +21,27 @@ linters:
               desc: renderers are pure functions of rows
             - pkg: github.com/rootcause-org/rootcause-cli/internal/outputspill
               desc: map the artifact into a render-owned type (audit F15)
+        digest-pure:
+          files: ["**/internal/digest/**", "!**/*_test.go"]
+          list-mode: lax
+          allow:
+            - github.com/rootcause-org/rootcause-cli/internal/client
+          deny:
+            - pkg: github.com/rootcause-org/rootcause-cli/internal
+              desc: digest is pure analysis over internal/client wire rows; it imports no other sibling
+            - pkg: os
+              desc: digest is pure (no I/O); the CLI fetches, probes and threads `now` in
+            - pkg: net/http
+              desc: digest is pure (no I/O); the CLI fetches, probes and threads `now` in
+        render-siblings:
+          files: ["**/internal/render/**"]
+          list-mode: lax
+          allow:
+            - github.com/rootcause-org/rootcause-cli/internal/client
+            - github.com/rootcause-org/rootcause-cli/internal/digest
+          deny:
+            - pkg: github.com/rootcause-org/rootcause-cli/internal
+              desc: renderers see wire rows (client) and their analysis (digest) only
         client-leaf:
           files: ["**/internal/client/**"]
           deny:
@@ -32,11 +53,20 @@ linters:
             - pkg: github.com/rootcause-org/rootcause-cli/internal/config
               desc: the token store does not depend on config resolution (audit S4)
     forbidigo:
+      # Rules are global; each msg carries a [tag] and linters.exclusions below scopes it to its packages.
       analyze-types: true
       forbid:
         - pattern: '^time\.Now$'
-          pkg: '^github.com/rootcause-org/rootcause-cli/internal/render$'
-          msg: thread `now` in from internal/cli (audit F12)
+          pkg: '^time$'
+          msg: "[pure] renderers and digest are functions of their inputs: thread `now` in from internal/cli (audit F12)"
         - pattern: '^os\.Getenv$'
-          pkg: '^github.com/rootcause-org/rootcause-cli/internal/render$'
-          msg: renderers read no environment
+          pkg: '^os$'
+          msg: "[pure] renderers and digest read no environment"
+  exclusions:
+    rules:
+      - linters: [forbidigo]
+        path-except: 'internal/(render|digest)/'
+        text: '\[pure\]'
+      - linters: [forbidigo]
+        path: '_test\.go$'
+        text: '\[pure\]'

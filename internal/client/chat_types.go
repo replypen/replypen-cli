@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"sort"
+	"time"
 )
 
 // Wire shapes for the embedded-chat control plane (/api/v1[/projects/{p}]/chat/*, /principals*).
@@ -26,6 +27,20 @@ type ChatTokenRequest struct {
 
 type ChatTokenResponse struct {
 	Token string `json:"token"`
+}
+
+// ChatRejectList is GET /chat/rejects — why recent embed turns were refused, newest first.
+type ChatRejectList struct {
+	Rejects []ChatReject `json:"rejects"`
+}
+
+// ChatReject is one reject row: only the fields the doctor reasons over. The rest (ip_prefix,
+// session_id) stay in the verbatim body the doctor's -o json carries under raw.
+type ChatReject struct {
+	Code      string    `json:"code"`
+	Kind      string    `json:"kind,omitempty"`
+	Origin    string    `json:"origin,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // PrincipalManifest is GET/PATCH /principals — the declared principal kinds and the optional email
