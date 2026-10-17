@@ -67,7 +67,7 @@ func chatSecretCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			_, _ = fmt.Fprintln(e.out, out.Secret)
 			if out.RotatedBy != "" && out.RotatedAt != "" {
@@ -93,7 +93,7 @@ func chatTokenCmd(e *env) *cobra.Command {
 			return err
 		}
 		if e.jsonOut() {
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		}
 		_, _ = fmt.Fprintln(e.out, out.Token)
 		return nil
@@ -338,7 +338,7 @@ func chatSessionCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		}
 		token, origin, project, err := chatEmbedScope(e, token, origin)
 		if err != nil {
@@ -352,7 +352,7 @@ func chatSessionCmd(e *env) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return render.JSON(e.out, raw)
+		return e.renderJSONInline(raw)
 	}}
 	cmd.Flags().StringVar(&token, "token", "", "embed chat token (default: RC_CHAT_TOKEN)")
 	cmd.Flags().StringVar(&origin, "origin", "", "embedding-page origin (default: token origin claim)")
@@ -409,7 +409,7 @@ func (t *chatCardTarget) run(e *env,
 			return err
 		}
 	}
-	return render.JSON(e.out, raw)
+	return e.renderJSONInline(raw)
 }
 
 // chatCardDecideCmd settles a chat card the way its widget button does (e.g. publish a website change).
@@ -634,7 +634,7 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := render.JSON(e.out, encoded); err != nil {
+			if err := e.renderJSONInline(encoded); err != nil {
 				return err
 			}
 		} else {
@@ -663,7 +663,7 @@ func newPrincipalsCmd(e *env) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return render.JSON(e.out, raw)
+		return e.renderJSONInline(raw)
 	}})
 	cmd.AddCommand(&cobra.Command{Use: "set <json-or-yaml-file>", Short: "Replace the validated principal manifest", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 		data, err := readCLIFile(e.in, args[0])
@@ -684,7 +684,7 @@ func newPrincipalsCmd(e *env) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return render.JSON(e.out, raw)
+		return e.renderJSONInline(raw)
 	}})
 	var kind, email, externalID string
 	resolve := &cobra.Command{Use: "resolve", Short: "Resolve an email or pass through an external principal ID", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
@@ -705,7 +705,7 @@ func newPrincipalsCmd(e *env) *cobra.Command {
 			return err
 		}
 		if e.jsonOut() {
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		}
 		_, _ = fmt.Fprintln(e.out, out.ExternalID)
 		return nil

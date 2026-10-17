@@ -34,7 +34,7 @@ func newBagGetCmd(e *env, base string) *cobra.Command {
 				return err
 			}
 			if render.IsJSON(e.mode(), e.out) {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Settings(e.out, s)
 			return nil
@@ -64,7 +64,7 @@ func newBagSetCmd(e *env, base string) *cobra.Command {
 				return err
 			}
 			if render.IsJSON(e.mode(), e.out) {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Settings(e.out, s)
 			return nil
@@ -110,7 +110,7 @@ func brandingLogoSetCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() && len(raw) > 0 {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			_, _ = fmt.Fprintf(e.out, "uploaded logo %s (%s, %d bytes)\n", filepath.Base(path), ct, len(data))
 			return nil
@@ -134,9 +134,9 @@ func brandingLogoClearCmd(e *env) *cobra.Command {
 			}
 			if e.jsonOut() {
 				if len(raw) > 0 {
-					return render.JSON(e.out, raw)
+					return e.renderJSONInline(raw)
 				}
-				return render.JSON(e.out, []byte(`{"cleared":true}`))
+				return e.renderJSONInline([]byte(`{"cleared":true}`))
 			}
 			_, _ = fmt.Fprintln(e.out, "logo cleared")
 			return nil

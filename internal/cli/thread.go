@@ -45,7 +45,7 @@ func newThreadCmd(e *env) *cobra.Command {
 			if render.IsJSON(e.mode(), e.out) {
 				// Raw passthrough: emit exactly what the server sent (render, don't reshape) so jq sees
 				// the true shape.
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.ThreadTrace(e.out, tr)
 			// An empty answer for a bearer read is indistinguishable from "not yours" — the server

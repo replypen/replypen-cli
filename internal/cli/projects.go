@@ -32,7 +32,7 @@ func newProjectListCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Projects(e.out, resp)
 			return nil
@@ -60,7 +60,7 @@ func projectRenameCmd(e *env) *cobra.Command {
 			}
 			warnBrainMarkerRename(e, resp)
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.ProjectRename(e.out, resp)
 			return nil

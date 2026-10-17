@@ -16,7 +16,6 @@ import (
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
 	"github.com/rootcause-org/rootcause-cli/internal/outputspill"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
 )
 
 // sandboxFileRoots mirror the host's console file allowlist: only these stream directly, anything else
@@ -332,7 +331,7 @@ func (e *env) renderJSONHinted(label string, raw json.RawMessage, hint string) e
 		_, _ = fmt.Fprintln(e.err, hint)
 	}
 	if m == nil {
-		return render.JSON(e.out, raw)
+		return e.renderJSONInline(raw)
 	}
 	if hint != "" {
 		m.Hints = append([]string{hint}, m.Hints...)

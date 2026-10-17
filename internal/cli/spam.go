@@ -55,7 +55,7 @@ func spamListCmd(e *env) *cobra.Command {
 			}
 			if e.jsonOut() {
 				env := fmt.Sprintf(`{"allows":%s,"blocks":%s}`, rawOrNull(allowRaw), rawOrNull(blockRaw))
-				return render.JSON(e.out, []byte(env))
+				return e.renderJSONInline([]byte(env))
 			}
 			rules := append(append([]client.SpamRule{}, allows...), blocks...)
 			render.SpamRules(e.out, filterSpamByMailbox(rules, mailbox))
@@ -104,7 +104,7 @@ func spamCreateCmd(e *env, verb, list, short string) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.SpamRules(e.out, []client.SpamRule{*rule})
 			return nil
@@ -143,9 +143,9 @@ func spamRmCmd(e *env) *cobra.Command {
 			}
 			if e.jsonOut() {
 				if len(raw) > 0 {
-					return render.JSON(e.out, raw)
+					return e.renderJSONInline(raw)
 				}
-				return render.JSON(e.out, []byte(`{"deleted":"`+args[0]+`"}`))
+				return e.renderJSONInline([]byte(`{"deleted":"` + args[0] + `"}`))
 			}
 			_, _ = fmt.Fprintf(e.out, "deleted spam rule %s\n", args[0])
 			return nil

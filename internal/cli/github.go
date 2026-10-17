@@ -30,7 +30,7 @@ func githubStatusCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Item(e.out, asItem(raw))
 			return nil

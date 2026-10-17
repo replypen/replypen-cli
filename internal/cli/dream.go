@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
 )
 
 func dreamEvidenceCmd(e *env) *cobra.Command {
@@ -51,7 +50,7 @@ func dreamEvidenceCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 0, "max rows per evidence plane (server default 20, cap 100)")

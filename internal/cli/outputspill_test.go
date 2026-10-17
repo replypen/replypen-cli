@@ -59,3 +59,33 @@ func TestWriteFileTreeSanitisesAndWipes(t *testing.T) {
 		}
 	}
 }
+
+// A command with no stdout-parsing consumer rides the spill (renderJSON): a large `dev replies list`
+// becomes a manifest pointing at the full body, and --raw-output still prints the body inline.
+func TestRepliesListSpillsAboveThresholdAndRawOutputStaysInline(t *testing.T) {
+	t.Setenv("RC_OUTPUT_INLINE_MAX", "200")
+	srv := stubServer(t)
+	defer srv.Close()
+	args := []string{"--project", "alpha", "--tenant", "de-kies", "dev", "replies", "list"}
+
+	e, out, _ := newTestEnv(t, srv, "json")
+	if err := run(t, e, append([]string{"--out-dir", t.TempDir(), "--no-preview"}, args...)...); err != nil {
+		t.Fatal(err)
+	}
+	m := requireSpillManifest(t, out.Bytes())
+	full, err := os.ReadFile(m.Path)
+	if err != nil {
+		t.Fatalf("read spilled response: %v (%s)", err, out.String())
+	}
+	assertJSONEqual(t, fixture(t, "replies.json"), full)
+
+	rawDir := t.TempDir()
+	eRaw, rawOut, _ := newTestEnv(t, srv, "json")
+	if err := run(t, eRaw, append([]string{"--out-dir", rawDir, "--raw-output"}, args...)...); err != nil {
+		t.Fatal(err)
+	}
+	assertJSONEqual(t, fixture(t, "replies.json"), rawOut.Bytes())
+	if entries, _ := os.ReadDir(rawDir); len(entries) != 0 {
+		t.Fatalf("--raw-output wrote artifacts: %v", entries)
+	}
+}

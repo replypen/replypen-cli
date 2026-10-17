@@ -62,6 +62,9 @@ linters:
         - pattern: '^os\.Getenv$'
           pkg: '^os$'
           msg: "[pure] renderers and digest read no environment"
+        - pattern: '^render\.JSON$'
+          pkg: '^github.com/rootcause-org/rootcause-cli/internal/render$'
+          msg: "[spill] every JSON write in internal/cli picks spill vs inline: e.renderJSON(label, raw), or e.renderJSONInline(raw) for one-time secrets / script-parsed stdout"
   exclusions:
     rules:
       - linters: [forbidigo]
@@ -70,3 +73,9 @@ linters:
       - linters: [forbidigo]
         path: '_test\.go$'
         text: '\[pure\]'
+      - linters: [forbidigo]
+        path-except: 'internal/cli/'
+        text: '\[spill\]'
+      - linters: [forbidigo]
+        path: 'internal/cli/outputspill\.go$'
+        text: '\[spill\]'

@@ -132,7 +132,7 @@ func hierarchySettingsGetCmd(e *env, scope string, idArg func(*cobra.Command, []
 				if err != nil {
 					return err
 				}
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			resp, err := c.GetHierarchySettings(e.ctx(), scope, project, id, true)
 			if err != nil {
@@ -198,7 +198,7 @@ func hierarchySettingsSetCmd(e *env, scope string, idArg func(*cobra.Command, []
 				if err != nil {
 					return err
 				}
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			resp, err := c.PatchHierarchySettings(e.ctx(), scope, project, id, patch, true)
 			if err != nil {

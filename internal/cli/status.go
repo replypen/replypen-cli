@@ -28,7 +28,7 @@ func newStatusCmd(e *env) *cobra.Command {
 				return err
 			}
 			if render.IsJSON(e.mode(), e.out) {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Status(e.out, resp)
 			return nil

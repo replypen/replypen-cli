@@ -71,7 +71,7 @@ func mirrorRefreshCmd(e *env) *cobra.Command {
 				if moved {
 					_, _ = fmt.Fprintf(e.err, "mirror tip moved: %s → %s (descendant), verified at %s\n", short(expected), short(resp.ActualSHA), short(resp.ActualSHA))
 				}
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			if moved {
 				_, _ = fmt.Fprintf(e.out, "Tip moved:  %s → %s (your commit is an ancestor)\n", expected, resp.ActualSHA)

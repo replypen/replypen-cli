@@ -358,9 +358,9 @@ func runFeedbackCmd(e *env) *cobra.Command {
 			}
 			if e.jsonOut() {
 				if len(raw) > 0 {
-					return render.JSON(e.out, raw)
+					return e.renderJSONInline(raw)
 				}
-				return render.JSON(e.out, []byte(`{"recorded":true}`))
+				return e.renderJSONInline([]byte(`{"recorded":true}`))
 			}
 			return nil
 		},
@@ -427,7 +427,7 @@ func runRetryCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			it := asItem(raw)
 			if id := cellOf(it, "run_id"); id != "" {
@@ -464,7 +464,7 @@ func runProcessThreadCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			it := asItem(raw)
 			if statusURL := cellOf(it, "status_url"); statusURL != "" {

@@ -143,7 +143,7 @@ func resourceSessionFiles(e *env, c *client.Client, ref string, all bool) ([]ses
 		return nil, fmt.Errorf("no chat session is linked to %s", ref)
 	case len(rs.Sessions) > 1 && !all:
 		if render.IsJSON(e.mode(), e.out) {
-			if err := render.JSON(e.out, raw); err != nil {
+			if err := e.renderJSONInline(raw); err != nil {
 				return nil, err
 			}
 		} else {
@@ -253,7 +253,7 @@ func downloadAttachments(e *env, c *client.Client, sessions []sessionFiles, f at
 		if err != nil {
 			return err
 		}
-		if err := render.JSON(e.out, body); err != nil {
+		if err := e.renderJSON("attachments-download", body); err != nil {
 			return err
 		}
 	} else if len(jobs) == 0 {

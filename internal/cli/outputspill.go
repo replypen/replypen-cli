@@ -25,6 +25,13 @@ func (e *env) renderJSON(label string, raw json.RawMessage) error {
 	return render.JSON(e.out, raw)
 }
 
+// renderJSONInline prints raw to stdout and never spills: for one-time secrets (a reveal/mint must be
+// captured exactly once) and outputs scripts parse from stdout. New commands use renderJSON unless they
+// have such a reason.
+func (e *env) renderJSONInline(raw json.RawMessage) error {
+	return render.JSON(e.out, raw)
+}
+
 func (e *env) renderBytes(label, name string, b []byte, format string) error {
 	cfg := e.spillConfig()
 	if !cfg.ShouldSpillBytes(b) {

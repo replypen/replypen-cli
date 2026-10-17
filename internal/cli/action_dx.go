@@ -13,7 +13,6 @@ import (
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
 	"github.com/rootcause-org/rootcause-cli/internal/digest"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
 )
 
 func actionProbeCmd(e *env) *cobra.Command {
@@ -31,7 +30,7 @@ func actionProbeCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				if err := render.JSON(e.out, raw); err != nil {
+				if err := e.renderJSONInline(raw); err != nil {
 					return err
 				}
 			} else if result.Code == "" {
@@ -73,7 +72,7 @@ func actionReverseSecretCmd(e *env) *cobra.Command {
 			field := (*settings)["action_reverse_secret"]
 			if e.jsonOut() {
 				raw, _ := json.Marshal(map[string]any{"action_reverse_secret": secret, "shown_once": true, "rotated_by": field.RotatedBy, "rotated_at": field.RotatedAt})
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			_, _ = fmt.Fprintln(e.err, "Sensitive value: shown once; store it in the Embassy environment now.")
 			if field.RotatedBy != "" && field.RotatedAt != "" {
@@ -226,7 +225,7 @@ func newActionDoctorCmd(e *env, version string) *cobra.Command {
 				if marshalErr != nil {
 					return marshalErr
 				}
-				if err := render.JSON(e.out, raw); err != nil {
+				if err := e.renderJSONInline(raw); err != nil {
 					return err
 				}
 			}

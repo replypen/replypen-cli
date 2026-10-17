@@ -74,7 +74,7 @@ func knowledgeArticleApplyCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.KnowledgeArticleApply(e.out, resp)
 			return nil
@@ -119,7 +119,7 @@ func knowledgeArticleGetCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			if out != "" {
 				if err := os.WriteFile(out, []byte(resp.Markdown), 0o644); err != nil {

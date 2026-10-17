@@ -37,7 +37,7 @@ func adminListCmd(e *env, resource string) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.ItemList(e.out, l)
 			return nil
@@ -67,7 +67,7 @@ func adminAddCmd(e *env, resource, short, warn string) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			if warn != "" {
 				_, _ = e.err.Write([]byte(warn + "\n"))
@@ -98,7 +98,7 @@ func adminSetCmd(e *env, resource, idHelp, short string) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Item(e.out, item)
 			return nil
@@ -162,7 +162,7 @@ func adminCatalogUpsertCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Item(e.out, item)
 			return nil

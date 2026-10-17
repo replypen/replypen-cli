@@ -97,7 +97,7 @@ A grounding key named ` + "`<PROJECT>_<DBKEY>_DSN`" + ` registers a database (` 
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			// Never echo the value back — print the name + plane only.
 			_, _ = fmt.Fprintf(e.out, "set %s (%s)\n", body["key"], resource)
@@ -131,9 +131,9 @@ func newEnvRmCmd(e *env) *cobra.Command {
 			}
 			if e.jsonOut() {
 				if len(raw) > 0 {
-					return render.JSON(e.out, raw)
+					return e.renderJSONInline(raw)
 				}
-				return render.JSON(e.out, []byte(`{"deleted":"`+args[0]+`"}`))
+				return e.renderJSONInline([]byte(`{"deleted":"` + args[0] + `"}`))
 			}
 			_, _ = fmt.Fprintf(e.out, "deleted %s (%s)\n", args[0], resource)
 			return nil
@@ -166,7 +166,7 @@ func newEnvRevealCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			_, _ = fmt.Fprintln(e.err, "warning: this is a live secret — handle with care; it is shown once")
 			render.Secret(e.out, item)

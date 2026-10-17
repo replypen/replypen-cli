@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
 )
 
 func newTriageCmd(e *env) *cobra.Command {
@@ -42,7 +41,7 @@ func triagePolicyGetCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 }
@@ -59,7 +58,7 @@ func triagePolicySetCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 }
@@ -87,7 +86,7 @@ func triageRulesListCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 }
@@ -108,7 +107,7 @@ func triageRuleAddCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 }
@@ -129,7 +128,7 @@ func triageRuleSetCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 }
@@ -148,9 +147,9 @@ func triageRuleRmCmd(e *env) *cobra.Command {
 			}
 			if e.jsonOut() {
 				if len(raw) > 0 {
-					return render.JSON(e.out, raw)
+					return e.renderJSONInline(raw)
 				}
-				return render.JSON(e.out, []byte(`{"deleted":"`+args[0]+`"}`))
+				return e.renderJSONInline([]byte(`{"deleted":"` + args[0] + `"}`))
 			}
 			_, _ = fmt.Fprintf(e.out, "deleted triage rule %s\n", args[0])
 			return nil

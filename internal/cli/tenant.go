@@ -153,7 +153,7 @@ func newTenantSettingsSchemaCmd(e *env) *cobra.Command {
 				return err
 			}
 			// The schema is always JSON; hierarchy_settings is the relevant section.
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 	return cmd
@@ -173,7 +173,7 @@ func newTenantProfileSchemaCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 	return cmd

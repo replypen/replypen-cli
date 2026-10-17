@@ -50,7 +50,7 @@ func newRunListCmd(e *env) *cobra.Command {
 				return err
 			}
 			if render.IsJSON(e.mode(), e.out) {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Runs(e.out, resp)
 			// A triage-skipped or security-blocked email never becomes a run; the address lookup shows it.
@@ -137,7 +137,7 @@ func newRunSessionsCmd(e *env) *cobra.Command {
 				return err
 			}
 			if render.IsJSON(e.mode(), e.out) {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Sessions(e.out, resp)
 			return nil
@@ -211,7 +211,7 @@ func newRunFeedbackListCmd(e *env) *cobra.Command {
 				return err
 			}
 			if render.IsJSON(e.mode(), e.out) {
-				return render.JSON(e.out, raw)
+				return e.renderJSON("run-feedback", raw)
 			}
 			render.Feedback(e.out, resp)
 			return nil

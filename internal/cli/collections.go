@@ -290,7 +290,7 @@ func connectionRevealCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			_, _ = fmt.Fprintln(e.err, "warning: this is a live secret — handle with care; it is shown once")
 			render.Secret(e.out, item)
@@ -376,7 +376,7 @@ func tokenMintCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			_, _ = fmt.Fprintln(e.err, "warning: the refresh token below is shown once — store it now")
 			render.Item(e.out, item)

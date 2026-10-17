@@ -78,7 +78,7 @@ func chatReplayCmd(e *env) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := render.JSON(e.out, raw); err != nil {
+				if err := e.renderJSON("chat-replay", raw); err != nil {
 					return err
 				}
 				return failed

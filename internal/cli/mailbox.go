@@ -59,7 +59,7 @@ func mailboxTemplatesCmd(e *env) *cobra.Command {
 			}
 			if !wait {
 				if e.jsonOut() {
-					return render.JSON(e.out, raw)
+					return e.renderJSONInline(raw)
 				}
 				_, _ = fmt.Fprintf(e.out, "export_id: %s\nstatus: %s\n", acc.ExportID, acc.Status)
 				if acc.LookbackDays > 0 {
@@ -73,7 +73,7 @@ func mailboxTemplatesCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, xraw)
+				return e.renderJSONInline(xraw)
 			}
 			render.Export(e.out, x)
 			return nil
@@ -166,7 +166,7 @@ func mailboxHarvestCmd(e *env) *cobra.Command {
 
 			if !wait {
 				if e.jsonOut() {
-					return render.JSON(e.out, raw)
+					return e.renderJSONInline(raw)
 				}
 				_, _ = fmt.Fprintf(e.out, "export_id: %s\nstatus: %s\n", acc.ExportID, acc.Status)
 				if acc.LookbackDays > 0 {
@@ -181,7 +181,7 @@ func mailboxHarvestCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, xraw)
+				return e.renderJSONInline(xraw)
 			}
 			render.Export(e.out, x)
 			return nil
@@ -271,7 +271,7 @@ func mailboxLsCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.WatchedMailboxes(e.out, l)
 			return nil
@@ -302,7 +302,7 @@ func mailboxModeCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.WatchedMailbox(e.out, m)
 			return nil
@@ -501,7 +501,7 @@ func mailboxConnectIMAPCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.WatchedMailbox(e.out, m)
 			// A green connect can still carry a warning (typically: drafts can't be placed here), so the
@@ -557,7 +557,7 @@ func mailboxSeedIMAPCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.WatchedMailbox(e.out, m)
 			if m != nil && m.PasswordLink != "" {
@@ -592,7 +592,7 @@ func mailboxPasswordLinkCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			if m == nil || m.PasswordLink == "" {
 				return fmt.Errorf("no password link available — the server has no signing key configured for this surface")
@@ -630,7 +630,7 @@ func mailboxTestCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				if rerr := render.JSON(e.out, raw); rerr != nil {
+				if rerr := e.renderJSONInline(raw); rerr != nil {
 					return rerr
 				}
 			} else {

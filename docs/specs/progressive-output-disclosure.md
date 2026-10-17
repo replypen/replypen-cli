@@ -90,5 +90,11 @@ structured query when applicable):
 
 Wired through `env.renderJSON` / `env.renderBytes`: `rc dev console bash run` + console JSON passthrough,
 `rc run events|trace|debug`, `rc fleet runs|patterns|health` (incl. `--all`), `rc dev api routes|openapi`,
-collection CRUD with large values, and `rc project corpus download` stdout. Intentional one-time secret
-reveals (`rc project connection reveal`, `rc project token mint`) stay raw so capture/copy is unchanged.
+collection CRUD with large values, `rc project corpus download` stdout, `rc run feedback list`,
+`rc dev replies list`, `rc project chat replay`, and the `rc run attachments --download` manifest.
+Intentional one-time secret reveals (`rc project connection reveal`, `rc project token mint`) stay raw so
+capture/copy is unchanged.
+
+Every other JSON write in `internal/cli` goes through `env.renderJSONInline` (never spills): one-time
+secrets and outputs sibling scripts parse from stdout without `--raw-output`. The choice is explicit per
+call site — forbidigo rejects a bare `render.JSON` in `internal/cli` outside `outputspill.go`.

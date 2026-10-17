@@ -36,7 +36,7 @@ func proposalsListCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			if pending {
 				kept := items[:0]
@@ -73,7 +73,7 @@ func proposalsShowCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 }
@@ -104,7 +104,7 @@ func proposalsDecideCmd(e *env, verb string) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				if err := render.JSON(e.out, raw); err != nil {
+				if err := e.renderJSONInline(raw); err != nil {
 					return err
 				}
 			} else {

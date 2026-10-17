@@ -32,7 +32,7 @@ func newSchemaCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Schema(e.out, resp)
 			return nil
@@ -66,7 +66,7 @@ func newExplainCmd(e *env) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.ExplainField(e.out, resource, field)
 			return nil
@@ -93,7 +93,7 @@ func newAccessCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Access(e.out, resp)
 			return nil

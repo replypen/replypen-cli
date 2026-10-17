@@ -53,7 +53,7 @@ func brainDeveloperInviteCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.BrainDeveloperInvitation(e.out, resp)
 			return nil
@@ -118,7 +118,7 @@ func brainStatusCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.BrainStatus(e.out, resp)
 			return nil
@@ -175,7 +175,7 @@ func brainSyncCmd(e *env) *cobra.Command {
 				return brainAliasError(brainBootCheckError(err), e.scopeProject(), "")
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.BrainSync(e.out, resp)
 			return nil
@@ -274,7 +274,7 @@ func brainPromoteCmd(e *env) *cobra.Command {
 				return brainAliasError(err, e.scopeProject(), "")
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.BrainPromote(e.out, resp)
 			return nil
@@ -316,7 +316,7 @@ func brainPreflightCmd(e *env) *cobra.Command {
 				return brainAliasError(err, e.scopeProject(), "")
 			}
 			if e.jsonOut() {
-				if err := render.JSON(e.out, raw); err != nil {
+				if err := e.renderJSONInline(raw); err != nil {
 					return err
 				}
 			} else {
@@ -419,7 +419,7 @@ func brainPublishCmd(e *env) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.BrainStatus(e.out, statusResp)
 			return nil
@@ -477,7 +477,7 @@ func brainEditCmd(e *env) *cobra.Command {
 				return brainAliasError(err, e.scopeProject(), "")
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Item(e.out, asItem(raw))
 			return nil
@@ -503,7 +503,7 @@ func brainConsolidateCmd(e *env) *cobra.Command {
 				return brainAliasError(err, e.scopeProject(), "")
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.Item(e.out, asItem(raw))
 			return nil

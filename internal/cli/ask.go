@@ -116,7 +116,7 @@ func newAskCmd(e *env) *cobra.Command {
 					return err
 				}
 				if jsonMode {
-					return render.JSON(e.out, raw)
+					return e.renderJSONInline(raw)
 				}
 				render.AskDryScope(e.out, preview)
 				return nil
@@ -157,7 +157,7 @@ func newAskCmd(e *env) *cobra.Command {
 			// poll hint on stderr.
 			if f.noWait {
 				if jsonMode {
-					return render.JSON(e.out, raw)
+					return e.renderJSONInline(raw)
 				}
 				_, _ = fmt.Fprintln(e.out, sub.RunID)
 				_, _ = fmt.Fprintf(e.err, "submitted — poll with: rc run show %s\n", sub.RunID)
@@ -176,7 +176,7 @@ func newAskCmd(e *env) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			if scenario == "email" {
 				full, _ := c.Full(e.ctx(), detail.RunID, e.scopeProject(), e.scopeTenant())
@@ -257,7 +257,7 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 			return err
 		}
 		if jsonMode {
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		}
 		render.AskDryScope(e.out, preview)
 		return nil
@@ -268,7 +268,7 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 	}
 	if f.noWait {
 		if jsonMode {
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		}
 		_, _ = fmt.Fprintln(e.out, sub.RunID)
 		_, _ = fmt.Fprintf(e.err, "submitted — poll with: rc run show %s\n", sub.RunID)
@@ -283,7 +283,7 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 		if err != nil {
 			return err
 		}
-		return render.JSON(e.out, raw)
+		return e.renderJSONInline(raw)
 	}
 	render.AskRaw(e.out, detail)
 	return nil

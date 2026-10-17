@@ -116,7 +116,7 @@ func newDatabasePreviewCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			render.ScopePreview(e.out, report)
 			return nil
@@ -151,7 +151,7 @@ func databaseControlsGetCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 }
@@ -177,7 +177,7 @@ func databaseControlsSetCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return render.JSON(e.out, raw)
+			return e.renderJSONInline(raw)
 		},
 	}
 }

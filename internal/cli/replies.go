@@ -34,7 +34,7 @@ func repliesListCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSON("replies", raw)
 			}
 			render.TenantReplies(e.out, list)
 			return nil
@@ -72,7 +72,7 @@ func repliesFeedbackCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return render.JSON(e.out, raw)
+				return e.renderJSONInline(raw)
 			}
 			_, _ = fmt.Fprintf(e.out, "feedback recorded for run %s\n", args[0])
 			return nil
