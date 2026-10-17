@@ -639,3 +639,144 @@ func TestChatDoctorUndecodableRejectsFails(t *testing.T) {
 		t.Fatalf("err = %v, want a decode chat rejects error", err)
 	}
 }
+
+// The website-change E2E loop a script drives after `send`: wait out the preview build and the host's
+// review turn, follow that turn while it runs (204 once settled), fetch its screenshot — on the
+// dashboard plane (tenant-nested bearer mount) and the embed plane.
+func TestChatCardWaitFollowAndAttachment(t *testing.T) {
+	defer func(d time.Duration) { chatCardPollInterval = d }(chatCardPollInterval)
+	chatCardPollInterval = time.Millisecond
+	const base = "/api/v1/projects/alpha/tenants/north/chat/dashboard"
+	states := []string{
+		`{"status":"proposed","preview_state":"building","review_state":"pending"}`,
+		`{"status":"proposed","preview_state":"ready","review_state":"reviewing","review_run_id":"run-review"}`,
+		`{"status":"proposed","preview_state":"ready","review_state":"reviewed"}`,
+	}
+	polls := 0
+	mux := http.NewServeMux()
+	chatTestProjects(mux)
+	mux.HandleFunc("GET "+base+"/session/{id}/website-changes/{card_id}", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		_, _ = w.Write([]byte(states[min(polls, len(states)-1)]))
+		polls++
+	})
+	streams := 0
+	stream := func(w http.ResponseWriter, r *http.Request) {
+		if r.PathValue("run_id") != "run-review" || r.Header.Get("Accept") != "text/event-stream" {
+			t.Fatalf("follow %s accept %q", r.URL.Path, r.Header.Get("Accept"))
+		}
+		if streams++; streams > 1 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"type\":\"start\",\"messageId\":\"run-review\"}\n\ndata: {\"type\":\"text-delta\",\"delta\":\"looks right\"}\n\ndata: [DONE]\n\n"))
+	}
+	mux.HandleFunc("GET "+base+"/session/{id}/runs/{run_id}/stream", stream)
+	file := func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("session") != "s1" || r.PathValue("id") != "att-1" {
+			t.Fatalf("attachment %s", r.URL.String())
+		}
+		if strings.HasPrefix(r.URL.Path, "/chat/v1/") && (r.Header.Get("X-RC-Embed-Origin") != "https://site.example.test" || r.URL.Query().Get("project") != "alpha") {
+			t.Fatalf("embed attachment: origin %q query %s", r.Header.Get("X-RC-Embed-Origin"), r.URL.RawQuery)
+		}
+		_, _ = w.Write([]byte("JPEG"))
+	}
+	mux.HandleFunc("GET "+base+"/attachments/{id}", file)
+	mux.HandleFunc("GET /chat/v1/attachments/{id}", file)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { t.Fatalf("unexpected %s %s", r.Method, r.URL.String()) })
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	lane := []string{"--project", "alpha", "--tenant", "north", "project", "chat"}
+
+	e, out, errOut := newTestEnv(t, srv, "json")
+	if err := run(t, e, append(lane, "card", "s1", "wc_01", "--lane", "setup", "--wait")...); err != nil {
+		t.Fatal(err)
+	}
+	if polls != 3 || !strings.Contains(out.String(), `"reviewed"`) || !strings.Contains(errOut.String(), "waiting: preview building\nwaiting: review reviewing\n") {
+		t.Fatalf("wait: polls=%d out=%q err=%q", polls, out.String(), errOut.String())
+	}
+
+	for i, want := range []string{"looks right", "already settled"} {
+		e, out, _ = newTestEnv(t, srv, "table")
+		if err := run(t, e, append(lane, "follow", "s1", "run-review", "--lane", "setup")...); err != nil || !strings.Contains(out.String(), want) {
+			t.Fatalf("follow #%d: err=%v out=%q", i, err, out.String())
+		}
+	}
+
+	dir := t.TempDir()
+	for _, args := range [][]string{
+		append(lane, "attachment", "s1", "att-1", "--lane", "setup", "--file", filepath.Join(dir, "dash.jpg")),
+		{"--project", "alpha", "project", "chat", "attachment", "s1", "att-1", "--token", "embed-jwt", "--origin", "https://site.example.test", "--file", filepath.Join(dir, "embed.jpg")},
+	} {
+		e, out, _ = newTestEnv(t, srv, "table")
+		if err := run(t, e, args...); err != nil {
+			t.Fatal(err)
+		}
+		lines := strings.Split(strings.TrimSpace(out.String()), "\n") // a TTY run leads with the scope banner
+		path := lines[len(lines)-1]
+		if b, err := os.ReadFile(path); err != nil || string(b) != "JPEG" {
+			t.Fatalf("attachment %s = %q %v", path, b, err)
+		}
+	}
+}
+
+// Review round 1: --timeout bounds the requests themselves, a follow outlives the client's total
+// request timeout, and a failed download leaves an existing file alone.
+func TestChatCardWaitFollowAndAttachmentEdges(t *testing.T) {
+	defer func(d time.Duration) { chatCardPollInterval = d }(chatCardPollInterval)
+	chatCardPollInterval = time.Millisecond
+	const base = "/api/v1/projects/alpha/chat/dashboard"
+	mux := http.NewServeMux()
+	chatTestProjects(mux)
+	mux.HandleFunc("GET "+base+"/session/{id}/website-changes/{card_id}", func(w http.ResponseWriter, r *http.Request) {
+		select { // a stalled poll
+		case <-r.Context().Done():
+		case <-time.After(2 * time.Second):
+		}
+		_, _ = w.Write([]byte(`{"status":"proposed","preview_state":"building"}`))
+	})
+	mux.HandleFunc("GET "+base+"/session/{id}/runs/{run_id}/stream", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"type\":\"start\",\"messageId\":\"run-long\"}\n\n"))
+		w.(http.Flusher).Flush()
+		time.Sleep(300 * time.Millisecond) // longer than RC_HTTP_TIMEOUT below
+		_, _ = w.Write([]byte("data: {\"type\":\"text-delta\",\"delta\":\"still here\"}\n\ndata: [DONE]\n\n"))
+	})
+	mux.HandleFunc("GET "+base+"/attachments/{id}", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"code":"UNKNOWN_ATTACHMENT","message":"Not Found"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	lane := []string{"--project", "alpha", "project", "chat"}
+
+	e, _, _ := newTestEnv(t, srv, "json")
+	started := time.Now()
+	err := run(t, e, append(lane, "card", "s1", "wc_01", "--lane", "setup", "--wait", "--timeout", "100ms")...)
+	if err == nil || !strings.Contains(err.Error(), "after 100ms") || time.Since(started) > time.Second {
+		t.Fatalf("stalled poll: err=%v after %s", err, time.Since(started))
+	}
+
+	t.Setenv("RC_HTTP_TIMEOUT", "100ms")
+	e, out, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, append(lane, "follow", "s1", "run-long", "--lane", "setup")...); err != nil || !strings.Contains(out.String(), "still here") {
+		t.Fatalf("long follow: err=%v out=%q", err, out.String())
+	}
+
+	existing := filepath.Join(t.TempDir(), "shot.jpg")
+	if err := os.WriteFile(existing, []byte("KEEP"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e, _, _ = newTestEnv(t, srv, "table")
+	if err := run(t, e, append(lane, "attachment", "s1", "att-x", "--lane", "setup", "--file", existing)...); err == nil {
+		t.Fatal("404 download succeeded")
+	}
+	if b, err := os.ReadFile(existing); err != nil || string(b) != "KEEP" {
+		t.Fatalf("existing file after failed download = %q %v", b, err)
+	}
+	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(existing), ".*part")); len(left) != 0 {
+		t.Fatalf("temp files left: %v", left)
+	}
+}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -10,6 +11,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -24,7 +26,7 @@ import (
 
 func newChatCmd(e *env, version string) *cobra.Command {
 	cmd := &cobra.Command{Use: "chat", Short: "Configure, diagnose, and smoke-test embedded chat"}
-	cmd.AddCommand(newBagGetCmd(e, "/api/v1/chat"), newBagSetCmd(e, "/api/v1/chat"), chatSecretCmd(e), chatTokenCmd(e), chatSendCmd(e), chatReplayCmd(e), chatSessionCmd(e), chatCardDecideCmd(e), chatCardStatusCmd(e), chatDoctorCmd(e, version), chatBriefCmd(e))
+	cmd.AddCommand(newBagGetCmd(e, "/api/v1/chat"), newBagSetCmd(e, "/api/v1/chat"), chatSecretCmd(e), chatTokenCmd(e), chatSendCmd(e), chatReplayCmd(e), chatSessionCmd(e), chatCardDecideCmd(e), chatCardStatusCmd(e), chatFollowCmd(e), chatAttachmentCmd(e), chatDoctorCmd(e, version), chatBriefCmd(e))
 	return cmd
 }
 
@@ -360,30 +362,27 @@ func chatSessionCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// chatCardTarget is what `decide` and `card` share: the plane (embed token or --lane), the card route
-// (--card, verbatim) and the session + card ids. The CLI knows no per-card fields; the server validates
-// the route and the outcome and returns the card projection, printed as JSON.
-type chatCardTarget struct {
-	token, origin, card string
-	lane                chatLane
+// chatTarget is the plane every per-session verb shares (`decide`, `card`, `follow`, `attachment`):
+// an embed token + origin, or --lane for the member dashboard plane over the OAuth bearer.
+type chatTarget struct {
+	token, origin string
+	lane          chatLane
 }
 
-func (t *chatCardTarget) flags(cmd *cobra.Command) {
+func (t *chatTarget) flags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&t.token, "token", "", "embed chat token (default: RC_CHAT_TOKEN)")
 	cmd.Flags().StringVar(&t.origin, "origin", "", "embedding-page origin (default: token origin claim)")
-	cmd.Flags().StringVar(&t.card, "card", "website-changes", "card route: website-changes, actions, memories, brain-changes, outbound-batches")
 	t.lane.flags(cmd, false)
 }
 
-// run resolves the plane and hands the matching call to embed or dashboard, then prints the body.
-func (t *chatCardTarget) run(e *env,
-	embed func(c *client.Client, project, origin, token string) (json.RawMessage, error),
-	dashboard func(c *client.Client, project, tenant string) (json.RawMessage, error),
+// call resolves the plane and hands the matching call to embed or dashboard.
+func (t *chatTarget) call(e *env,
+	embed func(c *client.Client, project, origin, token string) error,
+	dashboard func(c *client.Client, project, tenant string) error,
 ) error {
 	if err := t.lane.validate(); err != nil {
 		return err
 	}
-	var raw json.RawMessage
 	if t.lane.dashboard() {
 		project := e.scopeProject()
 		if project == "" {
@@ -393,23 +392,46 @@ func (t *chatCardTarget) run(e *env,
 		if err != nil {
 			return err
 		}
-		if raw, err = dashboard(c, project, e.scopeTenant()); err != nil {
-			return err
-		}
-	} else {
-		token, origin, project, err := chatEmbedScope(e, t.token, t.origin)
-		if err != nil {
-			return err
-		}
-		c, err := e.newClient()
-		if err != nil {
-			return err
-		}
-		if raw, err = embed(c, project, origin, token); err != nil {
-			return err
-		}
+		return dashboard(c, project, e.scopeTenant())
 	}
-	return e.renderJSONInline(raw)
+	token, origin, project, err := chatEmbedScope(e, t.token, t.origin)
+	if err != nil {
+		return err
+	}
+	c, err := e.newClient()
+	if err != nil {
+		return err
+	}
+	return embed(c, project, origin, token)
+}
+
+// chatCardTarget adds the card route (--card, verbatim) to the plane. The CLI knows no per-card fields
+// beyond the in-flight states `card --wait` stops on; the server validates the route and the outcome
+// and returns the card projection, printed as JSON.
+type chatCardTarget struct {
+	chatTarget
+	card string
+}
+
+func (t *chatCardTarget) flags(cmd *cobra.Command) {
+	t.chatTarget.flags(cmd)
+	cmd.Flags().StringVar(&t.card, "card", "website-changes", "card route: website-changes, actions, memories, brain-changes, outbound-batches")
+}
+
+// fetch runs the plane's call and returns the card projection.
+func (t *chatCardTarget) fetch(e *env,
+	embed func(c *client.Client, project, origin, token string) (json.RawMessage, error),
+	dashboard func(c *client.Client, project, tenant string) (json.RawMessage, error),
+) (json.RawMessage, error) {
+	var raw json.RawMessage
+	err := t.call(e, func(c *client.Client, project, origin, token string) (err error) {
+		raw, err = embed(c, project, origin, token)
+		return err
+	}, func(c *client.Client, project, tenant string) (err error) {
+		raw, err = dashboard(c, project, tenant)
+		return err
+	})
+	return raw, err
 }
 
 // chatCardDecideCmd settles a chat card the way its widget button does (e.g. publish a website change).
@@ -417,29 +439,151 @@ func chatCardDecideCmd(e *env) *cobra.Command {
 	var t chatCardTarget
 	cmd := &cobra.Command{Use: "decide <session-id> <card-id> <outcome>", Short: "Settle a chat card (e.g. publish or decline a website change) and print its projection", Args: cobra.ExactArgs(3), RunE: func(_ *cobra.Command, args []string) error {
 		sessionID, cardID, outcome := strings.TrimSpace(args[0]), strings.TrimSpace(args[1]), strings.TrimSpace(args[2])
-		return t.run(e, func(c *client.Client, project, origin, token string) (json.RawMessage, error) {
+		raw, err := t.fetch(e, func(c *client.Client, project, origin, token string) (json.RawMessage, error) {
 			return c.ChatCardDecide(e.ctx(), project, origin, token, sessionID, t.card, cardID, outcome)
 		}, func(c *client.Client, project, tenant string) (json.RawMessage, error) {
 			return c.DashboardChatCardDecide(e.ctx(), project, tenant, sessionID, t.card, cardID, outcome)
 		})
+		if err != nil {
+			return err
+		}
+		return e.renderJSONInline(raw)
 	}}
 	t.flags(cmd)
 	return cmd
 }
 
+// chatCardPollInterval paces `card --wait`; a var so tests poll without sleeping.
+var chatCardPollInterval = 5 * time.Second
+
 // chatCardStatusCmd reads a card's current projection — what the widget polls (e.g. while a website
-// change builds).
+// change builds). --wait polls until nothing is in flight (preview build, the host's review turn, the
+// live build), so a script reads the state a person would act on.
 func chatCardStatusCmd(e *env) *cobra.Command {
 	var t chatCardTarget
-	cmd := &cobra.Command{Use: "card <session-id> <card-id>", Short: "Print a chat card's current projection (poll it while it settles)", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
+	var wait bool
+	var timeout time.Duration
+	cmd := &cobra.Command{Use: "card <session-id> <card-id>", Short: "Print a chat card's current projection (--wait polls until it settles)", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
 		sessionID, cardID := strings.TrimSpace(args[0]), strings.TrimSpace(args[1])
-		return t.run(e, func(c *client.Client, project, origin, token string) (json.RawMessage, error) {
-			return c.ChatCardStatus(e.ctx(), project, origin, token, sessionID, t.card, cardID)
-		}, func(c *client.Client, project, tenant string) (json.RawMessage, error) {
-			return c.DashboardChatCardStatus(e.ctx(), project, tenant, sessionID, t.card, cardID)
-		})
+		ctx := e.ctx()
+		if wait {
+			// One deadline over every request, so a stalled poll cannot outlive --timeout.
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+		read := func() (json.RawMessage, error) {
+			return t.fetch(e, func(c *client.Client, project, origin, token string) (json.RawMessage, error) {
+				return c.ChatCardStatus(ctx, project, origin, token, sessionID, t.card, cardID)
+			}, func(c *client.Client, project, tenant string) (json.RawMessage, error) {
+				return c.DashboardChatCardStatus(ctx, project, tenant, sessionID, t.card, cardID)
+			})
+		}
+		var raw json.RawMessage
+		last := ""
+		for {
+			next, err := read()
+			if err != nil {
+				if ctx.Err() == context.DeadlineExceeded {
+					if raw == nil {
+						return fmt.Errorf("card unread after %s: %w", timeout, err)
+					}
+					_ = e.renderJSONInline(raw)
+					return fmt.Errorf("card still %s after %s", last, timeout)
+				}
+				return err
+			}
+			raw = next
+			pending := digest.ChatCardPending(raw)
+			if !wait || pending == "" {
+				return e.renderJSONInline(raw)
+			}
+			if pending != last {
+				_, _ = fmt.Fprintf(e.err, "waiting: %s\n", pending)
+				last = pending
+			}
+			select {
+			case <-ctx.Done():
+				_ = e.renderJSONInline(raw)
+				if ctx.Err() == context.DeadlineExceeded {
+					return fmt.Errorf("card still %s after %s", pending, timeout)
+				}
+				return ctx.Err()
+			case <-time.After(chatCardPollInterval):
+			}
+		}
 	}}
 	t.flags(cmd)
+	cmd.Flags().BoolVar(&wait, "wait", false, "poll until nothing is in flight (preview build, review turn, live build)")
+	cmd.Flags().DurationVar(&timeout, "timeout", 20*time.Minute, "with --wait: give up (non-zero exit) after this long")
+	return cmd
+}
+
+// chatFollowCmd attaches to a run the user did not send — the host-started website review turn a card
+// names in review_run_id — and prints its frames like `send`. A run that already finished prints
+// nothing to follow; its answer is in `chat session`.
+func chatFollowCmd(e *env) *cobra.Command {
+	var t chatTarget
+	cmd := &cobra.Command{Use: "follow <session-id> <run-id>", Short: "Stream a still-running turn (e.g. a card's review_run_id) like send", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
+		sessionID, runID := strings.TrimSpace(args[0]), strings.TrimSpace(args[1])
+		var turn client.ChatTurn
+		var settled bool
+		err := t.call(e, func(c *client.Client, project, origin, token string) (err error) {
+			turn, settled, err = c.ChatFollow(e.ctx(), project, origin, token, sessionID, runID, e.out)
+			return err
+		}, func(c *client.Client, project, tenant string) (err error) {
+			turn, settled, err = c.DashboardChatFollow(e.ctx(), project, tenant, sessionID, runID, e.out)
+			return err
+		})
+		if settled {
+			_, _ = fmt.Fprintf(e.out, "run %s already settled; read its answer with `rp project chat session %s`\n", runID, sessionID)
+			return nil
+		}
+		if turn.RunID != "" {
+			_, _ = fmt.Fprintf(e.out, "run_id: %s\n", turn.RunID)
+		}
+		return err
+	}}
+	t.flags(cmd)
+	return cmd
+}
+
+// chatAttachmentCmd downloads one file of the caller's own conversation — an upload, or a website
+// card's review screenshot (its screenshots[].attachment_id). Admin reads of someone else's
+// conversation are `rp run attachments`.
+func chatAttachmentCmd(e *env) *cobra.Command {
+	var t chatTarget
+	var file string
+	cmd := &cobra.Command{Use: "attachment <session-id> <attachment-id>", Short: "Download one file of your own conversation (e.g. a review screenshot)", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
+		sessionID, attachmentID := strings.TrimSpace(args[0]), strings.TrimSpace(args[1])
+		if file == "" {
+			file = attachmentID
+		}
+		// A temp sibling renamed on success: a failed download never clobbers an existing file.
+		f, err := os.CreateTemp(filepath.Dir(file), "."+filepath.Base(file)+".*.part")
+		if err != nil {
+			return err
+		}
+		err = t.call(e, func(c *client.Client, project, origin, token string) error {
+			return c.ChatAttachment(e.ctx(), project, origin, token, sessionID, attachmentID, f)
+		}, func(c *client.Client, project, tenant string) error {
+			return c.DashboardChatAttachment(e.ctx(), project, tenant, sessionID, attachmentID, f)
+		})
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		if err == nil {
+			err = os.Rename(f.Name(), file)
+		}
+		if err != nil {
+			_ = os.Remove(f.Name())
+			return err
+		}
+		_, _ = fmt.Fprintln(e.out, file)
+		return nil
+	}}
+	t.flags(cmd)
+	cmd.Flags().StringVar(&file, "file", "", "write the file here (default ./<attachment-id>)")
 	return cmd
 }
 

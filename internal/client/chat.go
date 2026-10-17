@@ -261,6 +261,62 @@ func (c *Client) streamChatTurn(ctx context.Context, spec sendSpec, out io.Write
 	if err != nil {
 		return ChatTurn{}, err
 	}
+	return readChatStream(resp, out)
+}
+
+// ChatFollow attaches to a still-running run of an embed session (e.g. the host-started website review
+// turn a card names in review_run_id) and prints its SSE frames like a sent turn. settled=true is the
+// server's 204: the run already finished, so its answer is only in the transcript.
+func (c *Client) ChatFollow(ctx context.Context, project, origin, token, sessionID, runID string, out io.Writer) (ChatTurn, bool, error) {
+	path := "/chat/v1/session/" + url.PathEscape(sessionID) + "/runs/" + url.PathEscape(runID) + "/stream?project=" + url.QueryEscape(project)
+	spec := embedSpec(http.MethodGet, path, origin, token, nil)
+	spec.accept, spec.longStream = "text/event-stream", true
+	return c.followChatRun(ctx, spec, out)
+}
+
+// DashboardChatFollow is ChatFollow on the dashboard plane over the OAuth bearer.
+func (c *Client) DashboardChatFollow(ctx context.Context, project, tenant, sessionID, runID string, out io.Writer) (ChatTurn, bool, error) {
+	path := dashboardChatPath(project, tenant, "/session/"+url.PathEscape(sessionID)+"/runs/"+url.PathEscape(runID)+"/stream")
+	return c.followChatRun(ctx, sendSpec{method: http.MethodGet, path: path, accept: "text/event-stream", longStream: true}, out)
+}
+
+func (c *Client) followChatRun(ctx context.Context, spec sendSpec, out io.Writer) (ChatTurn, bool, error) {
+	resp, err := c.openStream(ctx, spec)
+	if err != nil {
+		return ChatTurn{}, false, err
+	}
+	if resp.StatusCode == http.StatusNoContent {
+		_ = resp.Body.Close()
+		return ChatTurn{}, true, nil
+	}
+	turn, err := readChatStream(resp, out)
+	return turn, false, err
+}
+
+// ChatAttachment streams one file of an embed session (an upload, or a card's screenshot) into w.
+func (c *Client) ChatAttachment(ctx context.Context, project, origin, token, sessionID, attachmentID string, w io.Writer) error {
+	path := "/chat/v1/attachments/" + url.PathEscape(attachmentID) + "?project=" + url.QueryEscape(project) + "&session=" + url.QueryEscape(sessionID)
+	spec := embedSpec(http.MethodGet, path, origin, token, nil)
+	spec.accept = "*/*"
+	resp, err := c.openStream(ctx, spec)
+	if err != nil {
+		return err
+	}
+	return copyResponse(resp, w)
+}
+
+// DashboardChatAttachment is ChatAttachment on the dashboard plane: the session owner's own files.
+func (c *Client) DashboardChatAttachment(ctx context.Context, project, tenant, sessionID, attachmentID string, w io.Writer) error {
+	path := dashboardChatPath(project, tenant, "/attachments/"+url.PathEscape(attachmentID)) + "?session=" + url.QueryEscape(sessionID)
+	resp, err := c.openStream(ctx, sendSpec{method: http.MethodGet, path: path, accept: "*/*"})
+	if err != nil {
+		return err
+	}
+	return copyResponse(resp, w)
+}
+
+// readChatStream reads one SSE response to completion, echoing every line to out; the body is closed.
+func readChatStream(resp *http.Response, out io.Writer) (ChatTurn, error) {
 	defer func() { _ = resp.Body.Close() }()
 
 	turn := ChatTurn{Tier: resp.Header.Get("X-Chat-Tier")}

@@ -549,10 +549,12 @@ help using `go test ./internal/cli -update`.
 | `rp project branding logo` | Set or clear the white-label logo image |
 | `rp project branding set` | Change values (sparse, validate-then-apply server-side) |
 | `rp project branding` | Read or change white-label branding (colours/name/public_base_url) |
+| `rp project chat attachment` | Download one file of your own conversation (e.g. a review screenshot) |
 | `rp project chat brief` | Print the secret-free chat implementation brief |
-| `rp project chat card` | Print a chat card's current projection (poll it while it settles) |
+| `rp project chat card` | Print a chat card's current projection (--wait polls until it settles) |
 | `rp project chat decide` | Settle a chat card (e.g. publish or decline a website change) and print its projection |
 | `rp project chat doctor` | Diagnose embedded-chat configuration and recent rejects |
+| `rp project chat follow` | Stream a still-running turn (e.g. a card's review_run_id) like send |
 | `rp project chat get` | Show current values (value / effective / default) |
 | `rp project chat replay` | Replay a file of user messages as one chat session and tabulate tier, time and answer per turn |
 | `rp project chat secret reveal` | Reveal the chat signing secret (printed once) |

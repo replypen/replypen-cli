@@ -40,6 +40,9 @@ type sendSpec struct {
 	contentType string            // body Content-Type; "" → application/json (multipart passes its boundary)
 	headers     map[string]string // extra headers (the chat embed origin)
 	tokens      TokenSource       // credential source; nil → the client's OAuth token source
+	// longStream lifts the client's total request timeout (RC_HTTP_TIMEOUT, default 10 min) for an SSE
+	// follow of a run that may legitimately stream longer; ctx and the server's own stream cap bound it.
+	longStream bool
 }
 
 // openStream runs the send loop and returns the OPEN successful response — the caller owns closing the
@@ -125,7 +128,13 @@ func (c *Client) sendOnce(ctx context.Context, spec sendSpec, token string) (*ht
 	for k, v := range spec.headers {
 		req.Header.Set(k, v)
 	}
-	resp, err := c.http.Do(req)
+	hc := c.http
+	if spec.longStream {
+		unbounded := *c.http
+		unbounded.Timeout = 0
+		hc = &unbounded
+	}
+	resp, err := hc.Do(req)
 	if err != nil {
 		// Connection-level failure (DNS, refused, TLS, timeout): include the base URL so a request that
 		// silently went to the localhost default instead of the intended host is obvious.

@@ -3246,7 +3246,9 @@ Available Commands:
   replay      Replay a file of user messages as one chat session and tabulate tier, time and answer per turn
   session     Print a session's persisted transcript as the widget would reopen it
   decide      Settle a chat card (e.g. publish or decline a website change) and print its projection
-  card        Print a chat card's current projection (poll it while it settles)
+  card        Print a chat card's current projection (--wait polls until it settles)
+  follow      Stream a still-running turn (e.g. a card's review_run_id) like send
+  attachment  Download one file of your own conversation (e.g. a review screenshot)
   doctor      Diagnose embedded-chat configuration and recent rejects
   brief       Print the secret-free chat implementation brief
 
@@ -3467,13 +3469,58 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp project chat card --help
-Print a chat card's current projection (poll it while it settles)
+Print a chat card's current projection (--wait polls until it settles)
 
 Usage:
   rp project chat card <session-id> <card-id> [flags]
 
 Flags:
-      --card string     card route: website-changes, actions, memories, brain-changes, outbound-batches (default "website-changes")
+      --card string        card route: website-changes, actions, memories, brain-changes, outbound-batches (default "website-changes")
+      --lane string        dashboard lane over the OAuth login instead of an embed token: setup (Set up & improve) or data (Ask your data)
+      --origin string      embedding-page origin (default: token origin claim)
+      --timeout duration   with --wait: give up (non-zero exit) after this long (default 20m0s)
+      --token string       embed chat token (default: RC_CHAT_TOKEN)
+      --wait               poll until nothing is in flight (preview build, review turn, live build)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project chat follow --help
+Stream a still-running turn (e.g. a card's review_run_id) like send
+
+Usage:
+  rp project chat follow <session-id> <run-id> [flags]
+
+Flags:
+      --lane string     dashboard lane over the OAuth login instead of an embed token: setup (Set up & improve) or data (Ask your data)
+      --origin string   embedding-page origin (default: token origin claim)
+      --token string    embed chat token (default: RC_CHAT_TOKEN)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project chat attachment --help
+Download one file of your own conversation (e.g. a review screenshot)
+
+Usage:
+  rp project chat attachment <session-id> <attachment-id> [flags]
+
+Flags:
+      --file string     write the file here (default ./<attachment-id>)
       --lane string     dashboard lane over the OAuth login instead of an embed token: setup (Set up & improve) or data (Ask your data)
       --origin string   embedding-page origin (default: token origin claim)
       --token string    embed chat token (default: RC_CHAT_TOKEN)
