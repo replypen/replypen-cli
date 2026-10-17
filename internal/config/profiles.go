@@ -1,14 +1,14 @@
 // Package config resolves the two things every command needs before it can authenticate: a base URL
 // and a PROFILE NAME (the key the OAuth token store is keyed by). The INTENT is a small, predictable
-// split: the server URL is production unless ROOTCAUSE_BASE_URL is explicitly set, while the current
+// split: the server URL is production unless REPLYPEN_BASE_URL is explicitly set, while the current
 // directory may still supply project/tenant context.
 //
-// Auth itself moved to OAuth: tokens live in ~/.config/rootcause/tokens.json (see internal/token),
+// Auth itself moved to OAuth: tokens live in ~/.config/replypen/tokens.json (see internal/token),
 // keyed by profile. This package no longer holds any secret — it only decides WHICH profile's token to
 // use and WHICH base URL to hit. A brain repo carries a committed, non-secret marker
-// (.rootcause.toml: project, optional machine_token_env, and optional legacy tenant) that binds the
+// (.replypen.toml: project, optional machine_token_env, and optional legacy tenant) that binds the
 // directory to one project. A developer may also
-// keep a gitignored per-checkout .rootcause/local.toml with tenant = "..." as an explicit local
+// keep a gitignored per-checkout .replypen/local.toml with tenant = "..." as an explicit local
 // override. In auto mode this resolver first names the project profile; the command layer can fall back
 // to "default" when no such token is stored and carry the marker's project as ?project= for an
 // all-projects token.
@@ -33,10 +33,11 @@
 //
 // Precedence for the base URL:
 //
-//	ROOTCAUSE_BASE_URL > built-in production default
+//	REPLYPEN_BASE_URL (or legacy ROOTCAUSE_BASE_URL) > built-in production default
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -54,16 +55,22 @@ const (
 	// It is KEPT under OAuth — it carries project/tenant context and may name a machine-token env var,
 	// but never contains the credential. A legacy base_url field still decodes for compatibility, but
 	// no longer affects transport resolution.
-	MarkerFileName = ".rootcause.toml"
+	MarkerFileName = ".replypen.toml"
+	// LegacyMarkerFileName is the pre-rename marker every existing brain still carries; it is read
+	// wherever MarkerFileName is, and never written.
+	LegacyMarkerFileName = ".rootcause.toml"
 
-	// LocalFileName is a gitignored per-brain developer overlay under the wholesale-ignored .rootcause
-	// artifact dir. It only supplies local overrides, currently tenant.
-	LocalFileName = ".rootcause/local.toml"
+	// LocalFileName is a gitignored per-brain developer overlay under the wholesale-ignored .replypen
+	// artifact dir. It only supplies local overrides, currently tenant. The legacy .rootcause/local.toml
+	// is still read when the new one is absent.
+	LocalFileName       = ".replypen/local.toml"
+	legacyLocalFileName = ".rootcause/local.toml"
 
 	// DefaultProfile is the profile name used outside any brain (and when no --profile/--project is given).
 	DefaultProfile = "default"
 
-	envBaseURL = "ROOTCAUSE_BASE_URL"
+	envBaseURL       = "REPLYPEN_BASE_URL"
+	legacyEnvBaseURL = "ROOTCAUSE_BASE_URL"
 
 	// BindingPrimary / BindingAlso name which marker binding an invocation resolved to (Resolved.BindingKind).
 	BindingPrimary = "primary"
@@ -71,9 +78,9 @@ const (
 )
 
 // Resolved is the effective config for one invocation. Profile is the token-store key the command's
-// client authenticates with. BaseURLSource names where BaseURL came from: ROOTCAUSE_BASE_URL, a test
+// client authenticates with. BaseURLSource names where BaseURL came from: REPLYPEN_BASE_URL, a test
 // override, or "built-in production" (nothing set one, we fell back to DefaultBaseURL). Brain is non-nil
-// when a .rootcause.toml was discovered; Project/Tenant come from it. BaseURL is always non-empty.
+// when a .replypen.toml was discovered; Project/Tenant come from it. BaseURL is always non-empty.
 // Project here is the BRAIN's project (the checkout's identity), NOT the --project scope override —
 // that's a server-side selector the command layer owns, never a profile.
 type Resolved struct {
@@ -89,7 +96,7 @@ type Resolved struct {
 	Brain         *Brain
 }
 
-// Brain is the committed .rootcause.toml marker: the project this checkout belongs to. Dir is the
+// Brain is the committed .replypen.toml (or legacy .rootcause.toml) marker: the project this checkout belongs to. Dir is the
 // directory the marker was found in. MachineTokenEnv names an optional secret source for headless
 // agents; it never stores the token. Tenant is a legacy/local override; the normal tenant-enabled path
 // gets tenant scope from the active OAuth login. A legacy base_url key in the marker is ignored (toml
@@ -102,6 +109,7 @@ type Brain struct {
 	Tenant          string    `toml:"tenant"`
 	Also            []Binding `toml:"also"`
 	Dir             string    `toml:"-"`
+	MarkerFile      string    `toml:"-"` // base name of the marker actually read
 	Primary         Binding   `toml:"-"`
 	SelectedAlso    bool      `toml:"-"`
 }
@@ -146,8 +154,7 @@ func loadFor(profileName, project, cwd string) (Resolved, error) {
 	// token store is the source of auth; config.toml base_url profiles are intentionally ignored.
 	if profileName != "" {
 		res := Resolved{Profile: profileName}
-		applyBaseURL(&res)
-		return res, nil
+		return res, applyBaseURL(&res)
 	}
 
 	// Auto mode: are we inside a brain?
@@ -158,8 +165,7 @@ func loadFor(profileName, project, cwd string) (Resolved, error) {
 	if brain == nil {
 		// Outside any brain: the default token profile.
 		res := Resolved{Profile: DefaultProfile}
-		applyBaseURL(&res)
-		return res, nil
+		return res, applyBaseURL(&res)
 	}
 
 	// A secondary binding is a full, independent identity: its own profile, its own machine-token env var
@@ -177,8 +183,7 @@ func loadFor(profileName, project, cwd string) (Resolved, error) {
 			Project:     bind.Project,
 			Brain:       &bound,
 		}
-		applyBaseURL(&res)
-		return res, nil
+		return res, applyBaseURL(&res)
 	}
 
 	// Inside a brain: first name the project profile. Transport still stays env > production.
@@ -194,18 +199,38 @@ func loadFor(profileName, project, cwd string) (Resolved, error) {
 		TenantSource: tenantSource,
 		Brain:        brain,
 	}
-	applyBaseURL(&res)
-	return res, nil
+	return res, applyBaseURL(&res)
 }
 
-func applyBaseURL(res *Resolved) {
-	if v := os.Getenv(envBaseURL); v != "" {
+func applyBaseURL(res *Resolved) error {
+	v, source, err := EnvBaseURL()
+	if err != nil {
+		return err
+	}
+	if v != "" {
 		res.BaseURL = CanonicalBaseURL(v)
-		res.BaseURLSource = envBaseURL
-		return
+		res.BaseURLSource = source
+		return nil
 	}
 	res.BaseURL = DefaultBaseURL
 	res.BaseURLSource = "built-in production"
+	return nil
+}
+
+// EnvBaseURL returns the explicitly configured base URL and the variable it came from ("" when
+// unset). The legacy ROOTCAUSE_BASE_URL still works; set together with a different
+// REPLYPEN_BASE_URL it is an error rather than a silent pick of one target.
+func EnvBaseURL() (value, source string, err error) {
+	cur, legacy := os.Getenv(envBaseURL), os.Getenv(legacyEnvBaseURL)
+	switch {
+	case cur != "" && legacy != "" && cur != legacy:
+		return "", "", fmt.Errorf("%s=%q and %s=%q disagree; unset %s", envBaseURL, cur, legacyEnvBaseURL, legacy, legacyEnvBaseURL)
+	case cur != "":
+		return cur, envBaseURL, nil
+	case legacy != "":
+		return legacy, legacyEnvBaseURL, nil
+	}
+	return "", "", nil
 }
 
 // CanonicalBaseURL maps the legacy production hostname onto the customer-facing ReplyPen app host.
@@ -221,35 +246,55 @@ func resolveTenant(brain *Brain) (string, string, error) {
 	tenant := brain.Tenant
 	source := ""
 	if tenant != "" {
-		source = MarkerFileName
+		source = brain.markerName()
 	}
 
-	path := filepath.Join(brain.Dir, LocalFileName)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return tenant, source, nil
-	} else if err != nil {
-		return "", "", fmt.Errorf("stat %s: %w", path, err)
-	}
-	var l local
-	if _, err := toml.DecodeFile(path, &l); err != nil {
-		return "", "", fmt.Errorf("parse %s: %w", path, err)
-	}
-	if l.Tenant != "" {
-		return l.Tenant, LocalFileName, nil
+	for _, name := range []string{LocalFileName, legacyLocalFileName} {
+		path := filepath.Join(brain.Dir, name)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return "", "", fmt.Errorf("stat %s: %w", path, err)
+		}
+		var l local
+		if _, err := toml.DecodeFile(path, &l); err != nil {
+			return "", "", fmt.Errorf("parse %s: %w", path, err)
+		}
+		if l.Tenant != "" {
+			return l.Tenant, name, nil
+		}
+		break // the new overlay exists: never fall through to the legacy one
 	}
 	return tenant, source, nil
 }
 
-// DiscoverBrain walks up from start looking for the nearest committed .rootcause.toml marker. Returns
-// nil (not an error) when none is found before the filesystem root — that's the "not in a brain" case.
+// markerName is the marker file this brain was read from (MarkerFileName for a hand-built Brain).
+func (b *Brain) markerName() string {
+	if b == nil || b.MarkerFile == "" {
+		return MarkerFileName
+	}
+	return b.MarkerFile
+}
+
+// MarkerName is the marker file name the resolved brain was read from, for messages and provenance.
+func (r Resolved) MarkerName() string {
+	return r.Brain.markerName()
+}
+
+// DiscoverBrain walks up from start looking for the nearest committed .replypen.toml (or legacy
+// .rootcause.toml) marker. Returns nil (not an error) when none is found before the filesystem root —
+// that's the "not in a brain" case. A directory holding both markers must hold the same bytes in each.
 func DiscoverBrain(start string) (*Brain, error) {
 	if start == "" {
 		return nil, nil
 	}
 	dir := start
 	for {
-		path := filepath.Join(dir, MarkerFileName)
-		if _, err := os.Stat(path); err == nil {
+		path, err := markerIn(dir)
+		if err != nil {
+			return nil, err
+		}
+		if path != "" {
 			var b Brain
 			if _, derr := toml.DecodeFile(path, &b); derr != nil {
 				return nil, fmt.Errorf("parse %s: %w", path, derr)
@@ -259,6 +304,7 @@ func DiscoverBrain(start string) (*Brain, error) {
 			}
 			b.Primary = Binding{Project: b.Project, MachineTokenEnv: b.MachineTokenEnv}
 			b.Dir = dir
+			b.MarkerFile = filepath.Base(path)
 			return &b, nil
 		}
 		parent := filepath.Dir(dir)
@@ -267,6 +313,27 @@ func DiscoverBrain(start string) (*Brain, error) {
 		}
 		dir = parent
 	}
+}
+
+// markerIn returns the marker path in dir ("" when none): the new name wins, the legacy name is
+// accepted, and two markers that disagree are refused rather than guessed between.
+func markerIn(dir string) (string, error) {
+	cur := filepath.Join(dir, MarkerFileName)
+	legacy := filepath.Join(dir, LegacyMarkerFileName)
+	curBody, curErr := os.ReadFile(cur)
+	legacyBody, legacyErr := os.ReadFile(legacy)
+	switch {
+	case curErr == nil && legacyErr == nil:
+		if !bytes.Equal(curBody, legacyBody) {
+			return "", fmt.Errorf("%s and %s both exist and differ; keep only %s", cur, legacy, MarkerFileName)
+		}
+		return cur, nil
+	case curErr == nil:
+		return cur, nil
+	case legacyErr == nil:
+		return legacy, nil
+	}
+	return "", nil
 }
 
 // selectAlso picks the [[also]] binding the requested project names. An empty request, or one naming the
@@ -339,7 +406,7 @@ func UpdateBrainProject(brain *Brain, oldProject, newProject string) (bool, erro
 	if brain == nil || brain.Primary.Project != oldProject || oldProject == newProject {
 		return false, nil
 	}
-	path := filepath.Join(brain.Dir, MarkerFileName)
+	path := filepath.Join(brain.Dir, brain.markerName())
 	body, err := os.ReadFile(path)
 	if err != nil {
 		return false, fmt.Errorf("read %s: %w", path, err)
@@ -364,8 +431,17 @@ func UpdateBrainProject(brain *Brain, oldProject, newProject string) (bool, erro
 		}
 		lines = append(lines, fmt.Sprintf("project = %q\n", newProject))
 	}
-	if err := os.WriteFile(path, []byte(strings.Join(lines, "")), 0o644); err != nil {
+	updated := []byte(strings.Join(lines, ""))
+	if err := os.WriteFile(path, updated, 0o644); err != nil {
 		return false, fmt.Errorf("write %s: %w", path, err)
+	}
+	// An identical legacy twin must stay identical, or the next discovery refuses the pair.
+	if twin := filepath.Join(brain.Dir, LegacyMarkerFileName); path != twin {
+		if prev, err := os.ReadFile(twin); err == nil && bytes.Equal(prev, body) {
+			if err := os.WriteFile(twin, updated, 0o644); err != nil {
+				return false, fmt.Errorf("write %s: %w", twin, err)
+			}
+		}
 	}
 	brain.Primary.Project = newProject
 	if !brain.SelectedAlso {

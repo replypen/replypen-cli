@@ -1,4 +1,4 @@
-// This file renders the connection-backed watched-mailbox views under `rc project mailbox`: the live
+// This file renders the connection-backed watched-mailbox views under `rp project mailbox`: the live
 // inbox watch with its subscription/sync-cursor lifecycle.
 package render
 
@@ -7,7 +7,7 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // WatchedMailboxes renders the watched-mailbox set as a table: id, provider, email, status, mode, tenant,

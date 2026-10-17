@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // errEmptyInstruction is the clear "nothing to do" error when no instruction arrives via args or stdin.
@@ -186,7 +186,7 @@ func brainSyncCmd(e *env) *cobra.Command {
 var fullGitSHA = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
 
 // brainRenderCmd shows what ONE tenant actually gets: the server compiles the projection ({{ }}
-// placeholders + rc:branch regions) in memory and returns the files verbatim. preflight answers
+// placeholders + rp:branch regions) in memory and returns the files verbatim. preflight answers
 // pass/fail for a whole channel; render is the eyeball. Nothing is written to the brain cache.
 func brainRenderCmd(e *env) *cobra.Command {
 	var channel, sha string
@@ -196,9 +196,9 @@ func brainRenderCmd(e *env) *cobra.Command {
 		Use:   "render --tenant <slug> [--path AGENTS.md] [--all] [--sha <commit> | --channel stable|edge]",
 		Short: "Show a tenant's compiled brain projection",
 		Long: "Show a tenant's compiled brain projection.\n\n" +
-			"Every returned file is also written verbatim to .rootcause/output/brain-render-<tenant>/tree/<brain-relative path>, " +
+			"Every returned file is also written verbatim to .replypen/output/brain-render-<tenant>/tree/<brain-relative path>, " +
 			"so you can open the rendered playbooks/AGENTS.md instead of an opaque content.txt.\n\n" +
-			"Artifacts are keyed by TENANT, not by sha: every run overwrites .rootcause/output/brain-render-<tenant>/ " +
+			"Artifacts are keyed by TENANT, not by sha: every run overwrites .replypen/output/brain-render-<tenant>/ " +
 			"(tree/ is wiped first, so a file from an earlier render never survives). " +
 			"To compare two shas/channels, move the first render aside before the second.",
 		Args: cobra.NoArgs,
@@ -345,9 +345,9 @@ type brainPublishResult struct {
 	Verified bool                   `json:"verified"`
 }
 
-// brainPublishCmd chains sync → promote → status-verify with gating between them — the one rc command
+// brainPublishCmd chains sync → promote → status-verify with gating between them — the one rp command
 // that fans a single intent across three server calls, replacing the by-hand choreography operators ran
-// against `rc dev brain {sync,promote,status}`. Sync and status are forced to project scope (tenant="")
+// against `rp dev brain {sync,promote,status}`. Sync and status are forced to project scope (tenant="")
 // so an ambient tenant can never split them onto the overlay while promote moves the project channel.
 func brainPublishCmd(e *env) *cobra.Command {
 	var channel, sha string
@@ -387,7 +387,7 @@ func brainPublishCmd(e *env) *cobra.Command {
 				return brainAliasError(brainBootCheckError(err), project, "")
 			}
 			if syncResp.Sync.ManualReconcile {
-				return fmt.Errorf("brain box clone is %q and needs manual reconcile — reconcile the box clone, see `rc dev brain status`", syncResp.Sync.After.State)
+				return fmt.Errorf("brain box clone is %q and needs manual reconcile — reconcile the box clone, see `rp dev brain status`", syncResp.Sync.After.State)
 			}
 
 			promoteResp, _, err := c.BrainPromote(e.ctx(), project, client.BrainPromoteRequest{Channel: channel, SHA: sha})

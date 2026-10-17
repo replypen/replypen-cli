@@ -1,4 +1,4 @@
-// View for `rc project knowledge article apply`: one terse verdict line, plus — on a dry run — the
+// View for `rp project knowledge article apply`: one terse verdict line, plus — on a dry run — the
 // exact provider calls that WOULD be sent, so the operator reviews the write before it happens.
 
 package render
@@ -10,7 +10,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // KnowledgeArticleApply prints the verdict line and, for a dry run, every pending provider request

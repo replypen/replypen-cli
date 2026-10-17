@@ -1,4 +1,4 @@
-// The run index views: `rc status` (health rollup first) and `rc run list`.
+// The run index views: `rp status` (health rollup first) and `rp run list`.
 // The renderers are pure functions of the wire structs (no I/O beyond the passed writer, no clock) so
 // golden tests pin them exactly. Timestamps are shown as the server sent them, keeping goldens stable.
 
@@ -10,10 +10,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
-// Status renders the health summary first (the point of `rc status`) then the recent-runs table.
+// Status renders the health summary first (the point of `rp status`) then the recent-runs table.
 func Status(w io.Writer, resp *client.RunsResponse) {
 	writeSummary(w, &resp.Summary)
 	_, _ = fmt.Fprintln(w)
@@ -63,7 +63,7 @@ func writeSummary(w io.Writer, s *client.Summary) {
 	}
 }
 
-// Runs renders the recent-runs table (the lead view of `rc run list`). Shows the next-page cursor when
+// Runs renders the recent-runs table (the lead view of `rp run list`). Shows the next-page cursor when
 // the server returned one.
 func Runs(w io.Writer, resp *client.RunsResponse) {
 	if len(resp.Runs) == 0 {
@@ -79,7 +79,7 @@ func Runs(w io.Writer, resp *client.RunsResponse) {
 	}
 	_ = tw.Flush()
 	if resp.NextBefore != "" {
-		_, _ = fmt.Fprintf(w, "\nMore: rc run list --before %s\n", resp.NextBefore)
+		_, _ = fmt.Fprintf(w, "\nMore: rp run list --before %s\n", resp.NextBefore)
 	}
 }
 

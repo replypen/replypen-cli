@@ -1,4 +1,4 @@
-// `rc brain diff <run>`: the one journal commit a run wrote to its brain.
+// `rp brain diff <run>`: the one journal commit a run wrote to its brain.
 // The renderers are pure functions of the wire structs (no I/O beyond the passed writer, no clock) so
 // golden tests pin them exactly. Timestamps are shown as the server sent them, keeping goldens stable.
 
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // BrainDiff renders the ONE journal commit a run wrote to its brain: a header (short sha, author,

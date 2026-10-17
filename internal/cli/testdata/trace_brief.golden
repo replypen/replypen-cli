@@ -16,4 +16,4 @@ Wanneer start de inschrijving voor het zomerkamp?
 Answer:
 De inschrijving start op 1 maart om 20u.
 
-Prompt, grounding and the tool-call timeline are omitted; use `rc run trace <id> --raw-output` or `rc run debug <id>`.
+Prompt, grounding and the tool-call timeline are omitted; use `rp run trace <id> --raw-output` or `rp run debug <id>`.

@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/outputspill"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/outputspill"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 func newCapabilitiesCmd(e *env) *cobra.Command {
@@ -203,7 +203,7 @@ func newDBQueryCmd(e *env) *cobra.Command {
 	cmd.Flags().BoolVar(&all, "all", false, "stream every row from one repeatable-read database snapshot")
 	cmd.Flags().BoolVar(&allowTruncated, "allow-truncated", false, "accept an inline result that the server truncated")
 	cmd.Flags().StringVar(&format, "format", "", "query data format: json|ndjson|csv|tsv")
-	cmd.Flags().StringVar(&out, "out", "", "write data to PATH; - writes stdout; auto writes a unique .rootcause/output artifact")
+	cmd.Flags().StringVar(&out, "out", "", "write data to PATH; - writes stdout; auto writes a unique .replypen/output artifact")
 	cmd.Flags().StringArrayVar(&paramValues, "param", nil, "bind @k in SQL as text using k=v (repeatable)")
 	addConsolePrincipalFlags(cmd, &principalKind, &principalID)
 	return cmd
@@ -377,7 +377,7 @@ func newBashCmd(e *env) *cobra.Command {
 		},
 	}
 	runCmd.Flags().IntVar(&timeout, "timeout", 0, "per-command timeout in seconds")
-	runCmd.Flags().StringVar(&out, "out", "", "write command data to PATH; - writes stdout; auto writes a unique .rootcause/output artifact")
+	runCmd.Flags().StringVar(&out, "out", "", "write command data to PATH; - writes stdout; auto writes a unique .replypen/output artifact")
 	addConsolePrincipalFlags(runCmd, &principalKind, &principalID)
 	cmd.AddCommand(runCmd)
 	return cmd
@@ -386,14 +386,14 @@ func newBashCmd(e *env) *cobra.Command {
 // addConsolePrincipalFlags registers the console's principal pair. The console defaults to the login's own
 // (unscoped) view; binding a principal makes the primitive see exactly what that end user's run would see —
 // scoped rows, and tables the identity may not read reported back as hidden_tables. Validated by
-// principalFromFlags, the same pair rule as `rc ask` (asserted_by/assurance are run-only refinements).
+// principalFromFlags, the same pair rule as `rp ask` (asserted_by/assurance are run-only refinements).
 func addConsolePrincipalFlags(cmd *cobra.Command, kind, id *string) {
 	cmd.Flags().StringVar(kind, "principal-kind", "", "bind the call to a principal kind (e.g. kampadmin_admin); requires --principal-id")
 	cmd.Flags().StringVar(id, "principal-id", "", "principal external id (the asserted identity); requires --principal-kind")
 }
 
 func newActionCmd(e *env) *cobra.Command {
-	cmd := &cobra.Command{Use: "action", Short: "Inspect and execute guarded rootcause actions"}
+	cmd := &cobra.Command{Use: "action", Short: "Inspect and execute guarded ReplyPen actions"}
 	cmd.AddCommand(actionListCmd(e), actionShowCmd(e), actionExecCmd(e, true), actionExecCmd(e, false))
 	return cmd
 }

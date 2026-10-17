@@ -23,7 +23,7 @@ func writeConfig(t *testing.T, body string) {
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 }
 
-// brainDirWith creates a temp directory holding a .rootcause.toml marker, returning the dir.
+// brainDirWith creates a temp directory holding a .replypen.toml marker, returning the dir.
 func brainDirWith(t *testing.T, marker string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -35,10 +35,11 @@ func brainDirWith(t *testing.T, marker string) string {
 	return dir
 }
 
-// clearEnv unsets ROOTCAUSE_BASE_URL so a case starts from a known baseline (t.Setenv restores).
+// clearEnv unsets both base-URL variables so a case starts from a known baseline (t.Setenv restores).
 func clearEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv(envBaseURL, "")
+	t.Setenv(legacyEnvBaseURL, "")
 }
 
 func TestLoad_NoBrain_IgnoresConfigBaseURL(t *testing.T) {
@@ -242,7 +243,7 @@ func TestLoad_LocalTenantDefault(t *testing.T) {
 	clearEnv(t)
 	writeConfig(t, "")
 	dir := brainDirWith(t, "project = \"dentai\"\nbase_url = \"https://rc.example\"\n")
-	if err := os.MkdirAll(filepath.Join(dir, ".rootcause"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".replypen"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, LocalFileName), []byte("tenant = \"de-kies\"\n"), 0o600); err != nil {
@@ -268,7 +269,7 @@ func TestLoad_LocalTenantOverridesMarkerTenant(t *testing.T) {
 	clearEnv(t)
 	writeConfig(t, "")
 	dir := brainDirWith(t, "project = \"dentai\"\ntenant = \"shared\"\nbase_url = \"https://rc.example\"\n")
-	if err := os.MkdirAll(filepath.Join(dir, ".rootcause"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".replypen"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, LocalFileName), []byte("tenant = \"de-kies\"\n"), 0o600); err != nil {

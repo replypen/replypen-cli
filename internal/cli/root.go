@@ -19,10 +19,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/config"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
 // env carries the shared, testable state through commands: the global flag values plus the writers.
@@ -74,6 +74,7 @@ func Execute(version string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	e := &env{out: os.Stdout, err: os.Stderr, in: os.Stdin, requestCtx: ctx}
+	token.Migrate() // before any command can touch credentials (rootcause → replypen config dir)
 	root := newRootCmd(e, version)
 	if err := root.ExecuteContext(ctx); err != nil {
 		return reportCommandError(e, err)
@@ -99,8 +100,8 @@ func reportCommandError(e *env, err error) int {
 func newRootCmd(e *env, version string) *cobra.Command {
 	cobra.EnableCommandSorting = false
 	root := &cobra.Command{
-		Use:           "rc",
-		Short:         "rootcause CLI — a thin, scriptable client over the rootcause API",
+		Use:           "rp",
+		Short:         "ReplyPen CLI — a thin, scriptable client over the ReplyPen API",
 		Version:       version,
 		SilenceUsage:  true, // a runtime error isn't a usage error; don't dump help on it
 		SilenceErrors: true, // Execute prints the error itself, verbatim
@@ -130,11 +131,11 @@ func newRootCmd(e *env, version string) *cobra.Command {
 	if e.tenant == "" {
 		e.tenant = os.Getenv("RC_TENANT")
 	}
-	root.PersistentFlags().StringVar(&e.project, "project", e.project, "scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .rootcause.toml binds that project via [[also]])")
+	root.PersistentFlags().StringVar(&e.project, "project", e.project, "scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])")
 	root.PersistentFlags().StringVar(&e.tenant, "tenant", e.tenant, "override the login tenant where supported (default: RC_TENANT)")
 	root.PersistentFlags().StringVar(&e.scope, "scope", "", "force request routing: project|tenant. \"project\" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; \"tenant\" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.")
 	root.PersistentFlags().StringVarP(&e.output, "output", "o", "", "output format: json|table (default: auto-detect)")
-	root.PersistentFlags().StringVar(&e.outDir, "out-dir", "", "directory for large output artifacts (default: RC_OUTPUT_DIR or .rootcause/output)")
+	root.PersistentFlags().StringVar(&e.outDir, "out-dir", "", "directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)")
 	root.PersistentFlags().BoolVar(&e.noPreview, "no-preview", false, "write large output artifacts but omit head/tail previews")
 	root.PersistentFlags().BoolVar(&e.rawOutput, "raw-output", false, "disable progressive output spill and print full payloads to stdout")
 
@@ -186,7 +187,7 @@ func (e *env) mode() render.Mode {
 }
 
 // newClient resolves config for the selected profile and builds an OAuth-authenticated client. The
-// bearer comes from the token store (refreshed transparently); it errors clearly with a "run `rc auth login`"
+// bearer comes from the token store (refreshed transparently); it errors clearly with a "run `rp auth login`"
 // prompt when there's no stored token. --project is NOT resolved here — it's a server-side scope the
 // commands thread into each read request (see scopeProject).
 //
@@ -350,13 +351,13 @@ func (e *env) resolvePinnedProject(c *client.Client) error {
 func notLoggedIn(res config.Resolved, explicitProfile string) error {
 	if res.Brain != nil {
 		return authenticationError(fmt.Sprintf("this brain is project %q but you're not logged in for it\n"+
-			"  fix: run `rc auth login` from here (use --device on a headless box)", res.Brain.Project))
+			"  fix: run `rp auth login` from here (use --device on a headless box)", res.Brain.Project))
 	}
 	if explicitProfile == "" {
-		return authenticationError(fmt.Sprintf("no .rootcause.toml here and no --profile given — "+
+		return authenticationError(fmt.Sprintf("no .replypen.toml (or legacy .rootcause.toml) here and no --profile given — "+
 			"pass --profile <name> or cd into the brain checkout (%s)", knownProfilesHint()))
 	}
-	return authenticationError(fmt.Sprintf("not logged in (profile %q) — run `rc auth login`", res.Profile))
+	return authenticationError(fmt.Sprintf("not logged in (profile %q) — run `rp auth login`", res.Profile))
 }
 
 // knownProfilesHint names the logged-in profiles so the fix is copy-pasteable. A store read error is
@@ -364,7 +365,7 @@ func notLoggedIn(res config.Resolved, explicitProfile string) error {
 func knownProfilesHint() string {
 	profiles, err := token.List()
 	if err != nil || len(profiles) == 0 {
-		return "no profiles logged in yet — run `rc auth login`"
+		return "no profiles logged in yet — run `rp auth login`"
 	}
 	names := make([]string, 0, len(profiles))
 	for name := range profiles {
@@ -433,7 +434,7 @@ func (e *env) validateProjectScope(c *client.Client) error {
 	return &client.APIError{
 		Status:  http.StatusNotFound,
 		Code:    "UNKNOWN_PROJECT",
-		Message: fmt.Sprintf("unknown project %q (run `rc project list` to see available projects)", project),
+		Message: fmt.Sprintf("unknown project %q (run `rp project list` to see available projects)", project),
 	}
 }
 
@@ -487,7 +488,7 @@ func printErrorBody(w io.Writer, err error) {
 		}
 		// A rejected --mirror-ref names an unconfigured mirror or a malformed ref.
 		if apiErr.Code == "BAD_MIRROR_REF" {
-			_, _ = fmt.Fprintln(w, "  --mirror-ref takes <repo>=<ref>: a configured mirror name (rc project repo ls) and a branch or 40-char SHA")
+			_, _ = fmt.Fprintln(w, "  --mirror-ref takes <repo>=<ref>: a configured mirror name (rp project repo ls) and a branch or 40-char SHA")
 		}
 		// An unreachable promote SHA means the tested commit never reached the brain origin.
 		if apiErr.Code == "BRAIN_SHA_UNREACHABLE" {
@@ -525,7 +526,7 @@ func printNonEnvelopeHTTPError(w io.Writer, e *client.APIError) {
 	case http.StatusForbidden:
 		// Run-detail views (egress, brain-diff, trace) are project-admin-only. A 403 WITH an envelope says
 		// so verbatim; this covers the envelope-less one, which would otherwise be a bare "HTTP 403".
-		_, _ = fmt.Fprintln(w, "  forbidden — run detail is served only to project-level admins; ask a project admin, or use `rc run show` for the safe summary")
+		_, _ = fmt.Fprintln(w, "  forbidden — run detail is served only to project-level admins; ask a project admin, or use `rp run show` for the safe summary")
 	}
 	if e.BaseURL != "" {
 		_, _ = fmt.Fprintf(w, "  base URL: %s\n", e.BaseURL)

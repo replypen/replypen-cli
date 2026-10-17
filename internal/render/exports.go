@@ -1,4 +1,4 @@
-// This file renders the local-synthesis export views (`rc project corpus ls|get`, `rc project mailbox harvest`): the
+// This file renders the local-synthesis export views (`rp project corpus ls|get`, `rp project mailbox harvest`): the
 // harvest/survey corpus exports and their lifecycle status. Pure functions of the wire items so a
 // golden pins them.
 package render
@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // Exports renders the export set as a table: id, kind, corpus format, status, thread count, truncated,

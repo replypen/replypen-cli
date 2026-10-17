@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // runDetailDuration prefers the server's duration_ms, falling back to finished−created (a run_health

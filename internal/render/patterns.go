@@ -1,4 +1,4 @@
-// This file is the FAT side of `rc fleet patterns`: it ports run_patterns.py's clustering over the THIN
+// This file is the FAT side of `rp fleet patterns`: it ports run_patterns.py's clustering over the THIN
 // /run-events + /egress-log feeds — the bash-failure signatures, the recurring stderr/error themes,
 // and the blocked-egress host clusters, each ending in a `suggested fix:` stub for the reviewing LLM.
 // The server ships raw rows; ALL masking/grouping/ranking happens here (the doctrine). The command layer
@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // PatternsOptions carries the window scope + caps (mirrors run_patterns.py's args).
@@ -67,7 +67,7 @@ func patternsFirstLine(text string) string {
 	return ""
 }
 
-// --- command classifier (ported from rootcause-runtime _render.py _label / _code_gist) ---
+// --- command classifier (ported from replypen-runtime _render.py _label / _code_gist) ---
 
 var cdPrefix = regexp.MustCompile(`^\s*cd\s+\S+\s*&&\s*`)
 
@@ -222,7 +222,7 @@ func excerpt(e client.RunEvent) []string {
 }
 
 // egressCluster is one (host) blocked-egress signature, ranked by count (run_patterns.py cluster_egress,
-// minus the project axis — `rc fleet patterns` is already one project).
+// minus the project axis — `rp fleet patterns` is already one project).
 type egressCluster struct {
 	host  string
 	count int

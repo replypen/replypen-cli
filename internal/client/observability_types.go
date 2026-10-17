@@ -44,7 +44,7 @@ type ThreadSecurityBlock struct {
 }
 
 // ThreadTrace is GET /api/v1/threads/{id}/trace — the channel-pipeline outcome plus every run for one
-// rootcause/provider thread (or session) id. Mirrors the server's threadTraceResponse field-for-field.
+// ReplyPen/provider thread (or session) id. Mirrors the server's threadTraceResponse field-for-field.
 type ThreadTrace struct {
 	ID         string              `json:"id"`
 	ResolvedBy string              `json:"resolved_by"`
@@ -52,7 +52,7 @@ type ThreadTrace struct {
 	Runs       []RunSummary        `json:"runs"`
 }
 
-// RunEvent is one raw run_events row from GET /api/v1/run-events — the bulk feed `rc fleet patterns`
+// RunEvent is one raw run_events row from GET /api/v1/run-events — the bulk feed `rp fleet patterns`
 // clusters locally (bash-failure themes, recurring error signatures). Args is raw JSON (the bash
 // command lives at args.command). RunKind/RunCreatedAt are the parent run's, carried for the keyset
 // page + per-kind grouping. Field names match the server verbatim.
@@ -102,7 +102,7 @@ type RunEventsResponse struct {
 	DetailRedacted bool       `json:"detail_redacted,omitempty"`
 }
 
-// EgressRow is one raw egress_log row from GET /api/v1/egress-log — the bulk feed `rc fleet patterns`
+// EgressRow is one raw egress_log row from GET /api/v1/egress-log — the bulk feed `rp fleet patterns`
 // clusters into blocked-host signatures. Decision is "block" for a blocked attempt.
 type EgressRow struct {
 	ID           string `json:"id,omitempty"`

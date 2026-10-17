@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // briefDroppedHeaderKeys are the trace-header fields `--brief` withholds: the run's INPUT CONTEXT.

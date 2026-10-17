@@ -5,12 +5,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/config"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newProjectListCmd builds `rc project list`: list the fleet handles (id + name) over GET /api/v1/projects. With
+// newProjectListCmd builds `rp project list`: list the fleet handles (id + name) over GET /api/v1/projects. With
 // an all-projects admin token it lists every project; with a project-pinned token it lists just that one
 // (so a customer key can confirm its binding). It's the entry point for fleet review and the seed the
 // `--all` fan-out lists before hitting each project's read surface. -o json is a raw passthrough.
@@ -73,7 +73,7 @@ func warnBrainMarkerRename(e *env, resp *client.ProjectRenameResponse) {
 		return
 	}
 	if _, err := config.UpdateBrainProject(e.resolved.Brain, resp.PreviousName, resp.Name); err != nil {
-		_, _ = fmt.Fprintf(e.err, "warning: project renamed on server, but updating %s failed: %v\n", config.MarkerFileName, err)
+		_, _ = fmt.Fprintf(e.err, "warning: project renamed on server, but updating %s failed: %v\n", e.resolved.MarkerName(), err)
 	}
 }
 

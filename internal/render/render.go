@@ -34,7 +34,7 @@ func IsJSON(mode Mode, w io.Writer) bool {
 	return !isTerminal(w)
 }
 
-// IsTerminal reports whether w is a real TTY. Used to gate transient progress output (e.g. `rc ask`'s
+// IsTerminal reports whether w is a real TTY. Used to gate transient progress output (e.g. `rp ask`'s
 // live status line) so it never lands in a pipe, a redirect, or a test buffer.
 func IsTerminal(w io.Writer) bool { return isTerminal(w) }
 

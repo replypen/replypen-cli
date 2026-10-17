@@ -16,7 +16,7 @@
     "question": "Do I still have open invoices?",
     "warm_start_digest": "digest-7f3a",
     "grounding_seed": "seed-42",
-    "system_prompt": "You are rootcause. Answer from grounded data only.",
+    "system_prompt": "You are ReplyPen. Answer from grounded data only.",
     "created_at": "2026-06-19T09:00:00Z",
     "finished_at": "2026-06-19T09:01:30Z",
     "model": "claude-opus-4-8",
@@ -49,7 +49,7 @@
     ],
     "context_schema_version": 1,
     "prompt_sections": [
-      { "id": "preamble", "gate": "always", "on": true, "text": "You are rootcause. Answer from grounded data only." },
+      { "id": "preamble", "gate": "always", "on": true, "text": "You are ReplyPen. Answer from grounded data only." },
       { "id": "persona", "gate": "customer-facing mode", "on": true, "text": "Write as the practice's own front desk." },
       { "id": "db_cheatsheet", "gate": "project has a database connection", "on": true, "text": "lib.db exposes read-only pooled access." },
       { "id": "source_pr_policy", "gate": "project allows source PRs", "on": false }

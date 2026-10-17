@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
-// TestConcurrentProcessesRefreshOnce: parallel `rc` processes on one profile (e.g. devloop's batch of
-// `rc ask --no-wait`) all see the same expired access token. The server rotates refresh tokens and
+// TestConcurrentProcessesRefreshOnce: parallel `rp` processes on one profile (e.g. devloop's batch of
+// `rp ask --no-wait`) all see the same expired access token. The server rotates refresh tokens and
 // accepts each exactly once, so only ONE refresh may be sent; every process must still end with the
 // renewed access token instead of a spurious "session expired".
 func TestConcurrentProcessesRefreshOnce(t *testing.T) {
@@ -85,7 +85,7 @@ func TestConcurrentProcessesRefreshOnce(t *testing.T) {
 	}
 }
 
-// TestRefreshHelperProcess is the child half of the multi-process refresh tests: one `rc` process asking
+// TestRefreshHelperProcess is the child half of the multi-process refresh tests: one `rp` process asking
 // its token source (profile RC_TEST_REFRESH_PROFILE, default "default") for a bearer. It inherits
 // XDG_CONFIG_HOME, so all children share one store.
 func TestRefreshHelperProcess(t *testing.T) {

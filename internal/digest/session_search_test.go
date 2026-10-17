@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 func TestSessionSearchWindowAndCandidate(t *testing.T) {

@@ -1,7 +1,7 @@
-// Package contextexport locates a rootcause HOST checkout and builds the argv for the host's offline
+// Package contextexport locates a ReplyPen HOST checkout and builds the argv for the host's offline
 // context renderer (`go run ./cmd/context-export`). The renderer imports the host's internal packages
 // (agent, grounding, triage, brain, kbsync, db/generated), so it can never be forked into this module —
-// `rc dev context-export` wraps it. Resolution lives here, apart from the exec, so host discovery and
+// `rp dev context-export` wraps it. Resolution lives here, apart from the exec, so host discovery and
 // suite/output resolution stay unit-testable without compiling the host.
 package contextexport
 
@@ -11,9 +11,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/replypen/replypen-cli/internal/localstate"
 )
 
-// RendererRelPath is the marker that identifies a directory as a rootcause host checkout.
+// RendererRelPath is the marker that identifies a directory as a ReplyPen host checkout.
 const RendererRelPath = "cmd/context-export/main.go"
 
 // suiteDir is where the host keeps its grounding-eval suites; a bare --suite name resolves under it.
@@ -26,7 +28,7 @@ type Options struct {
 	HostRepoEnv string // RC_HOST_REPO
 	Cwd         string
 	Suite       string // --suite: bare project name or a path
-	Project     string // .rootcause.toml project, when cwd is inside a brain
+	Project     string // .replypen.toml project, when cwd is inside a brain
 	BrainDir    string // the brain marker's directory, when cwd is inside a brain
 	Out         string // --out
 	KB          string
@@ -44,7 +46,7 @@ type Plan struct {
 	Args     []string // `go` argv, starting at "run"
 }
 
-// Resolve turns Options into a runnable Plan, or an error naming how to point rc at a host checkout.
+// Resolve turns Options into a runnable Plan, or an error naming how to point rp at a host checkout.
 func Resolve(o Options) (Plan, error) {
 	host, err := discoverHost(o)
 	if err != nil {
@@ -57,7 +59,7 @@ func Resolve(o Options) (Plan, error) {
 
 	out := o.Out
 	if out == "" {
-		out = filepath.Join(".rootcause", "context-export")
+		out = localstate.Path("context-export")
 	}
 	if !filepath.IsAbs(out) {
 		out = filepath.Join(o.Cwd, out)
@@ -80,7 +82,7 @@ func Resolve(o Options) (Plan, error) {
 }
 
 // discoverHost walks the explicit sources first, then guesses from the standard sibling layout
-// (~/code/rootcause-org/{rootcause,rootcause-brain-*}) so the command works from any brain checkout.
+// (~/code/replypen/{replypen,replypen-brain-*}) so the command works from any brain checkout.
 func discoverHost(o Options) (string, error) {
 	if o.HostRepo != "" {
 		return verifyHost(absFrom(o.Cwd, o.HostRepo), "--host-repo")
@@ -93,11 +95,11 @@ func discoverHost(o Options) (string, error) {
 			return dir, nil
 		}
 	}
-	return "", fmt.Errorf("no rootcause host checkout found near %s — `rc dev context-export` is an operator command: it runs the host repo's offline context renderer (%s). Point at a checkout with --host-repo <path> or RC_HOST_REPO=<path>", o.Cwd, RendererRelPath)
+	return "", fmt.Errorf("no ReplyPen host checkout found near %s — `rp dev context-export` is an operator command: it runs the host repo's offline context renderer (%s). Point at a checkout with --host-repo <path> or RC_HOST_REPO=<path>", o.Cwd, RendererRelPath)
 }
 
 // hostCandidates is cwd and its ancestors (running inside the host itself), then cwd's siblings with
-// ../rootcause first — the conventional name in the standard side-by-side layout.
+// ../replypen (or the pre-rename ../rootcause) first — the conventional name in the side-by-side layout.
 func hostCandidates(cwd string) []string {
 	if cwd == "" {
 		return nil
@@ -112,7 +114,7 @@ func hostCandidates(cwd string) []string {
 		dir = parent
 	}
 	parent := filepath.Dir(cwd)
-	candidates = append(candidates, filepath.Join(parent, "rootcause"))
+	candidates = append(candidates, filepath.Join(parent, "replypen"), filepath.Join(parent, "rootcause")) // pre-rename checkout name
 	entries, err := os.ReadDir(parent)
 	if err != nil {
 		return candidates
@@ -129,7 +131,7 @@ func hostCandidates(cwd string) []string {
 
 func verifyHost(dir, source string) (string, error) {
 	if !isHost(dir) {
-		return "", fmt.Errorf("%s points at %s, which is not a rootcause host checkout (no %s)", source, dir, RendererRelPath)
+		return "", fmt.Errorf("%s points at %s, which is not a ReplyPen host checkout (no %s)", source, dir, RendererRelPath)
 	}
 	return dir, nil
 }
@@ -145,7 +147,7 @@ func resolveSuite(host string, o Options) (string, error) {
 	raw := strings.TrimSpace(o.Suite)
 	if raw == "" {
 		if o.Project == "" {
-			return "", fmt.Errorf("no --suite given and no %s project context here — pass --suite <name> (available: %s)", ".rootcause.toml", suiteList(host))
+			return "", fmt.Errorf("no --suite given and no %s project context here — pass --suite <name> (available: %s)", ".replypen.toml", suiteList(host))
 		}
 		raw = o.Project
 	}

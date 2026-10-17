@@ -17,7 +17,7 @@ import (
 // be silently mis-parsed.
 
 // supportedHarvestCorpusFormats are the server render shapes this splitter understands. Keep this list
-// in sync with the parser fixtures and rc self doctor, which advertises the same local capability.
+// in sync with the parser fixtures and rp self doctor, which advertises the same local capability.
 var supportedHarvestCorpusFormats = [...]string{"v1", "v2", "v3"}
 
 // splitThread is one parsed `## ` section: its header index, subject, span/participants (for the
@@ -85,7 +85,7 @@ func parseCorpus(corpus string) (*splitCorpus, error) {
 		return nil, fmt.Errorf("corpus front-matter missing harvest_format (expected one of %s) — refusing to parse a possibly-drifted format", supportedHarvestCorpusFormatList())
 	}
 	if !supportsHarvestCorpusFormat(format) {
-		return nil, fmt.Errorf("unsupported harvest_format %q (this CLI understands %s) — the server render changed; run `rc self update`", format, supportedHarvestCorpusFormatList())
+		return nil, fmt.Errorf("unsupported harvest_format %q (this CLI understands %s) — the server render changed; run `rp self update`", format, supportedHarvestCorpusFormatList())
 	}
 
 	out := &splitCorpus{

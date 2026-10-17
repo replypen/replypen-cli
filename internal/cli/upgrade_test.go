@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 func TestCompareVersions(t *testing.T) {
@@ -59,9 +59,9 @@ func TestAssetName(t *testing.T) {
 	cases := []struct {
 		goos, goarch, want string
 	}{
-		{"darwin", "arm64", "rc_0.5.1_darwin_arm64.tar.gz"},
-		{"linux", "amd64", "rc_0.5.1_linux_amd64.tar.gz"},
-		{"windows", "amd64", "rc_0.5.1_windows_amd64.zip"},
+		{"darwin", "arm64", "rp_0.5.1_darwin_arm64.tar.gz"},
+		{"linux", "amd64", "rp_0.5.1_linux_amd64.tar.gz"},
+		{"windows", "amd64", "rp_0.5.1_windows_amd64.zip"},
 	}
 	for _, c := range cases {
 		if got := assetName("0.5.1", c.goos, c.goarch); got != c.want {
@@ -71,36 +71,36 @@ func TestAssetName(t *testing.T) {
 }
 
 func TestBinaryName(t *testing.T) {
-	if got := binaryName("windows"); got != "rc.exe" {
-		t.Errorf("binaryName(windows) = %q, want rc.exe", got)
+	if got := binaryName("windows"); got != "rp.exe" {
+		t.Errorf("binaryName(windows) = %q, want rp.exe", got)
 	}
-	if got := binaryName("linux"); got != "rc" {
-		t.Errorf("binaryName(linux) = %q, want rc", got)
+	if got := binaryName("linux"); got != "rp" {
+		t.Errorf("binaryName(linux) = %q, want rp", got)
 	}
 }
 
 func TestSha256FromChecksums(t *testing.T) {
 	data := []byte(
-		"aaa111  rc_0.5.1_darwin_amd64.tar.gz\n" +
-			"bbb222  rc_0.5.1_darwin_arm64.tar.gz\n" +
-			"ccc333  rc_0.5.1_linux_amd64.tar.gz\n")
-	got, err := sha256FromChecksums(data, "rc_0.5.1_darwin_arm64.tar.gz")
+		"aaa111  rc_0.5.1_darwin_arm64.tar.gz\n" + // legacy-name copy in the same release
+			"bbb222  rp_0.5.1_darwin_arm64.tar.gz\n" +
+			"ccc333  rp_0.5.1_linux_amd64.tar.gz\n")
+	got, err := sha256FromChecksums(data, "rp_0.5.1_darwin_arm64.tar.gz")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if got != "bbb222" {
 		t.Errorf("got %q, want bbb222", got)
 	}
-	if _, err := sha256FromChecksums(data, "rc_0.5.1_windows_arm64.zip"); err == nil {
+	if _, err := sha256FromChecksums(data, "rp_0.5.1_windows_arm64.zip"); err == nil {
 		t.Error("expected an error for a missing asset, got nil")
 	}
 }
 
 func TestIsHomebrewManaged(t *testing.T) {
 	managed := []string{
-		"/opt/homebrew/Caskroom/rc/0.5.1/rc",
-		"/usr/local/Cellar/rc/0.5.0/bin/rc",
-		"/home/linuxbrew/.linuxbrew/Cellar/rc/0.5.0/bin/rc",
+		"/opt/homebrew/Caskroom/rp/0.5.1/rp",
+		"/usr/local/Cellar/rp/0.5.0/bin/rp",
+		"/home/linuxbrew/.linuxbrew/Cellar/rp/0.5.0/bin/rp",
 	}
 	for _, p := range managed {
 		if !isHomebrewManaged(p) {
@@ -108,9 +108,9 @@ func TestIsHomebrewManaged(t *testing.T) {
 		}
 	}
 	unmanaged := []string{
-		"/usr/local/bin/rc",
-		"/home/pj/.local/bin/rc",
-		"C:\\Users\\pj\\AppData\\Local\\Programs\\rc\\rc.exe",
+		"/usr/local/bin/rp",
+		"/home/pj/.local/bin/rp",
+		"C:\\Users\\pj\\AppData\\Local\\Programs\\rp\\rp.exe",
 	}
 	for _, p := range unmanaged {
 		if isHomebrewManaged(p) {
@@ -121,8 +121,8 @@ func TestIsHomebrewManaged(t *testing.T) {
 
 func TestRemoveVerifiedLegacyGoBinariesIsSafeAndIdempotent(t *testing.T) {
 	root := t.TempDir()
-	verified := filepath.Join(root, "go", "bin", "rc")
-	unknown := filepath.Join(root, "other", "rc")
+	verified := filepath.Join(root, "go", "bin", "rp")
+	unknown := filepath.Join(root, "other", "rp")
 	for _, path := range []string{verified, unknown} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
@@ -152,7 +152,7 @@ func TestRemoveVerifiedLegacyGoBinariesIsSafeAndIdempotent(t *testing.T) {
 }
 
 func TestLegacyGoBinaryCandidatesIncludesCustomInstallPath(t *testing.T) {
-	custom := filepath.Join(t.TempDir(), "custom-bin", "rc")
+	custom := filepath.Join(t.TempDir(), "custom-bin", "rp")
 	inv := rcInstallInventory{Paths: []rcInstallPath{{Path: custom, ResolvedPath: custom, Kind: installStandalone}}}
 	candidates := legacyGoBinaryCandidates(inv)
 	found := false
@@ -169,7 +169,7 @@ func TestLegacyGoBinaryCandidatesIncludesCustomInstallPath(t *testing.T) {
 
 func TestRemoveVerifiedLegacyGoBinariesSurfacesRemovalFailure(t *testing.T) {
 	want := errors.New("denied")
-	path := executableFile(t, filepath.Join(t.TempDir(), "go", "bin", "rc"))
+	path := executableFile(t, filepath.Join(t.TempDir(), "go", "bin", "rp"))
 	_, err := removeVerifiedLegacyGoBinaries([]string{path}, "", func(string) bool { return true }, func(string) error { return want })
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want wrapped removal failure", err)
@@ -178,8 +178,8 @@ func TestRemoveVerifiedLegacyGoBinariesSurfacesRemovalFailure(t *testing.T) {
 
 func TestRemoveVerifiedLegacyGoBinariesNeverFollowsSymlinkOrRemovesProtectedBinary(t *testing.T) {
 	root := t.TempDir()
-	canonical := executableFile(t, filepath.Join(root, "Caskroom", "rc", "1.1.3", "rc"))
-	link := symlinkFile(t, canonical, filepath.Join(root, "go", "bin", "rc"))
+	canonical := executableFile(t, filepath.Join(root, "Caskroom", "rp", "1.1.3", "rp"))
+	link := symlinkFile(t, canonical, filepath.Join(root, "go", "bin", "rp"))
 
 	removed, err := removeVerifiedLegacyGoBinaries([]string{link, canonical}, canonical, func(string) bool { return true }, os.Remove)
 	if err != nil || len(removed) != 0 {
@@ -191,8 +191,8 @@ func TestRemoveVerifiedLegacyGoBinariesNeverFollowsSymlinkOrRemovesProtectedBina
 }
 
 func TestRenderUpdateCheckReportsAlreadyLatestDuplicates(t *testing.T) {
-	running := executableFile(t, filepath.Join(t.TempDir(), "go", "bin", "rc"))
-	other := executableFile(t, filepath.Join(t.TempDir(), "bin", "rc"))
+	running := executableFile(t, filepath.Join(t.TempDir(), "go", "bin", "rp"))
+	other := executableFile(t, filepath.Join(t.TempDir(), "bin", "rp"))
 	inv := inspectRCInstallations(running, strings.Join([]string{filepath.Dir(running), filepath.Dir(other)}, string(os.PathListSeparator)), "linux")
 	var out bytes.Buffer
 	render.UpdateCheck(&out, updateStatus("1.1.3", "v1.1.3", inv, "github"))
@@ -241,8 +241,8 @@ func TestResolveReleaseAtUsesConfiguredMirror(t *testing.T) {
 }
 
 func TestReleaseMirrorReadsEnvironment(t *testing.T) {
-	t.Setenv("RC_RELEASE_MIRROR", " https://mirror.example/rc/ ")
-	if got := releaseMirror(); got != "https://mirror.example/rc" {
+	t.Setenv("RC_RELEASE_MIRROR", " https://mirror.example/rp/ ")
+	if got := releaseMirror(); got != "https://mirror.example/rp" {
 		t.Fatalf("releaseMirror() = %q", got)
 	}
 }
@@ -274,7 +274,7 @@ func TestResolveReleaseAtFallsBackToDefaultMirrorOnGitHubDeniedOrMissing(t *test
 }
 
 func TestFetchReleaseBinaryFromMirrorVerifiesChecksum(t *testing.T) {
-	archive := archiveWithBinary(t, "linux", []byte("mirror rc binary"))
+	archive := archiveWithBinary(t, "linux", []byte("mirror rp binary"))
 	asset := assetName("1.2.3", "linux", "amd64")
 	sum := sha256.Sum256(archive)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -293,7 +293,7 @@ func TestFetchReleaseBinaryFromMirrorVerifiesChecksum(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(bin) != "mirror rc binary" {
+	if string(bin) != "mirror rp binary" {
 		t.Fatalf("binary = %q", bin)
 	}
 }
@@ -321,19 +321,19 @@ func archiveWithBinary(t *testing.T, goos string, binary []byte) []byte {
 func TestVerifyHomebrewLatestChecksCanonicalVersion(t *testing.T) {
 	root := t.TempDir()
 	brew := filepath.Join(root, "bin", "brew")
-	rc := filepath.Join(root, "bin", binaryName("darwin"))
+	rp := filepath.Join(root, "bin", binaryName("darwin"))
 	if err := os.MkdirAll(filepath.Dir(brew), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(brew, []byte("#!/bin/sh\nprefix=${0%/bin/brew}\n[ \"$1\" = --prefix ] && printf '%s\\n' \"$prefix\"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(rc, []byte("#!/bin/sh\nprintf 'rc version 1.1.4\\n'\n"), 0o755); err != nil {
+	if err := os.WriteFile(rp, []byte("#!/bin/sh\nprintf 'rp version 1.1.4\\n'\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", filepath.Dir(brew))
 	link, canonical, version, err := verifyHomebrewLatest(context.Background(), "v1.1.4")
-	if err != nil || version != "1.1.4" || canonical != resolvePath(rc) || link != rc {
+	if err != nil || version != "1.1.4" || canonical != resolvePath(rp) || link != rp {
 		t.Fatalf("verify = %q, %q, %q, %v", link, canonical, version, err)
 	}
 	if _, _, _, err := verifyHomebrewLatest(context.Background(), "v1.1.5"); err == nil {

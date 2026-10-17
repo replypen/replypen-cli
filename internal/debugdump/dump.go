@@ -1,10 +1,10 @@
-// Package debugdump ports rootcause's rc-agent-debug decomposer to the CLI: it turns one run's /trace
+// Package debugdump ports ReplyPen's rc-agent-debug decomposer to the CLI: it turns one run's /trace
 // bundle into TWO local files built for progressive disclosure — a JSONL event log (the drill-down
 // target) and a THIN markdown index (where to look). The calling agent reads the index, then jqs the
 // JSONL; the CLI never pre-summarizes a whole run into an LLM's context.
 //
 // The JSONL contract is the load-bearing seam, kept compatible with the Python operator script
-// (.agents/skills/support/scripts/rc_agent_debug.py via the shared rootcause-runtime renderer): line 1
+// (.agents/skills/support/scripts/rc_agent_debug.py via the shared replypen-runtime renderer): line 1
 // is a {"type":"run"…} header (the server's raw `run` object + the CLI overlay, jsonl.go runHeader: new
 // server fields arrive without a CLI change), every later line is a {"type":"event"…} keyed by `disp` (the index's `#`
 // column; grounding pre-steps are P1,P2,…, the main loop 1,2,…). Existing jq recipes
@@ -23,8 +23,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // decEvent is one decorated event: the raw item plus the display fields the index + JSONL derive (disp,

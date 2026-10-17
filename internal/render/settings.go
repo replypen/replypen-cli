@@ -1,5 +1,5 @@
-// The config-registry views: effective settings (`rc project settings runtime get`), the whole schema
-// (`rc schema`), and one field (`rc explain`).
+// The config-registry views: effective settings (`rp project settings runtime get`), the whole schema
+// (`rp schema`), and one field (`rp explain`).
 // The renderers are pure functions of the wire structs (no I/O beyond the passed writer, no clock) so
 // golden tests pin them exactly. Timestamps are shown as the server sent them, keeping goldens stable.
 
@@ -14,12 +14,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // Settings renders the effective settings table: value (what's set, blank if unset), effective, and
 // default per key. kb_enrich_model is shown only when the server included it.
-// Settings renders the generic settings bag (`rc project settings runtime get`): one row per key, in stable key order,
+// Settings renders the generic settings bag (`rp project settings runtime get`): one row per key, in stable key order,
 // with the override / effective / default / source. The CLI holds no per-key knowledge — it renders
 // whatever keys the server sends, so a new server-side knob appears with no CLI change.
 func Settings(w io.Writer, s *client.Settings) {
@@ -33,7 +33,7 @@ func Settings(w io.Writer, s *client.Settings) {
 	_ = tw.Flush()
 }
 
-// Schema renders the config registry (`rc schema`): each resource, then a row per field with its type,
+// Schema renders the config registry (`rp schema`): each resource, then a row per field with its type,
 // enum (if any), write scopes, default, and help.
 func Schema(w io.Writer, resp *client.SchemaResponse) {
 	names := make([]string, 0, len(resp.Resources))
@@ -63,7 +63,7 @@ func Schema(w io.Writer, resp *client.SchemaResponse) {
 	}
 }
 
-// ExplainField renders one field's full schema (`rc explain <key>`) as a key: value block — the
+// ExplainField renders one field's full schema (`rp explain <key>`) as a key: value block — the
 // human-readable twin of /meta/schema for a single knob.
 func ExplainField(w io.Writer, resource string, f client.FieldSchema) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)

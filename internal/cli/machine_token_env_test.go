@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/config"
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
 func TestLoadResolvedTokenSeedsProjectProfileFromBrainEnv(t *testing.T) {

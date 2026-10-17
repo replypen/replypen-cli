@@ -1,5 +1,5 @@
 # Cut a release: `git tag v0.1.0 && git push origin v0.1.0`. GoReleaser cross-compiles and attaches
-# the binaries + checksums to the GitHub Release for that tag — no Go needed to install `rc`.
+# the binaries + checksums to the GitHub Release for that tag — no Go needed to install `rp`.
 name: release
 
 on:
@@ -12,7 +12,7 @@ permissions:
   id-token: write # assume the S3 mirror publisher role via GitHub OIDC
 
 concurrency:
-  group: rootcause-cli-release
+  group: replypen-cli-release
   cancel-in-progress: false
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Lets GoReleaser push the Homebrew cask to rootcause-org/homebrew-tap (see .goreleaser.yaml):
+          # Lets GoReleaser push the Homebrew cask to replypen/homebrew-tap (see .goreleaser.yaml):
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
 
       # The role is trusted only for v* tag refs from this repository and can write only the release
@@ -41,35 +41,42 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::036451323796:role/rootcause-cli-release-mirror
           aws-region: eu-central-1
-          role-session-name: rootcause-cli-release-mirror
+          role-session-name: replypen-cli-release-mirror
 
       - name: Publish release mirror
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Legacy prefix kept: installed rc <= 1.51 binaries and the host's /install/cloud.sh redirect
+          # point here. It carries both rp_* and the legacy rc_* archives (one shared checksums.txt).
           S3_MIRROR: s3://kampkompas-eu-central-1/cloud-bootstrap/rc
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
           version="${tag#v}"
-          out="${RUNNER_TEMP}/rootcause-cli-release"
+          out="${RUNNER_TEMP}/replypen-cli-release"
           mkdir -p "$out"
 
-          gh release download "$tag" \
-            --repo "$GITHUB_REPOSITORY" \
-            --dir "$out" \
-            --pattern "rc_${version}_linux_amd64.tar.gz" \
-            --pattern "rc_${version}_linux_arm64.tar.gz" \
-            --pattern "rc_${version}_darwin_amd64.tar.gz" \
-            --pattern "rc_${version}_darwin_arm64.tar.gz" \
-            --pattern checksums.txt
+          assets=()
+          for name in rp rc; do
+            for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+              assets+=("${name}_${version}_${platform}.tar.gz")
+            done
+            for platform in windows_amd64 windows_arm64; do
+              assets+=("${name}_${version}_${platform}.zip")
+            done
+          done
 
-          for asset in \
-            "rc_${version}_linux_amd64.tar.gz" \
-            "rc_${version}_linux_arm64.tar.gz" \
-            "rc_${version}_darwin_amd64.tar.gz" \
-            "rc_${version}_darwin_arm64.tar.gz"; do
+          patterns=(--pattern checksums.txt)
+          for asset in "${assets[@]}"; do patterns+=(--pattern "$asset"); done
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir "$out" "${patterns[@]}"
+
+          for asset in "${assets[@]}"; do
+            case "$asset" in
+              *.zip) type=application/zip ;;
+              *) type=application/gzip ;;
+            esac
             aws s3 cp "$out/$asset" "$S3_MIRROR/$tag/$asset" \
-              --content-type application/gzip \
+              --content-type "$type" \
               --cache-control 'public,max-age=31536000,immutable' \
               --only-show-errors
           done

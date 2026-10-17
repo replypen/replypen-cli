@@ -7,7 +7,7 @@ import (
 )
 
 // The `…WithRaw` siblings below return BOTH the typed value (for the table renderers) and the server's
-// verbatim body (for `-o json`), so one `rc run <view> <id>` invocation makes exactly one HTTP request
+// verbatim body (for `-o json`), so one `rp run <view> <id>` invocation makes exactly one HTTP request
 // and the JSON output can never drop a field the CLI's structs don't know about yet.
 
 // RunWithRaw fetches GET /api/v1/runs/{id} — typed detail + verbatim body.
@@ -23,8 +23,8 @@ func (c *Client) RunWithRaw(ctx context.Context, id, project, tenant string) (*R
 	return &out, raw, nil
 }
 
-// FullWithRaw fetches GET /api/v1/runs/{id}/trace — typed bundle + verbatim body. `rc run trace`
-// renders the typed bundle on a TTY and decomposes the RAW bytes into JSONL for `-o json`; `rc run
+// FullWithRaw fetches GET /api/v1/runs/{id}/trace — typed bundle + verbatim body. `rp run trace`
+// renders the typed bundle on a TTY and decomposes the RAW bytes into JSONL for `-o json`; `rp run
 // guards` projects `.run.guards` out of the same raw body.
 func (c *Client) FullWithRaw(ctx context.Context, id, project, tenant string) (*FullResponse, json.RawMessage, error) {
 	var raw json.RawMessage

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 func TestAnalyzePathBinaries(t *testing.T) {
@@ -27,21 +27,21 @@ func TestAnalyzePathBinaries(t *testing.T) {
 		{
 			name: "divergent duplicate",
 			copies: []binaryInfo{
-				{Path: "/usr/local/bin/rc", Version: "1.2.3", LDFlagsVersion: "1.2.3", Install: "release", Active: true},
-				{Path: "/home/me/go/bin/rc", Version: "v1.2.2 (go install)", ModuleVersion: "v1.2.2", Install: "go-install"},
+				{Path: "/usr/local/bin/rp", Version: "1.2.3", LDFlagsVersion: "1.2.3", Install: "release", Active: true},
+				{Path: "/home/me/go/bin/rp", Version: "v1.2.2 (go install)", ModuleVersion: "v1.2.2", Install: "go-install"},
 			},
 			codes: []string{"divergent_copy"},
 		},
 		{
 			name: "same tag duplicate still reported",
 			copies: []binaryInfo{
-				{Path: "/usr/local/bin/rc", Version: "1.2.3", LDFlagsVersion: "1.2.3", Install: "release", Active: true},
-				{Path: "/home/me/go/bin/rc", Version: "v1.2.3 (go install)", ModuleVersion: "v1.2.3", Install: "go-install"},
+				{Path: "/usr/local/bin/rp", Version: "1.2.3", LDFlagsVersion: "1.2.3", Install: "release", Active: true},
+				{Path: "/home/me/go/bin/rp", Version: "v1.2.3 (go install)", ModuleVersion: "v1.2.3", Install: "go-install"},
 			}, codes: []string{"duplicate_copy"},
 		},
-		{name: "single release", copies: []binaryInfo{{Path: "/usr/local/bin/rc", Version: "1.2.3", Install: "release", Active: true}}},
-		{name: "active go install", copies: []binaryInfo{{Path: "/home/me/go/bin/rc", Version: "v1.2.3 (go install)", Install: "go-install", Active: true}}, codes: []string{"active_non_release"}},
-		{name: "single homebrew", copies: []binaryInfo{{Path: "/opt/homebrew/bin/rc", Version: "1.2.3", Install: "homebrew", Active: true}}},
+		{name: "single release", copies: []binaryInfo{{Path: "/usr/local/bin/rp", Version: "1.2.3", Install: "release", Active: true}}},
+		{name: "active go install", copies: []binaryInfo{{Path: "/home/me/go/bin/rp", Version: "v1.2.3 (go install)", Install: "go-install", Active: true}}, codes: []string{"active_non_release"}},
+		{name: "single homebrew", copies: []binaryInfo{{Path: "/opt/homebrew/bin/rp", Version: "1.2.3", Install: "homebrew", Active: true}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -59,30 +59,30 @@ func TestAnalyzePathBinaries(t *testing.T) {
 }
 
 func TestAnalyzePathBinariesMacRequiresHomebrewAndDeduplicatesDispatcherTarget(t *testing.T) {
-	goBinary := "/Users/me/.local/share/mise/installs/go/1.25/bin/rc"
+	goBinary := "/Users/me/.local/share/mise/installs/go/1.25/bin/rp"
 	copies := []binaryInfo{
-		{Path: "/Users/me/.local/share/mise/shims/rc", ResolvedPath: goBinary, Version: "v1.2.3 (go install)", ModuleVersion: "v1.2.3", Install: "go-install", Active: true, Dispatcher: true},
+		{Path: "/Users/me/.local/share/mise/shims/rp", ResolvedPath: goBinary, Version: "v1.2.3 (go install)", ModuleVersion: "v1.2.3", Install: "go-install", Active: true, Dispatcher: true},
 		{Path: goBinary, Version: "v1.2.3 (go install)", ModuleVersion: "v1.2.3", Install: "go-install"},
-		{Path: "/opt/homebrew/bin/rc", ResolvedPath: "/opt/homebrew/Caskroom/rc/1.2.3/rc", Version: "1.2.3", LDFlagsVersion: "1.2.3", Install: "homebrew"},
+		{Path: "/opt/homebrew/bin/rp", ResolvedPath: "/opt/homebrew/Caskroom/rp/1.2.3/rp", Version: "1.2.3", LDFlagsVersion: "1.2.3", Install: "homebrew"},
 	}
 	findings := analyzePathBinaries(copies, copies[0], "darwin")
 	if len(findings) != 2 || findings[0].Code != "active_noncanonical" || findings[1].Code != "duplicate_copy" {
 		t.Fatalf("findings = %#v, want noncanonical + one physical Homebrew duplicate", findings)
 	}
 	for _, finding := range findings {
-		if finding.Hint != "rc self update --migrate" {
+		if finding.Hint != "rp self update --migrate" {
 			t.Fatalf("mac remediation = %q, want migration", finding.Hint)
 		}
 	}
 }
 
 func TestAnalyzePathBinariesReportsRunningBinaryMissingOrDifferentFromPATH(t *testing.T) {
-	current := binaryInfo{Path: "/tmp/rc", ResolvedPath: "/private/tmp/rc", Version: "1.2.3", Install: "release"}
+	current := binaryInfo{Path: "/tmp/rp", ResolvedPath: "/private/tmp/rp", Version: "1.2.3", Install: "release"}
 	findings := analyzePathBinaries(nil, current, "linux")
 	if len(findings) != 1 || findings[0].Code != "active_missing" {
 		t.Fatalf("missing PATH findings = %#v", findings)
 	}
-	selected := binaryInfo{Path: "/usr/local/bin/rc", Version: "1.2.3", Install: "release", Active: true}
+	selected := binaryInfo{Path: "/usr/local/bin/rp", Version: "1.2.3", Install: "release", Active: true}
 	findings = analyzePathBinaries([]binaryInfo{selected}, current, "linux")
 	if len(findings) != 1 || findings[0].Code != "running_not_selected" {
 		t.Fatalf("absolute invocation findings = %#v", findings)
@@ -93,7 +93,7 @@ func TestAnalyzePathBinariesReportsRunningBinaryMissingOrDifferentFromPATH(t *te
 // copy". It used to default to false, so a single healthy Homebrew install reported active:false plus a
 // "remove earlier stale PATH copies" fix while its own PATH scan listed exactly one active entry.
 func TestMarkCurrentActive(t *testing.T) {
-	brew := binaryInfo{Path: "/opt/homebrew/bin/rc", ResolvedPath: "/opt/homebrew/Caskroom/rc/1.2.3/rc", Version: "1.2.3", LDFlagsVersion: "1.2.3", Install: "homebrew"}
+	brew := binaryInfo{Path: "/opt/homebrew/bin/rp", ResolvedPath: "/opt/homebrew/Caskroom/rp/1.2.3/rp", Version: "1.2.3", LDFlagsVersion: "1.2.3", Install: "homebrew"}
 
 	single := brew
 	single.Active = true
@@ -105,22 +105,22 @@ func TestMarkCurrentActive(t *testing.T) {
 		t.Fatalf("single homebrew copy findings = %#v, want none", findings)
 	}
 
-	shadow := binaryInfo{Path: "/home/me/go/bin/rc", Version: "v1.2.2 (go install)", ModuleVersion: "v1.2.2", Install: "go-install", Active: true}
+	shadow := binaryInfo{Path: "/home/me/go/bin/rp", Version: "v1.2.2 (go install)", ModuleVersion: "v1.2.2", Install: "go-install", Active: true}
 	shadowed := markCurrentActive(brew, []binaryInfo{shadow, single})
 	if shadowed.Active || shadowed.Hint != "remove earlier stale PATH copies to activate this Homebrew install" {
 		t.Fatalf("shadowed homebrew: active = %v, hint = %q, want false plus the stale-copy remediation", shadowed.Active, shadowed.Hint)
 	}
 
 	if none := markCurrentActive(brew, nil); none.Active {
-		t.Fatalf("running rc not on PATH must not be active: %#v", none)
+		t.Fatalf("running rp not on PATH must not be active: %#v", none)
 	}
 }
 
 func TestRenderDoctorHuman(t *testing.T) {
 	report := doctorReport{
-		Binary:       binaryInfo{Path: "/usr/local/bin/rc", Version: "1.2.3", ModuleVersion: "v1.2.3", LDFlagsVersion: "1.2.3", Install: "release"},
-		Path:         []binaryInfo{{Path: "/usr/local/bin/rc", Version: "1.2.3", Install: "release", Active: true}},
-		Scope:        doctorScope{Profile: "default", Project: "acme", ProjectSource: ".rootcause.toml", Tenant: "-", BaseURL: "https://app.replypen.com", BaseURLSource: "built-in production"},
+		Binary:       binaryInfo{Path: "/usr/local/bin/rp", Version: "1.2.3", ModuleVersion: "v1.2.3", LDFlagsVersion: "1.2.3", Install: "release"},
+		Path:         []binaryInfo{{Path: "/usr/local/bin/rp", Version: "1.2.3", Install: "release", Active: true}},
+		Scope:        doctorScope{Profile: "default", Project: "acme", ProjectSource: ".replypen.toml", Tenant: "-", BaseURL: "https://app.replypen.com", BaseURLSource: "built-in production"},
 		Capabilities: doctorCapabilities{HarvestCorpusFormats: []string{"v1", "v2", "v3"}},
 		Update:       doctorUpdate{Current: "1.2.3", Latest: "v1.2.4", Available: true},
 	}
@@ -146,7 +146,7 @@ func TestDoctorServerHarvestCorpusFormat(t *testing.T) {
 		update bool
 	}{
 		{name: "in sync", caps: doctorCapabilities{HarvestCorpusFormats: []string{"v1", "v2", "v3"}, ServerHarvestCorpus: "v3"}, want: "server writes:"},
-		{name: "server ahead", caps: doctorCapabilities{HarvestCorpusFormats: []string{"v1", "v2", "v3"}, ServerHarvestCorpus: "v4"}, want: "rc self update", update: true},
+		{name: "server ahead", caps: doctorCapabilities{HarvestCorpusFormats: []string{"v1", "v2", "v3"}, ServerHarvestCorpus: "v4"}, want: "rp self update", update: true},
 		{name: "unreachable", caps: doctorCapabilities{HarvestCorpusFormats: []string{"v1"}, ServerNote: "server capability check skipped: offline"}, want: "offline"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -185,7 +185,7 @@ func TestLDFlagsVersion(t *testing.T) {
 }
 
 // TestClassifyInstall pins doctor's build-info PROVENANCE classifier. The sibling path-shape
-// classifier `rc self update` uses is pinned by TestClassifyInstallPath; they share the PATH walk
+// classifier `rp self update` uses is pinned by TestClassifyInstallPath; they share the PATH walk
 // (scanPathRC), not the taxonomy.
 func TestClassifyInstall(t *testing.T) {
 	goInstall := &debug.BuildInfo{Main: debug.Module{Version: "v1.2.3"}}
@@ -194,10 +194,10 @@ func TestClassifyInstall(t *testing.T) {
 		name, path, injected, want string
 		bi                         *debug.BuildInfo
 	}{
-		{name: "release", path: "/usr/local/bin/rc", injected: "1.2.3", bi: source, want: "release"},
-		{name: "go install", path: "/home/me/go/bin/rc", bi: goInstall, want: "go-install"},
-		{name: "source", path: "/tmp/rc", bi: source, want: "source"},
-		{name: "homebrew", path: "/opt/homebrew/Caskroom/rc/1.2.3/rc", injected: "1.2.3", bi: source, want: "homebrew"},
+		{name: "release", path: "/usr/local/bin/rp", injected: "1.2.3", bi: source, want: "release"},
+		{name: "go install", path: "/home/me/go/bin/rp", bi: goInstall, want: "go-install"},
+		{name: "source", path: "/tmp/rp", bi: source, want: "source"},
+		{name: "homebrew", path: "/opt/homebrew/Caskroom/rp/1.2.3/rp", injected: "1.2.3", bi: source, want: "homebrew"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := classifyInstall(tt.path, tt.injected, tt.bi); got != tt.want {
@@ -220,11 +220,11 @@ func TestScanPathMiseDispatcherUsesRunningRC(t *testing.T) {
 	if err := os.WriteFile(mise, []byte("not a Go binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	shim := filepath.Join(shimDir, "rc")
+	shim := filepath.Join(shimDir, "rp")
 	if err := os.Symlink(mise, shim); err != nil {
 		t.Fatal(err)
 	}
-	current := binaryInfo{Path: "/home/me/.local/share/mise/installs/go/1.25.9/bin/rc", Version: "v1.2.3 (go install)", ModuleVersion: "v1.2.3", Install: "go-install"}
+	current := binaryInfo{Path: "/home/me/.local/share/mise/installs/go/1.25.9/bin/rp", Version: "v1.2.3 (go install)", ModuleVersion: "v1.2.3", Install: "go-install"}
 
 	copies := scanPathBinaries(shimDir, current, runtime.GOOS)
 	if len(copies) != 1 {
@@ -232,17 +232,17 @@ func TestScanPathMiseDispatcherUsesRunningRC(t *testing.T) {
 	}
 	got := copies[0]
 	if !got.Active || !got.Dispatcher || got.Version != current.Version || got.ModuleVersion != current.ModuleVersion {
-		t.Fatalf("dispatcher info = %#v, want running rc info", got)
+		t.Fatalf("dispatcher info = %#v, want running rp info", got)
 	}
-	if strings.Contains(got.ReadError, "not a rootcause") {
-		t.Fatalf("mise dispatcher was parsed as rc: %#v", got)
+	if strings.Contains(got.ReadError, "not a ReplyPen") {
+		t.Fatalf("mise dispatcher was parsed as rp: %#v", got)
 	}
 }
 
 func TestDoctorUpdateCheckAndOfflineAreInformational(t *testing.T) {
 	t.Setenv("PATH", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("ROOTCAUSE_BASE_URL", "")
+	t.Setenv("REPLYPEN_BASE_URL", "")
 
 	t.Run("fake release server", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -299,12 +299,12 @@ func TestDoctorFindingsReturnNonzero(t *testing.T) {
 		t.Fatal(err)
 	}
 	binDir := t.TempDir()
-	if err := os.Symlink(exe, filepath.Join(binDir, "rc")); err != nil {
+	if err := os.Symlink(exe, filepath.Join(binDir, "rp")); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", binDir)
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("ROOTCAUSE_BASE_URL", "")
+	t.Setenv("REPLYPEN_BASE_URL", "")
 	var out, errOut bytes.Buffer
 	e := &env{profile: "default", output: "json", out: &out, err: &errOut,
 		latestRelease: func(context.Context) (string, error) { return "", errors.New("offline") }}
@@ -317,7 +317,7 @@ func TestDoctorFindingsReturnNonzero(t *testing.T) {
 
 func TestDoctorScopeSelectorsStayLocal(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("ROOTCAUSE_BASE_URL", "")
+	t.Setenv("REPLYPEN_BASE_URL", "")
 
 	e := &env{profile: "default", tenant: "acme", scope: scopeSelectorProject}
 	resolved, err := e.resolveScope(false)

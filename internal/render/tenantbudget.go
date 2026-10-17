@@ -8,7 +8,7 @@ import (
 	"time"
 	_ "time/tzdata" // Brussels zone even where the OS ships no zoneinfo
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // TenantBudget renders the project-admin view of one tenant's monthly AI limit.
@@ -16,7 +16,7 @@ func TenantBudget(w io.Writer, tenant string, l *client.TenantBudgetLimit) {
 	resets := budgetResetDate(l.ResetsAt)
 	_, _ = fmt.Fprintf(w, "tenant     %s\n", tenant)
 	if !l.Metered || l.MonthlyUSD == nil {
-		_, _ = fmt.Fprintln(w, "limit      none (create one: rc project tenant budget set <slug> --usd <amount>)")
+		_, _ = fmt.Fprintln(w, "limit      none (create one: rp project tenant budget set <slug> --usd <amount>)")
 		return
 	}
 	_, _ = fmt.Fprintf(w, "account    %s\n", l.Account)

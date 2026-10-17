@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // knowledgeArticleProviders is the closed provider set of the write path. The value becomes a path
@@ -17,7 +17,7 @@ import (
 var knowledgeArticleProviders = []string{"helpscout", "intercom", "knowledgeowl"}
 
 // newKnowledgeArticleCmd is the help-centre WRITE path: a `replypen: helpcenter/v1` markdown block in,
-// a provider article out. Reading articles for grounding stays on `rc project knowledge content`.
+// a provider article out. Reading articles for grounding stays on `rp project knowledge content`.
 func newKnowledgeArticleCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "article",
@@ -28,7 +28,7 @@ func newKnowledgeArticleCmd(e *env) *cobra.Command {
 			"A write lands in the provider's DRAFT lane unless you pass --publish, and `apply --dry-run`\n" +
 			"first prints the exact provider calls. `get` hands you an editable block for a live article.\n" +
 			"The project needs a help-centre write grant (once, by an owner):\n" +
-			"  rc project connection add integration_key=<helpscout_docs|intercom|knowledgeowl> \\\n" +
+			"  rp project connection add integration_key=<helpscout_docs|intercom|knowledgeowl> \\\n" +
 			"    label=help-center token=…",
 	}
 	cmd.AddCommand(knowledgeArticleApplyCmd(e), knowledgeArticleGetCmd(e))
@@ -94,7 +94,7 @@ func knowledgeArticleGetCmd(e *env) *cobra.Command {
 		Long: "Fetch one help-centre article as an applyable markdown block.\n\n" +
 			"The output is a ready `replypen: helpcenter/v1` block with `op: update` and the article's\n" +
 			"current title/ids in the front matter: edit the body (or the title) and feed the same file\n" +
-			"back to `rc project knowledge article apply --from FILE.md --dry-run`.\n" +
+			"back to `rp project knowledge article apply --from FILE.md --dry-run`.\n" +
 			"--id is the provider-native article id (the id in the article's help-centre URL or in the\n" +
 			"synced KB file's front matter), never our internal document id.\n" +
 			"Use --out FILE to write the block straight to disk instead of stdout. Reading works with the\n" +

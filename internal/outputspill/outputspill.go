@@ -12,10 +12,12 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/replypen/replypen-cli/internal/localstate"
 )
 
 const (
-	DefaultDir       = ".rootcause/output"
+	DefaultDir       = ".replypen/output"
 	DefaultThreshold = 6000
 	DefaultInlineMax = 20000
 	DefaultHeadBytes = 2000
@@ -100,6 +102,9 @@ func (c Config) DirFor(label string) string {
 func WriteArtifact(c Config, dir, name string, b []byte, format string, serverTruncated bool) (Artifact, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Artifact{}, fmt.Errorf("create output dir %s: %w", dir, err)
+	}
+	if err := localstate.SeedIgnore(dir); err != nil {
+		return Artifact{}, err
 	}
 	path := filepath.Join(dir, name)
 	if err := os.WriteFile(path, b, 0o600); err != nil {

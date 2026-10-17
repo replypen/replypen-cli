@@ -8,11 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newThreadCmd builds `rc run thread <id>`: run/provider/local/session resolution, its pre-agent
+// newThreadCmd builds `rp run thread <id>`: run/provider/local/session resolution, its pre-agent
 // pipeline outcome, then every run with status/health and placement.
 func newThreadCmd(e *env) *cobra.Command {
 	var shareToken string
@@ -20,7 +20,7 @@ func newThreadCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "thread <id|url>",
 		Short: "Trace one run, provider/local thread, or session through pipeline and placement",
-		Long: "Trace a run id, provider conversation id (Gmail thread or Intercom conversation), rootcause " +
+		Long: "Trace a run id, provider conversation id (Gmail thread or Intercom conversation), ReplyPen " +
 			"thread UUID, session id, or an email address (the newest threads it sent or received — the " +
 			"forwarded-email entry point, incl. triage-skipped mail that never became a run). A run id is resolved through its safe run-status identity first. " +
 			"Shows the pre-agent channel outcome, then every run (newest first) " +

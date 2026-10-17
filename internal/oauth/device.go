@@ -56,7 +56,7 @@ func (c *Client) LoginDevice(ctx context.Context, out io.Writer) (Tokens, error)
 		case <-c.pollWait(interval):
 		}
 		if da.ExpiresIn > 0 && !time.Now().Before(deadline) {
-			return Tokens{}, fmt.Errorf("device code expired before approval — run `rc auth login` again")
+			return Tokens{}, fmt.Errorf("device code expired before approval — run `rp auth login` again")
 		}
 
 		tok, err := c.postToken(ctx, url.Values{
@@ -79,7 +79,7 @@ func (c *Client) LoginDevice(ctx context.Context, out io.Writer) (Tokens, error)
 		case "access_denied":
 			return Tokens{}, fmt.Errorf("device login was denied")
 		case "expired_token":
-			return Tokens{}, fmt.Errorf("device code expired before approval — run `rc auth login` again")
+			return Tokens{}, fmt.Errorf("device code expired before approval — run `rp auth login` again")
 		default:
 			return Tokens{}, err
 		}

@@ -1,4 +1,4 @@
-// Views for the `rc self` family: the doctor report and the update check. Both are pure functions of
+// Views for the `rp self` family: the doctor report and the update check. Both are pure functions of
 // a view model the CLI builds — every host-dependent decision (which install is running, whether this
 // OS has a canonical Homebrew install, version comparison) is resolved in internal/cli and arrives
 // here as plain fields, so the output is testable without touching PATH or the filesystem.
@@ -12,7 +12,7 @@ import (
 	"text/tabwriter"
 )
 
-// DoctorBinary is one rc copy — the running one or a PATH entry.
+// DoctorBinary is one rp copy — the running one or a PATH entry.
 type DoctorBinary struct {
 	Path           string
 	ResolvedPath   string
@@ -60,7 +60,7 @@ type DoctorFinding struct {
 	Hint    string
 }
 
-// DoctorReport is everything `rc self doctor` shows a human.
+// DoctorReport is everything `rp self doctor` shows a human.
 type DoctorReport struct {
 	Binary       DoctorBinary
 	Path         []DoctorBinary
@@ -114,7 +114,7 @@ func Doctor(w io.Writer, report DoctorReport) error {
 	if report.Scope.LoginNote != "" {
 		_, _ = fmt.Fprintf(tw, "  note:\t%s\n", report.Scope.LoginNote)
 	}
-	_, _ = fmt.Fprintln(tw, "  auth details:\trc auth status")
+	_, _ = fmt.Fprintln(tw, "  auth details:\trp auth status")
 	_, _ = fmt.Fprintln(tw)
 
 	_, _ = fmt.Fprintln(tw, "Capabilities")
@@ -123,7 +123,7 @@ func Doctor(w io.Writer, report DoctorReport) error {
 	case report.Capabilities.ServerNote != "":
 		_, _ = fmt.Fprintf(tw, "  server writes:\t%s\n", report.Capabilities.ServerNote)
 	case report.Capabilities.Unsupported:
-		_, _ = fmt.Fprintf(tw, "  server writes:\t%s — this rc cannot split it; run: rc self update\n", report.Capabilities.ServerHarvestCorpus)
+		_, _ = fmt.Fprintf(tw, "  server writes:\t%s — this rp cannot split it; run: rp self update\n", report.Capabilities.ServerHarvestCorpus)
 	case report.Capabilities.ServerHarvestCorpus != "":
 		_, _ = fmt.Fprintf(tw, "  server writes:\t%s\n", report.Capabilities.ServerHarvestCorpus)
 	}
@@ -133,7 +133,7 @@ func Doctor(w io.Writer, report DoctorReport) error {
 	if report.Update.Note != "" {
 		_, _ = fmt.Fprintf(tw, "  %s\n", report.Update.Note)
 	} else if report.Update.Available {
-		_, _ = fmt.Fprintf(tw, "  available:\t%s → %s (run: rc self update)\n", report.Update.Current, report.Update.Latest)
+		_, _ = fmt.Fprintf(tw, "  available:\t%s → %s (run: rp self update)\n", report.Update.Current, report.Update.Latest)
 	} else {
 		_, _ = fmt.Fprintf(tw, "  status:\tup to date (%s)\n", report.Update.Current)
 	}
@@ -160,7 +160,7 @@ func sourceSuffix(source string) string {
 	return " (" + source + ")"
 }
 
-// UpdateStatus is `rc self update --check`'s view model. Current/Latest arrive already normalised and
+// UpdateStatus is `rp self update --check`'s view model. Current/Latest arrive already normalised and
 // the two "installation problem" flags are decided by the CLI (they depend on the host OS).
 type UpdateStatus struct {
 	Source           string
@@ -171,29 +171,29 @@ type UpdateStatus struct {
 	UpdateAvailable  bool
 	InstallProblem   bool // duplicate or shadowed binaries
 	Installations    int
-	OfferMigrate     bool // this OS has a `rc self update --migrate` path
-	NotCanonicalHome bool // this OS's canonical install is Homebrew but rc isn't on it
+	OfferMigrate     bool // this OS has a `rp self update --migrate` path
+	NotCanonicalHome bool // this OS's canonical install is Homebrew but rp isn't on it
 }
 
-// UpdateCheck writes the `--check` report: where rc runs from, whether an update exists, and any
+// UpdateCheck writes the `--check` report: where rp runs from, whether an update exists, and any
 // installation problem that would make an in-place update unsafe.
 func UpdateCheck(w io.Writer, s UpdateStatus) {
 	_, _ = fmt.Fprintf(w, "source: %s\n", s.Source)
-	_, _ = fmt.Fprintf(w, "running rc: %s (%s, %s)\n", s.RunningPath, s.InstallKind, s.Current)
+	_, _ = fmt.Fprintf(w, "running rp: %s (%s, %s)\n", s.RunningPath, s.InstallKind, s.Current)
 	if s.UpdateAvailable {
-		_, _ = fmt.Fprintf(w, "latest rc:  %s (update available)\n", s.Latest)
+		_, _ = fmt.Fprintf(w, "latest rp:  %s (update available)\n", s.Latest)
 	} else {
-		_, _ = fmt.Fprintf(w, "latest rc:  %s (up to date)\n", s.Latest)
+		_, _ = fmt.Fprintf(w, "latest rp:  %s (up to date)\n", s.Latest)
 	}
 	if s.InstallProblem {
-		_, _ = fmt.Fprintf(w, "installation problem: %d distinct binaries; run `rc self doctor`\n", s.Installations)
+		_, _ = fmt.Fprintf(w, "installation problem: %d distinct binaries; run `rp self doctor`\n", s.Installations)
 		if s.OfferMigrate {
-			_, _ = fmt.Fprintln(w, "migration: rc self update --migrate")
+			_, _ = fmt.Fprintln(w, "migration: rp self update --migrate")
 		}
 		return
 	}
 	if s.NotCanonicalHome {
 		_, _ = fmt.Fprintln(w, "installation problem: macOS canonical install is Homebrew")
-		_, _ = fmt.Fprintln(w, "migration: rc self update --migrate")
+		_, _ = fmt.Fprintln(w, "migration: rp self update --migrate")
 	}
 }

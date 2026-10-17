@@ -138,7 +138,7 @@ func TestInviteBrainDeveloperUsesCanonicalTenantRouteAndBody(t *testing.T) {
 			t.Fatalf("request = %+v", req)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"project":"dentai/shared","tenant":"evident/alphen","repository":"rootcause-org/rootcause-brain-dentai-tenant-evident","github_handle":"ardeae-praktijk","permission":"write","state":"pending","invitation_url":"https://github.com/rootcause-org/rootcause-brain-dentai-tenant-evident/invitations","audit_id":"kept"}`))
+		_, _ = w.Write([]byte(`{"project":"dentai/shared","tenant":"evident/alphen","repository":"replypen/replypen-brain-dentai-tenant-evident","github_handle":"ardeae-praktijk","permission":"write","state":"pending","invitation_url":"https://github.com/replypen/replypen-brain-dentai-tenant-evident/invitations","audit_id":"kept"}`))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()

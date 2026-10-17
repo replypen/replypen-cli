@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-// fakeLayout builds the standard side-by-side layout: <root>/rootcause (host, with suites) and
-// <root>/rootcause-brain-acme (the brain a run of rc starts from).
+// fakeLayout builds the standard side-by-side layout: <root>/replypen (host, with suites) and
+// <root>/replypen-brain-acme (the brain a run of rp starts from).
 func fakeLayout(t *testing.T, suites ...string) (host, brain string) {
 	t.Helper()
 	root := t.TempDir()
-	host = filepath.Join(root, "rootcause")
+	host = filepath.Join(root, "replypen")
 	if err := os.MkdirAll(filepath.Join(host, "cmd", "context-export"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func fakeLayout(t *testing.T, suites ...string) (host, brain string) {
 			t.Fatal(err)
 		}
 	}
-	brain = filepath.Join(root, "rootcause-brain-acme")
+	brain = filepath.Join(root, "replypen-brain-acme")
 	if err := os.MkdirAll(brain, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestResolveFromBrainSibling(t *testing.T) {
 		t.Fatalf("suite = %s, want %s", plan.Suite, want)
 	}
 	// The default output must land under the CURRENT dir, never in the host checkout.
-	if want := filepath.Join(brain, ".rootcause", "context-export"); plan.OutDir != want {
+	if want := filepath.Join(brain, ".replypen", "context-export"); plan.OutDir != want {
 		t.Fatalf("out = %s, want %s", plan.OutDir, want)
 	}
 	if got := argValue(t, plan.Args, "-brain"); got != brain {

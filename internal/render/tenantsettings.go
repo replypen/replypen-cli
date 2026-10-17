@@ -1,4 +1,4 @@
-// The `rc tenant settings get` view: a tenant's stored settings, grouped and labelled by the enriched
+// The `rp tenant settings get` view: a tenant's stored settings, grouped and labelled by the enriched
 // schema when the server gave us one, flat key=value when it didn't.
 
 package render
@@ -9,7 +9,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // SettingsGroup is one schema section header, in display order.

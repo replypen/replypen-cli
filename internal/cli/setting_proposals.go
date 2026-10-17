@@ -7,11 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newSettingProposalsCmd wires `rc project settings proposals` — the review queue for learned setting
+// newSettingProposalsCmd wires `rp project settings proposals` — the review queue for learned setting
 // changes (…/settings-proposals). --tenant narrows to that tenant's own proposals; without it the
 // project reviewer sees every tier.
 func newSettingProposalsCmd(e *env) *cobra.Command {
@@ -139,7 +139,7 @@ func proposalsClient(e *env) (*client.Client, string, error) {
 func fullProposalID(arg string) (string, error) {
 	id := strings.ToLower(strings.TrimSpace(arg))
 	if !fullUUID.MatchString(id) {
-		return "", fmt.Errorf("proposal id %q: approve/reject need the full proposal id (see the ID column of `rc project settings proposals ls`, or `show <prefix>`)", arg)
+		return "", fmt.Errorf("proposal id %q: approve/reject need the full proposal id (see the ID column of `rp project settings proposals ls`, or `show <prefix>`)", arg)
 	}
 	return id, nil
 }

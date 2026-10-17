@@ -6,13 +6,13 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // ProcessedImageLabel names the stored variant of an image whose original was never kept.
 const ProcessedImageLabel = "processed (1536px JPEG)"
 
-// Attachments renders `rc run attachments <session>`: every file in the session, oldest first, ending
+// Attachments renders `rp run attachments <session>`: every file in the session, oldest first, ending
 // in the download command.
 func Attachments(w io.Writer, l *client.SessionAttachments) {
 	head := "Session " + l.SessionID
@@ -36,7 +36,7 @@ func Attachments(w io.Writer, l *client.SessionAttachments) {
 			availability(a.Available), dash(attachmentNote(a)))
 	}
 	_ = tw.Flush()
-	_, _ = fmt.Fprintf(w, "\nDownload: rc run attachments %s --download  (user uploads; --include-generated adds assistant files)\n", l.SessionID)
+	_, _ = fmt.Fprintf(w, "\nDownload: rp run attachments %s --download  (user uploads; --include-generated adds assistant files)\n", l.SessionID)
 }
 
 func attachmentNote(a client.ChatAttachment) string {
@@ -71,7 +71,7 @@ func ResourceSessionsTable(w io.Writer, r *client.ResourceSessions) {
 	_ = tw.Flush()
 }
 
-// AttachmentDownload is the local manifest of one `rc run attachments --download`, mapped by
+// AttachmentDownload is the local manifest of one `rp run attachments --download`, mapped by
 // internal/cli from what it wrote; `-o json` emits it as-is.
 type AttachmentDownload struct {
 	Files []AttachmentFile `json:"files"`
@@ -150,5 +150,5 @@ func transcriptFiles(w io.Writer, sessionID string, files []client.ChatAttachmen
 		}
 		_, _ = fmt.Fprintf(w, "- %s\n", strings.Join(parts, " · "))
 	}
-	_, _ = fmt.Fprintf(w, "\nDownload: `rc run attachments %s --download`\n", sessionID)
+	_, _ = fmt.Fprintf(w, "\nDownload: `rp run attachments %s --download`\n", sessionID)
 }

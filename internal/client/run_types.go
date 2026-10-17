@@ -6,7 +6,7 @@ import "encoding/json"
 
 // RunSummary is one row of GET /api/v1/runs. FinishedAt/DurationMs are absent on an unfinished run.
 // Topic/DeclinedReason and the Health block are operator-tier extras the server attaches for a
-// developer/admin bearer — `rc fleet runs` reads them for the digest's flags. They're absent (zero/nil)
+// developer/admin bearer — `rp fleet runs` reads them for the digest's flags. They're absent (zero/nil)
 // for a baseline bearer, so the digest degrades to the safe columns rather than erroring.
 type RunSummary struct {
 	RunID          string     `json:"run_id"`
@@ -31,7 +31,7 @@ type RunSummary struct {
 	Health         *RunHealth `json:"health,omitempty"`
 	Learning       Learning   `json:"learning"`
 	Review         *Review    `json:"review,omitempty"`
-	// Attribution is present on `rc run thread`: stable ids joining one exact inbound turn to its run,
+	// Attribution is present on `rp run thread`: stable ids joining one exact inbound turn to its run,
 	// drafts, eventual sent messages, and human feedback. Ordinary run-index rows omit it.
 	Attribution *RunAttribution `json:"attribution,omitempty"`
 	// ShareURL is present only on the share-token feeds: the account-less link that drills THIS run.
@@ -120,7 +120,7 @@ type RunHealth struct {
 	IsFallback bool `json:"is_fallback"`
 	// ErrorHead is the first 120 chars of the run's host-side error (run_health.error_head), '' when
 	// none — the index-level class discriminator (DSN outage vs OAuth burst vs dead-letter) so a burst
-	// doesn't cost one `rc run debug` drill per run. Same tier as the full error on the per-run rung.
+	// doesn't cost one `rp run debug` drill per run. Same tier as the full error on the per-run rung.
 	ErrorHead string `json:"error_head,omitempty"`
 }
 
@@ -191,7 +191,7 @@ type AttentionItem struct {
 	At       string `json:"at"`
 }
 
-// Summary is the health rollup that leads `rc status`. last_success/last_error are pointers because
+// Summary is the health rollup that leads `rp status`. last_success/last_error are pointers because
 // the server omits them entirely when there is no such run (omitempty) — either way they decode to a
 // nil pointer, distinct from a zero-valued ref.
 type Summary struct {
@@ -244,7 +244,7 @@ type RunDetail struct {
 	Attachments   []RunFile      `json:"attachments"`
 	Error         string         `json:"error,omitempty"`
 	Metadata      map[string]any `json:"metadata,omitempty"`
-	// ReplayOfRunID is the chat run this run replays (rc ask --replay-chat-run); "" otherwise.
+	// ReplayOfRunID is the chat run this run replays (rp ask --replay-chat-run); "" otherwise.
 	ReplayOfRunID string `json:"replay_of_run_id,omitempty"`
 }
 
@@ -357,7 +357,7 @@ type ScopeTableGrants struct {
 	Granted []string `json:"granted,omitempty"`
 }
 
-// Attachment is one local file uploaded by rc ask for a synthetic Prompt API run.
+// Attachment is one local file uploaded by rp ask for a synthetic Prompt API run.
 type Attachment struct {
 	Filename      string `json:"filename"`
 	MimeType      string `json:"mime_type,omitempty"`
@@ -428,7 +428,7 @@ type NoteAction struct {
 	Color       string `json:"color,omitempty"`
 }
 
-// ProposedAction is the canonical pull-plane action proposal shape from rootcause.
+// ProposedAction is the canonical pull-plane action proposal shape from ReplyPen.
 type ProposedAction struct {
 	ID          string `json:"id"`
 	Slug        string `json:"slug,omitempty"`
@@ -478,7 +478,7 @@ type GroundingSource struct {
 	Details       map[string]any          `json:"details,omitempty"`
 	Current       *GroundingSourceCurrent `json:"current,omitempty"`
 	Drift         []string                `json:"drift,omitempty"`
-	// Overridden marks a mirror mounted at a per-run ref (`rc ask --mirror-ref`) instead of its tracked one.
+	// Overridden marks a mirror mounted at a per-run ref (`rp ask --mirror-ref`) instead of its tracked one.
 	Overridden bool `json:"overridden,omitempty"`
 }
 
@@ -514,7 +514,7 @@ type RunHeader struct {
 	SessionID             string            `json:"session_id,omitempty"`
 	Topic                 string            `json:"topic,omitempty"`
 	Question              string            `json:"question,omitempty"`
-	// ReplayOfRunID is the chat run this run replays (rc ask --replay-chat-run); "" otherwise.
+	// ReplayOfRunID is the chat run this run replays (rp ask --replay-chat-run); "" otherwise.
 	ReplayOfRunID string `json:"replay_of_run_id,omitempty"`
 	// Inspiration is the gallery example a chat turn was sent from (id, title, category, the brain
 	// notes/skills the host rendered inside the user turn), raw so the shape stays the server's. Absent
@@ -522,7 +522,7 @@ type RunHeader struct {
 	Inspiration json.RawMessage `json:"inspiration,omitempty"`
 	// PriorMessages / PriorNotes are the conversation-so-far the brain was GIVEN this turn (the replayed
 	// webhook Message/Note arrays), raw so the shape stays the server's. null on a first turn or a run
-	// predating the column. `rc run trace --brief` keeps them: they are the context a READER needs.
+	// predating the column. `rp run trace --brief` keeps them: they are the context a READER needs.
 	PriorMessages       json.RawMessage   `json:"prior_messages,omitempty"`
 	PriorNotes          json.RawMessage   `json:"prior_notes,omitempty"`
 	WarmStartDigest     string            `json:"warm_start_digest,omitempty"`
@@ -570,7 +570,7 @@ type RunHeader struct {
 	// that out — the sparse bundle reads like a clean run otherwise.
 	DetailRedacted bool `json:"detail_redacted,omitempty"`
 	// Guards is the security-checkpoint roll-up: every guardrail verdict for the run in one object
-	// (`rc run guards`). Additive and detail-tier only — absent on a redacted trace or an older server.
+	// (`rp run guards`). Additive and detail-tier only — absent on a redacted trace or an older server.
 	Guards *GuardsView `json:"guards,omitempty"`
 }
 

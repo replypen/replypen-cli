@@ -3,7 +3,7 @@ package render
 import (
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 func TestReplyOutcome(t *testing.T) {

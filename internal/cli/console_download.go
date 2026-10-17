@@ -14,8 +14,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/outputspill"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/outputspill"
 )
 
 // sandboxFileRoots mirror the host's console file allowlist: only these stream directly, anything else
@@ -34,8 +34,8 @@ func newConsoleFileCmd(e *env) *cobra.Command {
 			"Directories arrive as a local directory (tar'ed in the sandbox, unpacked here). Paths outside\n" +
 			"/tmp and /home/agent (e.g. /kb, /brain, /mirrors) are staged through /tmp transparently.\n" +
 			"local-path defaults to the sandbox path's base name in the current directory; - writes a file to stdout.",
-		Example: "  rc dev console file get /kb/knowledgeowl ./kb\n" +
-			"  rc dev console file get /tmp/rc-console/stdout-7.txt ./stdout.txt",
+		Example: "  rp dev console file get /kb/knowledgeowl ./kb\n" +
+			"  rp dev console file get /tmp/rc-console/stdout-7.txt ./stdout.txt",
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			remote := args[0]
@@ -122,12 +122,12 @@ func (d sandboxDownload) getFile(remote, local string) error {
 // streamable regular file, and prints "<file|dir>\t<sandbox path>[\tstaged]". Prefixed with p=<path>.
 const stageScript = `
 if [ -d "$p" ]; then
-  out=$(mktemp -p /tmp rc-download-XXXXXX) && tar --hard-dereference -czf "$out" -C "$p" . && printf 'dir\t%s\tstaged\n' "$out"
+  out=$(mktemp -p /tmp rp-download-XXXXXX) && tar --hard-dereference -czf "$out" -C "$p" . && printf 'dir\t%s\tstaged\n' "$out"
 elif [ -f "$p" ]; then
   r=$(readlink -f -- "$p")
   case "$r" in
     /tmp/*|/home/agent/*) printf 'file\t%s\n' "$r" ;;
-    *) out=$(mktemp -p /tmp rc-download-XXXXXX) && cp -- "$p" "$out" && printf 'file\t%s\tstaged\n' "$out" ;;
+    *) out=$(mktemp -p /tmp rp-download-XXXXXX) && cp -- "$p" "$out" && printf 'file\t%s\tstaged\n' "$out" ;;
   esac
 else
   echo "no such file or directory in the sandbox: $p" >&2; exit 2
@@ -175,7 +175,7 @@ func (d sandboxDownload) getDir(tarball, remote, local string) error {
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.MkdirTemp(parent, ".rc-download-*")
+	tmp, err := os.MkdirTemp(parent, ".rp-download-*")
 	if err != nil {
 		return err
 	}
@@ -292,11 +292,11 @@ func stdoutTruncationHint(e *env, r *client.BashRunResponse) string {
 	}
 	if r.StdoutPath == "" {
 		return fmt.Sprintf("[stdout truncated at %s. To get all of it, redirect in the sandbox and download: "+
-			"rc dev console bash run '<command> > /tmp/out.txt'%s && rc dev console file get /tmp/out.txt ./out.txt%s]",
+			"rp dev console bash run '<command> > /tmp/out.txt'%s && rp dev console file get /tmp/out.txt ./out.txt%s]",
 			humanBytes(int64(len(r.Stdout))), consoleScopeFlags(e, r), consoleScopeFlags(e, r))
 	}
 	local := "./" + path.Base(r.StdoutPath)
-	return fmt.Sprintf("[stdout truncated at %s of %s. Full stdout: rc dev console file get %s %s%s "+
+	return fmt.Sprintf("[stdout truncated at %s of %s. Full stdout: rp dev console file get %s %s%s "+
 		"(within ~2 min: the sandbox is wiped once the console session idles out)]",
 		humanBytes(int64(len(r.Stdout))), humanBytes(r.StdoutBytes), r.StdoutPath, local, consoleScopeFlags(e, r))
 }

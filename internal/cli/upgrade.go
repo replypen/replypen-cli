@@ -24,16 +24,16 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// `rc self update` replaces the binary with the latest published release for the
+// `rp self update` replaces the binary with the latest published release for the
 // running OS/arch, so non-Homebrew installs (Linux/WSL/Windows, the install.sh / install.ps1 path) get
-// the same one-command update as `brew upgrade rc` — no need to re-paste the install URL. When rc was
-// installed via Homebrew it refuses and points at `brew update && brew upgrade rc`, so it never fights brew's
-// bookkeeping (a self-overwrite would leave the cask's manifest pointing at a binary it no longer owns).
+// the same one-command update as `brew upgrade --cask rp` — no need to re-paste the install URL. On macOS
+// it drives Homebrew instead, so it never fights brew's bookkeeping (a self-overwrite would leave the
+// cask's manifest pointing at a binary it no longer owns).
 const (
-	ghRepo      = "rootcause-org/rootcause-cli"
+	ghRepo      = "replypen/replypen-cli"
 	ghLatestAPI = "https://api.github.com/repos/" + ghRepo + "/releases/latest"
 	ghDownload  = "https://github.com/" + ghRepo + "/releases/download" // /<tag>/<asset>
 )
@@ -44,7 +44,7 @@ const (
 var defaultMirror string
 
 type releaseSource struct {
-	kind    string // github | mirror; surfaced by `rc self update --check`
+	kind    string // github | mirror; surfaced by `rp self update --check`
 	baseURL string // archive/checksum directory, before /<tag>/<asset>
 }
 
@@ -55,8 +55,8 @@ func newSelfUpdateCmd(e *env, version string) *cobra.Command {
 	var migrate bool
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update rc to the latest release (self-update)",
-		Long: "Update rc to the latest GitHub release for this OS/arch.\n\n" +
+		Short: "Update rp to the latest release (self-update)",
+		Long: "Update rp to the latest GitHub release for this OS/arch.\n\n" +
 			"On Linux/WSL/Windows this replaces one unambiguous running binary in place. On macOS it\n" +
 			"updates the canonical Homebrew cask; use --migrate to canonicalize a mixed installation.",
 		Args: cobra.NoArgs,
@@ -72,7 +72,7 @@ func newSelfUpdateCmd(e *env, version string) *cobra.Command {
 func runSelfUpdate(e *env, current string, checkOnly, migrate bool) error {
 	running, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("cannot locate the running rc binary: %w", err)
+		return fmt.Errorf("cannot locate the running rp binary: %w", err)
 	}
 	inv := inspectRCInstallations(running, os.Getenv("PATH"), runtime.GOOS)
 	latest, source, err := resolveRelease(e.ctx())
@@ -95,7 +95,7 @@ func runSelfUpdate(e *env, current string, checkOnly, migrate bool) error {
 	if runtime.GOOS == "darwin" {
 		runningInstall := findRunningInstall(inv.Paths)
 		if runningInstall.Kind != installHomebrew || inv.HasDuplicates || inv.RunningShadowed {
-			return fmt.Errorf("macOS uses one canonical Homebrew rc; run `rc self update --migrate` (inspect first with `rc self doctor`)")
+			return fmt.Errorf("macOS uses one canonical Homebrew rp; run `rp self update --migrate` (inspect first with `rp self doctor`)")
 		}
 		if err := updateHomebrew(e); err != nil {
 			return err
@@ -104,27 +104,98 @@ func runSelfUpdate(e *env, current string, checkOnly, migrate bool) error {
 		if err != nil {
 			return err
 		}
-		_, _ = fmt.Fprintf(e.out, "Homebrew rc updated and verified (%s, %s); run `rc self doctor` to verify PATH\n", normVersion(gotVersion), canonical)
+		_, _ = fmt.Fprintf(e.out, "Homebrew rp updated and verified (%s, %s); run `rp self doctor` to verify PATH\n", normVersion(gotVersion), canonical)
 		return nil
 	}
 
 	if inv.HasDuplicates || inv.RunningShadowed {
-		return fmt.Errorf("refusing to update a shadowed or duplicate binary; run `rc self doctor` and keep one rc on PATH")
+		return fmt.Errorf("refusing to update a shadowed or duplicate binary; run `rp self doctor` and keep one rp on PATH")
 	}
 	if compareVersions(current, latest) >= 0 {
-		_, _ = fmt.Fprintf(e.out, "rc is already up to date (%s)\n", normVersion(current))
+		// An rc <= 1.51 that self-updated from the rc_* archive is current but still a lone `rc`:
+		// finish the rename with its own bytes.
+		if filepath.Base(inv.RunningPath) == legacyBinaryName(runtime.GOOS) {
+			self, err := os.ReadFile(inv.RunningPath)
+			if err != nil {
+				return err
+			}
+			target, err := installStandaloneUpdate(inv.RunningPath, self, runtime.GOOS)
+			if err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(e.out, "rp is up to date (%s); installed it as %s, rc kept as an alias\n", normVersion(current), target)
+			return nil
+		}
+		_, _ = fmt.Fprintf(e.out, "rp is already up to date (%s)\n", normVersion(current))
 		return nil
 	}
 
-	_, _ = fmt.Fprintf(e.err, "==> downloading rc %s for %s/%s\n", normVersion(latest), runtime.GOOS, runtime.GOARCH)
+	_, _ = fmt.Fprintf(e.err, "==> downloading rp %s for %s/%s\n", normVersion(latest), runtime.GOOS, runtime.GOARCH)
 	bin, err := fetchReleaseBinaryFrom(e.ctx(), source, latest, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		return err
 	}
-	if err := replaceBinary(inv.RunningPath, bin); err != nil {
+	target, err := installStandaloneUpdate(inv.RunningPath, bin, runtime.GOOS)
+	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(e.out, "upgraded rc → %s (%s)\n", normVersion(latest), inv.RunningPath)
+	_, _ = fmt.Fprintf(e.out, "upgraded rp → %s (%s)\n", normVersion(latest), target)
+	return nil
+}
+
+// installStandaloneUpdate writes the release as rp next to the running binary and keeps the legacy rc
+// command working beside it, so a pre-rename install (a lone rc file) migrates in place. Returns the
+// rp path written.
+func installStandaloneUpdate(running string, bin []byte, goos string) (string, error) {
+	dir := filepath.Dir(running)
+	target := filepath.Join(dir, binaryName(goos))
+	if !samePath(resolvePath(target), running) {
+		if info, err := os.Lstat(target); err == nil && info.Mode().IsRegular() && !isReplypenGoBinary(target) {
+			return "", fmt.Errorf("refusing to overwrite %s: it is not this CLI; remove it and rerun", target)
+		}
+	}
+	if err := replaceBinary(target, bin); err != nil {
+		return "", err
+	}
+	if err := refreshLegacyAlias(dir, bin, goos); err != nil {
+		return "", fmt.Errorf("updated %s, but the rc alias beside it: %w", target, err)
+	}
+	return target, nil
+}
+
+// refreshLegacyAlias points dir/rc at dir/rp: a relative symlink on Unix, a byte copy on Windows (no
+// unprivileged symlinks). An rc that is not this CLI (e.g. the Plan 9 shell) is left alone.
+func refreshLegacyAlias(dir string, bin []byte, goos string) error {
+	alias := filepath.Join(dir, legacyBinaryName(goos))
+	target := filepath.Join(dir, binaryName(goos))
+	info, err := os.Lstat(alias)
+	switch {
+	case os.IsNotExist(err):
+	case err != nil:
+		return err
+	case info.Mode()&os.ModeSymlink != 0:
+		resolved := resolvePath(alias)
+		if samePath(resolved, resolvePath(target)) {
+			return nil
+		}
+		if !isReplypenGoBinary(resolved) {
+			return nil
+		}
+	case !isReplypenGoBinary(alias):
+		return nil
+	}
+	if goos == "windows" {
+		return replaceBinary(alias, bin)
+	}
+	tmp := filepath.Join(dir, fmt.Sprintf(".rc-alias-%d", os.Getpid()))
+	_ = os.Remove(tmp)
+	if err := os.Symlink(binaryName(goos), tmp); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, alias); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
 	return nil
 }
 
@@ -150,20 +221,56 @@ func updateStatus(current, latest string, inv rcInstallInventory, source string)
 func updateHomebrew(e *env) error {
 	brew, err := exec.LookPath("brew")
 	if err != nil {
-		return fmt.Errorf("homebrew is required for the canonical macOS rc: %w", err)
+		return fmt.Errorf("homebrew is required for the canonical macOS rp: %w", err)
 	}
 	if err := runUpgradeCommand(e, brew, "update"); err != nil {
 		return err
 	}
-	installed := exec.CommandContext(e.ctx(), brew, "list", "--cask", "rc").Run() == nil
-	if installed {
-		if err := runUpgradeCommand(e, brew, "upgrade", "--cask", "rc"); err != nil {
-			return err
-		}
-	} else if err := runUpgradeCommand(e, brew, "install", "--cask", "rootcause-org/tap/rc"); err != nil {
-		return err
+	out, err := exec.CommandContext(e.ctx(), brew, "list", "--cask", "--full-name").Output()
+	if err != nil {
+		return fmt.Errorf("brew list --cask: %w", err)
 	}
-	return nil
+	switch installedCask(string(out)) {
+	case caskName:
+		return runUpgradeCommand(e, brew, "upgrade", "--cask", caskName)
+	case legacyCaskName:
+		// The tap's cask_renames.json {"rc":"rp"} makes this upgrade migrate the old cask onto rp.
+		if err := runUpgradeCommand(e, brew, "upgrade", "--cask", legacyCaskName); err != nil {
+			return fmt.Errorf("%w; migrate by hand: brew uninstall --cask %s && brew install --cask %s", err, legacyCaskName, caskFullName)
+		}
+		return nil
+	default:
+		return runUpgradeCommand(e, brew, "install", "--cask", caskFullName)
+	}
+}
+
+const (
+	caskName       = "rp"
+	legacyCaskName = "rc"
+	caskFullName   = "replypen/tap/rp"
+)
+
+// installedCask reports which of our cask tokens `brew list --cask --full-name` shows: rp wins over the
+// legacy rc. Only our taps count (the tap's local name survives the GitHub org rename), so the archived
+// rootcause-org/replypen/rp cask is not mistaken for ours.
+func installedCask(fullNames string) string {
+	found := ""
+	for _, name := range strings.Fields(fullNames) {
+		tap, token := "", name
+		if i := strings.LastIndex(name, "/"); i >= 0 {
+			tap, token = name[:i], name[i+1:]
+		}
+		if tap != "replypen/tap" && tap != "rootcause-org/tap" {
+			continue
+		}
+		if token == caskName {
+			return caskName
+		}
+		if token == legacyCaskName {
+			found = legacyCaskName
+		}
+	}
+	return found
 }
 
 func runUpgradeCommand(e *env, name string, args ...string) error {
@@ -186,12 +293,12 @@ func migrateToHomebrew(e *env, latest string, inv rcInstallInventory) error {
 		return err
 	}
 
-	removed, err := removeVerifiedLegacyGoBinaries(legacyGoBinaryCandidates(inv), canonical, isRootcauseGoBinary, os.Remove)
+	removed, err := removeVerifiedLegacyGoBinaries(legacyGoBinaryCandidates(inv), canonical, isReplypenGoBinary, os.Remove)
 	if err != nil {
 		return err
 	}
 	for _, path := range removed {
-		_, _ = fmt.Fprintf(e.out, "removed legacy Go rc: %s\n", path)
+		_, _ = fmt.Fprintf(e.out, "removed legacy Go rp: %s\n", path)
 	}
 	if len(removed) > 0 {
 		if mise, lookErr := exec.LookPath("mise"); lookErr == nil {
@@ -204,13 +311,13 @@ func migrateToHomebrew(e *env, latest string, inv rcInstallInventory) error {
 	after := inspectRCInstallations(canonical, os.Getenv("PATH"), runtime.GOOS)
 	selected := findSelectedInstall(after.Paths)
 	if selected == nil || selected.Shim || !samePath(selected.ResolvedPath, canonical) || after.Installations != 1 {
-		return fmt.Errorf("homebrew rc %s is verified, but another rc still shadows or duplicates it; run `%s self doctor` and remove only the reported unknown install", canonical, canonicalLink)
+		return fmt.Errorf("homebrew rp %s is verified, but another rp still shadows or duplicates it; run `%s self doctor` and remove only the reported unknown install", canonical, canonicalLink)
 	}
-	_, _ = fmt.Fprintf(e.out, "rc is canonical on Homebrew (%s, %s)\n", normVersion(gotVersion), canonical)
+	_, _ = fmt.Fprintf(e.out, "rp is canonical on Homebrew (%s, %s)\n", normVersion(gotVersion), canonical)
 	return nil
 }
 
-// verifyHomebrewLatest locates the Homebrew rc (<brew --prefix>/bin/rc), checks it really is the
+// verifyHomebrewLatest locates the Homebrew rp (<brew --prefix>/bin/rp), checks it really is the
 // published latest, and returns the brew link, its resolved target and the version it reported — the
 // caller needs all three and must not re-run brew discovery.
 func verifyHomebrewLatest(ctx context.Context, latest string) (canonicalLink, canonical, gotVersion string, err error) {
@@ -225,12 +332,15 @@ func verifyHomebrewLatest(ctx context.Context, latest string) (canonicalLink, ca
 	}
 	canonicalLink = filepath.Join(strings.TrimSpace(string(prefix)), "bin", binaryName(runtime.GOOS))
 	canonical = resolvePath(canonicalLink)
+	if _, statErr := os.Stat(canonicalLink); statErr != nil {
+		return "", "", "", fmt.Errorf("homebrew has no %s (an old rc cask not migrated yet?); run: brew uninstall --cask %s && brew install --cask %s", canonicalLink, legacyCaskName, caskFullName)
+	}
 	gotVersion, err = installedBinaryVersion(ctx, canonicalLink)
 	if err != nil {
-		return "", "", "", fmt.Errorf("verifying Homebrew rc at %s: %w", canonicalLink, err)
+		return "", "", "", fmt.Errorf("verifying Homebrew rp at %s: %w", canonicalLink, err)
 	}
 	if compareVersions(gotVersion, latest) != 0 {
-		return "", "", "", fmt.Errorf("homebrew rc is %s after upgrade, but published latest is %s; refusing to continue", normVersion(gotVersion), normVersion(latest))
+		return "", "", "", fmt.Errorf("homebrew rp is %s after upgrade, but published latest is %s; refusing to continue", normVersion(gotVersion), normVersion(latest))
 	}
 	return canonicalLink, canonical, gotVersion, nil
 }
@@ -253,7 +363,7 @@ func legacyGoBinaryCandidates(inv rcInstallInventory) []string {
 	for _, candidate := range inv.Paths {
 		// Build metadata is the authority. Include every non-Homebrew physical candidate here so a
 		// custom GOBIN (for example ~/bin) is migratable; removeVerifiedLegacyGoBinaries filters out
-		// symlinks, the protected cask, and anything not proven to be rootcause-cli.
+		// symlinks, the protected cask, and anything not proven to be replypen-cli.
 		if candidate.Kind != installHomebrew && !candidate.Shim {
 			paths = append(paths, candidate.ResolvedPath)
 		}
@@ -263,32 +373,40 @@ func legacyGoBinaryCandidates(inv rcInstallInventory) []string {
 	if miseData == "" && home != "" {
 		miseData = filepath.Join(home, ".local", "share", "mise")
 	}
-	if miseData != "" {
-		matches, _ := filepath.Glob(filepath.Join(miseData, "installs", "go", "*", "bin", binaryName(runtime.GOOS)))
-		paths = append(paths, matches...)
-	}
-	if goBin := os.Getenv("GOBIN"); goBin != "" {
-		paths = append(paths, filepath.Join(goBin, binaryName(runtime.GOOS)))
-	}
 	goPath := os.Getenv("GOPATH")
 	if goPath == "" && home != "" {
 		goPath = filepath.Join(home, "go")
 	}
-	for _, root := range filepath.SplitList(goPath) {
-		if root != "" {
-			paths = append(paths, filepath.Join(root, "bin", binaryName(runtime.GOOS)))
+	for _, name := range []string{binaryName(runtime.GOOS), legacyBinaryName(runtime.GOOS)} {
+		if miseData != "" {
+			matches, _ := filepath.Glob(filepath.Join(miseData, "installs", "go", "*", "bin", name))
+			paths = append(paths, matches...)
+		}
+		if goBin := os.Getenv("GOBIN"); goBin != "" {
+			paths = append(paths, filepath.Join(goBin, name))
+		}
+		for _, root := range filepath.SplitList(goPath) {
+			if root != "" {
+				paths = append(paths, filepath.Join(root, "bin", name))
+			}
 		}
 	}
 	return paths
 }
 
-func isRootcauseGoBinary(path string) bool {
+func isReplypenGoBinary(path string) bool {
 	info, err := buildinfo.ReadFile(path)
 	if err != nil {
 		return false
 	}
-	return info.Path == "github.com/rootcause-org/rootcause-cli/cmd/rc" ||
-		info.Main.Path == "github.com/rootcause-org/rootcause-cli"
+	return isOurBuild(info.Path, info.Main.Path)
+}
+
+// isOurBuild recognises this CLI under its current and its pre-rename module path, so doctor and
+// --migrate treat an old `rc` Go install as ours rather than as a foreign binary.
+func isOurBuild(commandPath, modulePath string) bool {
+	return commandPath == rpCommandPath || commandPath == legacyCommandPath ||
+		modulePath == modulePathCurrent || modulePath == modulePathLegacy
 }
 
 func removeVerifiedLegacyGoBinaries(paths []string, protected string, verified func(string) bool, remove func(string) error) ([]string, error) {
@@ -310,7 +428,7 @@ func removeVerifiedLegacyGoBinaries(paths []string, protected string, verified f
 			if os.IsNotExist(err) {
 				continue
 			}
-			return removed, fmt.Errorf("removing verified legacy Go rc %s: %w", candidate, err)
+			return removed, fmt.Errorf("removing verified legacy Go rp %s: %w", candidate, err)
 		}
 		removed = append(removed, candidate)
 	}
@@ -324,7 +442,7 @@ func httpGet(ctx context.Context, url string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "rootcause-cli")
+	req.Header.Set("User-Agent", "replypen-cli")
 	client := &http.Client{Timeout: 60 * time.Second}
 	return client.Do(req)
 }
@@ -427,7 +545,7 @@ func latestMirrorReleaseTagAt(ctx context.Context, baseURL string) (string, erro
 }
 
 // fetchReleaseBinaryFrom downloads the archive for goos/goarch from source, verifies its sha256 against
-// the release's checksums.txt, and returns the extracted rc (or rc.exe) bytes.
+// the release's checksums.txt, and returns the extracted rp (or rp.exe) bytes.
 func fetchReleaseBinaryFrom(ctx context.Context, source releaseSource, tag, goos, goarch string) ([]byte, error) {
 	asset := assetName(normVersion(tag), goos, goarch)
 
@@ -451,7 +569,7 @@ func fetchReleaseBinaryFrom(ctx context.Context, source releaseSource, tag, goos
 
 	bin, err := extractBinary(archive, goos)
 	if err != nil {
-		return nil, fmt.Errorf("extracting rc from %s: %w", asset, err)
+		return nil, fmt.Errorf("extracting rp from %s: %w", asset, err)
 	}
 	return bin, nil
 }
@@ -473,17 +591,25 @@ func downloadBytes(ctx context.Context, url string) ([]byte, error) {
 // normVersion strips a single leading "v" so "v0.5.1" and "0.5.1" compare equal.
 func normVersion(v string) string { return strings.TrimPrefix(v, "v") }
 
-// assetName is the GoReleaser archive name: rc_<ver>_<os>_<arch>.tar.gz (zip on Windows).
+// assetName is the GoReleaser archive name: rp_<ver>_<os>_<arch>.tar.gz (zip on Windows).
 func assetName(version, goos, goarch string) string {
 	ext := "tar.gz"
 	if goos == "windows" {
 		ext = "zip"
 	}
-	return fmt.Sprintf("rc_%s_%s_%s.%s", version, goos, goarch, ext)
+	return fmt.Sprintf("rp_%s_%s_%s.%s", version, goos, goarch, ext)
 }
 
 // binaryName is what the archive holds for this OS.
 func binaryName(goos string) string {
+	if goos == "windows" {
+		return "rp.exe"
+	}
+	return "rp"
+}
+
+// legacyBinaryName is the pre-rename command, kept as an alias next to rp (symlink, or a copy on Windows).
+func legacyBinaryName(goos string) string {
 	if goos == "windows" {
 		return "rc.exe"
 	}
@@ -635,12 +761,12 @@ func extractBinary(archive []byte, goos string) ([]byte, error) {
 		}
 		for _, f := range zr.File {
 			if filepath.Base(f.Name) == want {
-				rc, err := f.Open()
+				r, err := f.Open()
 				if err != nil {
 					return nil, err
 				}
-				defer func() { _ = rc.Close() }()
-				return io.ReadAll(rc)
+				defer func() { _ = r.Close() }()
+				return io.ReadAll(r)
 			}
 		}
 		return nil, fmt.Errorf("%s not found in archive", want)
@@ -672,7 +798,7 @@ func extractBinary(archive []byte, goos string) ([]byte, error) {
 // can't be overwritten, so the current one is moved aside first.
 func replaceBinary(path string, data []byte) error {
 	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".rc-upgrade-*")
+	tmp, err := os.CreateTemp(dir, ".rp-upgrade-*")
 	if err != nil {
 		return fmt.Errorf("cannot write to %s (need write permission there; try sudo or RC_INSTALL_DIR): %w", dir, err)
 	}
@@ -690,6 +816,9 @@ func replaceBinary(path string, data []byte) error {
 	}
 
 	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return os.Rename(tmpName, path)
+		}
 		old := path + ".old"
 		_ = os.Remove(old)
 		if err := os.Rename(path, old); err != nil {

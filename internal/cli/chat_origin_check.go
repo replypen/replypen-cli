@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // lookupOrigins resolves each configured chat origin's host, so the doctor can flag one with no DNS

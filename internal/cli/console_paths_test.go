@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // The generated script is run by a real POSIX sh: a quote+space path must arrive as one literal, and a

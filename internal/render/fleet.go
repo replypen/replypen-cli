@@ -1,4 +1,4 @@
-// This file is the FAT side of `rc fleet runs`: the per-run flag line, the aggregate rates, the
+// This file is the FAT side of `rp fleet runs`: the per-run flag line, the aggregate rates, the
 // worst-offender shortlists and the flag legend, computed over the THIN /api/v1/runs rows.
 // The server ships raw per-run health numbers + the view's own boolean flags; the ONE derived flag the
 // view can't precompute — T! turn-spike (needs a per-kind median over the window) — is computed HERE.
@@ -18,7 +18,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // FleetOptions carries the rendered window's scope for the headers.
@@ -48,7 +48,7 @@ const fleetLegend = `Flags: GD=grounding discarded · J0=analysis without journa
 	`FB=fallback (the loop swapped rungs mid-run) · LRN=dream-cycle learning signal`
 
 // FleetGroup is one project's slice of the fan-out: its name + its paged run rows. The cross-project
-// `rc fleet runs --all` builds one per project.
+// `rp fleet runs --all` builds one per project.
 type FleetGroup struct {
 	Project string
 	Runs    []client.RunSummary
@@ -485,7 +485,7 @@ func runDate(r client.RunSummary) string {
 
 // fleetStuck surfaces runs that are still 'running' with no finished_at past the stuck clock — runs that
 // never produced a callback, which operators otherwise drop to db.py for. Rendered only when there ARE
-// stuck runs (a clean fleet stays quiet). Full ids so a stuck run is one paste from `rc run show <id>`.
+// stuck runs (a clean fleet stays quiet). Full ids so a stuck run is one paste from `rp run show <id>`.
 func fleetStuck(w io.Writer, runs []client.RunSummary, now time.Time) {
 	var stuck []client.RunSummary
 	for _, r := range runs {
@@ -571,7 +571,7 @@ func fleetAggregate(w io.Writer, runs []client.RunSummary) {
 }
 
 // egressHostsFromRuns returns the run ids that had ≥1 blocked egress (the digest only has per-run
-// counts from /runs — the host detail is `rc fleet patterns`' job). Returns the count of affected runs.
+// counts from /runs — the host detail is `rp fleet patterns`' job). Returns the count of affected runs.
 func egressHostsFromRuns(runs []client.RunSummary) []string {
 	var ids []string
 	for _, r := range runs {
@@ -582,12 +582,12 @@ func egressHostsFromRuns(runs []client.RunSummary) []string {
 	return ids
 }
 
-// fleetOffenders renders the "Worst offenders" block — full ids ready to paste into `rc run show <id>`.
+// fleetOffenders renders the "Worst offenders" block — full ids ready to paste into `rp run show <id>`.
 // Each offender line carries the FULL triage tail (secs · turns · bash_err · FB) so a drill needs no
 // follow-up query: the operator sees at a glance whether the heaviest run was also a fallback or ran
 // long. The fallback offenders block calls out the runs that swapped models.
 func fleetOffenders(w io.Writer, runs []client.RunSummary) {
-	_, _ = fmt.Fprintln(w, "\nWorst offenders (full ids — `rc run debug <id>`):")
+	_, _ = fmt.Fprintln(w, "\nWorst offenders (full ids — `rp run debug <id>`):")
 	printed := false
 
 	topTurns := topByTurns(runs, 3)
@@ -671,7 +671,7 @@ func offenderTail(r client.RunSummary) string {
 }
 
 // errorHead is the run's 120-char host-error head (run_health.error_head) — the error-class
-// discriminator that saves a per-run `rc run debug` drill; empty when the run has no error.
+// discriminator that saves a per-run `rp run debug` drill; empty when the run has no error.
 func errorHead(r client.RunSummary) string {
 	if r.Health == nil {
 		return ""
@@ -734,7 +734,7 @@ func fleetAgent(w io.Writer, runs []client.RunSummary, opt FleetOptions) {
 		_, _ = fmt.Fprintf(w, "  %s  %s  %s  %dt  %s\n",
 			r.RunID, r.Kind, r.Status, turnsOf(r), flagStr(r, spikes))
 	}
-	_, _ = fmt.Fprintln(w, "\ndrill: rc run thread <run-id> (lineage) · rc run debug <run-id> (trace)")
+	_, _ = fmt.Fprintln(w, "\ndrill: rp run thread <run-id> (lineage) · rp run debug <run-id> (trace)")
 }
 
 func learningScope(learning string) string {

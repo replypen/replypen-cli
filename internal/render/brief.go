@@ -1,7 +1,7 @@
-// This file renders `rc run trace <id> --brief`: ONE turn, read the way a human reads it — what was
+// This file renders `rp run trace <id> --brief`: ONE turn, read the way a human reads it — what was
 // asked, what we answered, how it ended. The forensic half of the bundle (system prompt, prompt
 // sections, grounding snapshots, tenant-settings blobs, the tool-call timeline) is deliberately absent;
-// `rc run trace <id> --raw-output` and `rc run debug <id>` stay the place for that.
+// `rp run trace <id> --raw-output` and `rp run debug <id>` stay the place for that.
 package render
 
 import (
@@ -11,8 +11,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // Brief renders the reading view of one run.
@@ -78,7 +78,7 @@ func Brief(w io.Writer, f *client.FullResponse) {
 	if r.Error != "" {
 		_, _ = fmt.Fprintf(w, "\nError:\n%s\n", r.Error)
 	}
-	_, _ = fmt.Fprintln(w, "\nPrompt, grounding and the tool-call timeline are omitted; use `rc run trace <id> --raw-output` or `rc run debug <id>`.")
+	_, _ = fmt.Fprintln(w, "\nPrompt, grounding and the tool-call timeline are omitted; use `rp run trace <id> --raw-output` or `rp run debug <id>`.")
 }
 
 // briefEgressLabel compresses the whole egress list into one cell: how many hosts, how many blocked —

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/digest"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // transcriptFetchers bounds the fan-out over one conversation's runs. The thread trace names N runs and
@@ -17,10 +17,10 @@ import (
 // hammering the API for what is, to the server, an ordinary read burst.
 const transcriptFetchers = 4
 
-// runThreadTranscript is the `rc run thread <session> --transcript` path: ONE command that prints the
-// conversation the way a human reads it. The default `rc run thread` view answers "what happened to the
+// runThreadTranscript is the `rp run thread <session> --transcript` path: ONE command that prints the
+// conversation the way a human reads it. The default `rp run thread` view answers "what happened to the
 // pipeline"; this one answers "what was asked and what did we answer", which previously cost one
-// `rc run trace --raw-output` per turn (megabytes of system prompt for kilobytes of conversation).
+// `rp run trace --raw-output` per turn (megabytes of system prompt for kilobytes of conversation).
 func runThreadTranscript(e *env, target shareTarget) error {
 	if target.shared() {
 		// A share link is scoped to ONE run, so it can never enumerate a conversation's other turns.

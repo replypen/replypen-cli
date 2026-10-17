@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 func TestDBQueryAllStreamsCSVWithParamsAndStdin(t *testing.T) {
@@ -179,7 +179,7 @@ func TestDBQueryAllStreamFailureKeepsDestinationAtomic(t *testing.T) {
 			if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 				t.Fatalf("partial destination installed: %v", statErr)
 			}
-			matches, globErr := filepath.Glob(filepath.Join(dir, ".rc-output-*"))
+			matches, globErr := filepath.Glob(filepath.Join(dir, ".rp-output-*"))
 			if globErr != nil || len(matches) != 0 {
 				t.Fatalf("orphaned temp outputs = %v, err=%v", matches, globErr)
 			}
@@ -210,7 +210,7 @@ func TestDBQueryAllCancellationRemovesTemporaryOutput(t *testing.T) {
 	if exitCodeFor(err) != exitServer {
 		t.Fatalf("exit = %d err=%v", exitCodeFor(err), err)
 	}
-	matches, globErr := filepath.Glob(filepath.Join(dir, ".rc-output-*"))
+	matches, globErr := filepath.Glob(filepath.Join(dir, ".rp-output-*"))
 	if globErr != nil || len(matches) != 0 {
 		t.Fatalf("orphaned temp outputs = %v, err=%v", matches, globErr)
 	}

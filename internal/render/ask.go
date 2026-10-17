@@ -1,4 +1,4 @@
-// The `rc ask` scenario views (email / raw / dry-scope) plus the shared draft/note/action blocks.
+// The `rp ask` scenario views (email / raw / dry-scope) plus the shared draft/note/action blocks.
 // The renderers are pure functions of the wire structs (no I/O beyond the passed writer, no clock) so
 // golden tests pin them exactly. Timestamps are shown as the server sent them, keeping goldens stable.
 
@@ -11,10 +11,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
-// AskEmail renders `rc ask --scenario email`: the reviewable support outcome first (draft, notes,
+// AskEmail renders `rp ask --scenario email`: the reviewable support outcome first (draft, notes,
 // actions), with enough run metadata to jump into the trace.
 func AskEmail(w io.Writer, r *client.RunDetail, full *client.FullResponse) {
 	renderAskHeader(w, r, "email")
@@ -44,7 +44,7 @@ func AskEmail(w io.Writer, r *client.RunDetail, full *client.FullResponse) {
 	renderMetadata(w, askMetadata(r, full))
 }
 
-// AskRaw renders `rc ask --scenario raw` and a chat replay: one direct Markdown answer plus
+// AskRaw renders `rp ask --scenario raw` and a chat replay: one direct Markdown answer plus
 // machine/action affordances.
 func AskRaw(w io.Writer, r *client.RunDetail) {
 	renderAskHeader(w, r, "raw")
@@ -60,7 +60,7 @@ func AskRaw(w io.Writer, r *client.RunDetail) {
 	renderMetadata(w, r.Metadata)
 }
 
-// AskDryScope renders `rc ask --dry-scope`: the principal scope this run WOULD get, resolved without
+// AskDryScope renders `rp ask --dry-scope`: the principal scope this run WOULD get, resolved without
 // running the agent. On a fail-closed refusal it prints the reason (no record); otherwise the resolved
 // principalScopeRecord — resolution first (the finding-relevant field), then the identity, claims, and
 // table grants. IDs are shown UNMASKED: this is an operator/red-team tool, not customer-facing output.

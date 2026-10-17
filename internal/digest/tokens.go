@@ -5,10 +5,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
-// TokenFilter selects and orders `rc project token ls` rows (AWS-IAM-style last-used review).
+// TokenFilter selects and orders `rp project token ls` rows (AWS-IAM-style last-used review).
 type TokenFilter struct {
 	// IncludeInactive keeps non-active (revoked) tokens; the default keeps active ones only.
 	IncludeInactive bool

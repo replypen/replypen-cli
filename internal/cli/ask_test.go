@@ -12,7 +12,7 @@ import (
 )
 
 // TestAskWaitsForTerminal: submit → poll → terminal. The default (wait) path submits, polls
-// /runs/{id} until "done", then renders the run summary like `rc run show <id>`.
+// /runs/{id} until "done", then renders the run summary like `rp run show <id>`.
 func TestAskWaitsForTerminal(t *testing.T) {
 	srv := stubServer(t)
 	defer srv.Close()
@@ -85,7 +85,7 @@ func TestAskNoWaitTable(t *testing.T) {
 	if strings.TrimSpace(out.String()) != "11111111-1111-1111-1111-111111111111" {
 		t.Errorf("stdout should be the run_id alone, got: %q", out.String())
 	}
-	if !strings.Contains(errb.String(), "rc run show 11111111") {
+	if !strings.Contains(errb.String(), "rp run show 11111111") {
 		t.Errorf("expected a poll hint on stderr, got: %q", errb.String())
 	}
 }
@@ -348,14 +348,14 @@ func TestAskFileCaps(t *testing.T) {
 func TestAskUsesLocalTenantDefault(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".replypen.toml"),
 		[]byte("project = \"dentai\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, ".rootcause"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".replypen"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause", "local.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".replypen", "local.toml"),
 		[]byte("tenant = \"de-kies\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}

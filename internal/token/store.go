@@ -1,4 +1,4 @@
-// Package token is the on-disk OAuth credential store: ~/.config/rootcause/tokens.json (0600), a
+// Package token is the on-disk OAuth credential store: ~/.config/replypen/tokens.json (0600), a
 // per-profile record of {access_token, refresh_token, expiry, base_url}. The CLI is OAuth-only: it
 // holds no static API key, only short-lived access tokens refreshed from a stored refresh token.
 //
@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// fileName is the token store under the rootcause config dir.
+// fileName is the token store under the ReplyPen config dir (see migrate.go for the dir itself).
 const fileName = "tokens.json"
 
 // storeMode is owner-only: the file holds live OAuth refresh + access tokens.
@@ -68,18 +68,6 @@ type storeFile struct {
 	Profiles map[string]Token `json:"profiles"`
 }
 
-// configDir is the resolved ~/.config/rootcause directory (XDG-style; honors XDG_CONFIG_HOME).
-func configDir() (string, error) {
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "rootcause"), nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("locate home dir: %w", err)
-	}
-	return filepath.Join(home, ".config", "rootcause"), nil
-}
-
 // Path is the resolved tokens.json location (exported for diagnostics/messages).
 func Path() (string, error) {
 	dir, err := configDir()
@@ -119,7 +107,7 @@ func Save(profile string, t Token) error {
 
 // Update runs fn under profile's cross-process lock with its CURRENT token (ok=false if none) and
 // persists next when save is true. The whole read → fn → write cycle is one critical section for that
-// profile, so fn may do network I/O — the CLI's check-expiry → refresh → persist — without a sibling `rc`
+// profile, so fn may do network I/O — the CLI's check-expiry → refresh → persist — without a sibling `rp`
 // process presenting the same single-use refresh token. Other profiles are not blocked: only the final
 // write takes the store-wide lock, briefly. fn must not call Save/Delete for the same profile (it would
 // wait on the lock it is running under).
@@ -143,7 +131,7 @@ func Update(profile string, fn func(cur Token, ok bool) (next Token, save bool, 
 	return mutate(func(sf *storeFile) { sf.Profiles[profile] = next })
 }
 
-// Delete removes the token for profile (a no-op if absent). Used by `rc auth logout`.
+// Delete removes the token for profile (a no-op if absent). Used by `rp auth logout`.
 func Delete(profile string) error {
 	unlock, err := lockProfile(profile)
 	if err != nil {
@@ -177,7 +165,7 @@ func read() (storeFile, error) {
 	}
 	var sf storeFile
 	if err := json.Unmarshal(data, &sf); err != nil {
-		return storeFile{}, fmt.Errorf("parse %s: %w (delete it and `rc auth login` again)", path, err)
+		return storeFile{}, fmt.Errorf("parse %s: %w (delete it and `rp auth login` again)", path, err)
 	}
 	if sf.Profiles == nil {
 		sf.Profiles = map[string]Token{}

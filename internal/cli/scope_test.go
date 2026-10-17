@@ -12,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/config"
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
 func TestEveryExecutableCommandDeclaresScope(t *testing.T) {
@@ -395,10 +395,10 @@ func TestNewClientBrainFallbackKeepsProjectScope(t *testing.T) {
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
-	t.Setenv("ROOTCAUSE_BASE_URL", srv.URL)
+	t.Setenv("REPLYPEN_BASE_URL", srv.URL)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".replypen.toml"),
 		[]byte("project = \"alpha\"\ntenant = \"acme\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-// Package oauth is the CLI's client for rootcause's first-party OAuth 2.1 server. It speaks the four
+// Package oauth is the CLI's client for ReplyPen's first-party OAuth 2.1 server. It speaks the four
 // flows the CLI needs against the static, well-known CLI client (no dynamic registration): the PKCE
 // loopback login (default, laptop), the device-authorization login (RFC 8628, SSH/headless), the
 // refresh-token rotation that keeps a short-lived access token fresh, and revocation (logout).
@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// CLIClientID is the well-known client_id of the first-party rootcause CLI — a static public (PKCE)
+// CLIClientID is the well-known client_id of the first-party ReplyPen CLI — a static public (PKCE)
 // client seeded server-side (migration 00055), so the CLI need not dynamically register on every
 // machine. MUST match the server constant oauth.CLIClientID.
 const CLIClientID = "rcocl_cli"
@@ -66,13 +66,13 @@ func (e *Error) Error() string {
 }
 
 // IsInvalidGrant reports whether err is an OAuth invalid_grant — a dead/expired/revoked refresh token,
-// the signal for the CLI to prompt a fresh `rc auth login`.
+// the signal for the CLI to prompt a fresh `rp auth login`.
 func IsInvalidGrant(err error) bool {
 	var oe *Error
 	return asOAuthError(err, &oe) && oe.Code == "invalid_grant"
 }
 
-// Client talks to one issuer's /oauth endpoints. BaseURL is the issuer (the configured rootcause base
+// Client talks to one issuer's /oauth endpoints. BaseURL is the issuer (the configured ReplyPen base
 // URL). Always build one with NewClient — it sets HTTP (30 s timeout).
 type Client struct {
 	BaseURL string

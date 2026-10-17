@@ -18,9 +18,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/config"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 const shareTokenFlag = "share-token"
@@ -54,7 +54,7 @@ func parseRunTarget(arg, flagToken string) (shareTarget, error) {
 	}
 	segs := pathSegments(u)
 	if len(segs) == 2 && segs[0] == "s" {
-		return shareTarget{}, fmt.Errorf("%s is a shared chat session link — use `rc run session %s`", arg, arg)
+		return shareTarget{}, fmt.Errorf("%s is a shared chat session link — use `rp run session %s`", arg, arg)
 	}
 	if len(segs) != 2 || segs[0] != "runs" || segs[1] == "" {
 		return shareTarget{}, fmt.Errorf("not a run link: %s (expected https://<host>/runs/<id>?t=<token>)", arg)
@@ -85,7 +85,7 @@ func parseSessionTarget(arg, flagToken string) (shareTarget, error) {
 	}
 	segs := pathSegments(u)
 	if len(segs) == 2 && segs[0] == "runs" {
-		return shareTarget{}, fmt.Errorf("%s is a run link — use `rc run debug %s`", arg, arg)
+		return shareTarget{}, fmt.Errorf("%s is a run link — use `rp run debug %s`", arg, arg)
 	}
 	if len(segs) != 2 || segs[0] != "s" || segs[1] == "" {
 		return shareTarget{}, fmt.Errorf("not a share link: %s (expected https://<host>/s/<token>)", arg)
@@ -112,11 +112,11 @@ func pathSegments(u *url.URL) []string {
 // endpoints answer a uniform 404 by design, so we never probe the server to find out which case it is.
 const runShareHint = "this run is not visible to your login (or you are not logged in). " +
 	"If you were sent a link like https://app.replypen.com/runs/<id>?t=<token>, rerun with the full link, " +
-	"or add --share-token <token>. Chat links (https://app.replypen.com/s/<token>) → rc run session '<link>'"
+	"or add --share-token <token>. Chat links (https://app.replypen.com/s/<token>) → rp run session '<link>'"
 
 // sessionShareHint: a chat share token is only usable as the whole link the sender pasted.
 const sessionShareHint = "this chat session is not readable with that token (expired, revoked, or truncated). " +
-	"Use the full link exactly as it was shared with you: rc run session 'https://app.replypen.com/s/<token>'"
+	"Use the full link exactly as it was shared with you: rp run session 'https://app.replypen.com/s/<token>'"
 
 // withRunAccessHint tags the denials a share link can fix: no login at all (exitAuth) and the
 // 401/403/404/UNKNOWN_RUN a logged-in member gets for a run outside their scope.
@@ -165,16 +165,16 @@ func addShareTokenFlag(cmd *cobra.Command, target *string) {
 }
 
 // newRunSessionCmd writes ONE markdown file for a shared chat session: its transcript in reading order
-// plus the runs behind it, each row carrying the `rc run debug` command that drills that run.
+// plus the runs behind it, each row carrying the `rp run debug` command that drills that run.
 func newRunSessionCmd(e *env) *cobra.Command {
 	var shareToken string
 	cmd := &cobra.Command{
 		Use:   "session <share-url|token>",
 		Short: "Dump a shared chat session (transcript + its runs) to one markdown file",
 		Long: "Read a chat session someone shared with you — no login needed, the link is the credential. " +
-			"Paste https://app.replypen.com/s/<token> (or just the token) and rc writes " +
-			".rootcause/debug/session-<session_id>.md: the transcript in reading order, then the runs " +
-			"behind it with a ready-to-run `rc run debug` command per run.",
+			"Paste https://app.replypen.com/s/<token> (or just the token) and rp writes " +
+			".replypen/debug/session-<session_id>.md: the transcript in reading order, then the runs " +
+			"behind it with a ready-to-run `rp run debug` command per run.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			target, err := parseSessionTarget(args[0], shareToken)
@@ -189,7 +189,7 @@ func newRunSessionCmd(e *env) *cobra.Command {
 }
 
 // runSession fetches the two shared-session feeds and writes the single markdown artifact, printing its
-// path (the file is the deliverable — like `rc run debug`, we don't summarize into stdout).
+// path (the file is the deliverable — like `rp run debug`, we don't summarize into stdout).
 func runSession(e *env, c *client.Client, token string) error {
 	// Runs first: a dead/unknown token then fails with the API's UNKNOWN_SESSION envelope rather than
 	// the /s/ page's HTML 404.
@@ -209,7 +209,7 @@ func runSession(e *env, c *client.Client, token string) error {
 	if outDir == "" {
 		outDir = defaultDebugDir
 	}
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	if err := mkdirLocal(outDir, 0o755); err != nil {
 		return fmt.Errorf("create out dir %s: %w", outDir, err)
 	}
 	var buf bytes.Buffer

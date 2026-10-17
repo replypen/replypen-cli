@@ -1,6 +1,6 @@
-// The FAT side of `rc fleet deploy-state`: a compact, agent-readable "what was live" report over the
+// The FAT side of `rp fleet deploy-state`: a compact, agent-readable "what was live" report over the
 // raw /api/v1/deploy-state rows. Deliberately verdict-free — deploy state is context for a finding, not
-// a pass/fail gate (that is `rc fleet health`). Timestamps are printed exactly as the server sent them
+// a pass/fail gate (that is `rp fleet health`). Timestamps are printed exactly as the server sent them
 // (RFC3339 UTC), so an audit can compare them to a run's created_at without timezone arithmetic.
 package render
 
@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // HostUnpromoted is the locally-derived host-plane history the server cannot know: the commits on a
-// local rootcause checkout's main that are NOT in the deployed release. Repo/Ref name where it came
+// local ReplyPen checkout's main that are NOT in the deployed release. Repo/Ref name where it came
 // from; Error explains an unusable checkout instead of silently reporting "nothing pending".
 type HostUnpromoted struct {
 	Repo    string
@@ -27,7 +27,7 @@ type HostUnpromoted struct {
 func DeployState(w io.Writer, d *client.DeployStateResponse, unpromoted *HostUnpromoted) {
 	_, _ = fmt.Fprintf(w, "Deploy state — %s @ %s (UTC)\n", d.Project, d.GeneratedAt)
 
-	_, _ = fmt.Fprintf(w, "\nHost (rootcause) — release %s\n", orDash(d.Host.Release, "-"))
+	_, _ = fmt.Fprintf(w, "\nHost (ReplyPen) — release %s\n", orDash(d.Host.Release, "-"))
 	_, _ = fmt.Fprintf(w, "  up since %s (%.1fh)\n", orDash(d.Host.StartedAt, "-"), d.Host.UptimeHours)
 	renderUnpromoted(w, unpromoted)
 
@@ -76,7 +76,7 @@ func DeployState(w io.Writer, d *client.DeployStateResponse, unpromoted *HostUnp
 func renderUnpromoted(w io.Writer, u *HostUnpromoted) {
 	switch {
 	case u == nil:
-		_, _ = fmt.Fprintln(w, "  unpromoted: not checked (pass --host-repo <path to rootcause checkout>)")
+		_, _ = fmt.Fprintln(w, "  unpromoted: not checked (pass --host-repo <path to ReplyPen checkout>)")
 	case u.Error != "":
 		_, _ = fmt.Fprintf(w, "  unpromoted: unavailable — %s\n", u.Error)
 	case len(u.Commits) == 0:

@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/config"
 )
 
 // update regenerates the golden files instead of comparing. Run: go test ./internal/cli -update
@@ -33,14 +33,14 @@ func stubServer(t *testing.T) *httptest.Server {
 	mux.HandleFunc("GET /api/v1/runs", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		w.Header().Set("Content-Type", "application/json")
-		// `rc fleet runs` pages this: with a cursor set, return the operator-tier (health-bearing) page that
+		// `rp fleet runs` pages this: with a cursor set, return the operator-tier (health-bearing) page that
 		// ENDS the window (no next_before) so the paging loop terminates. Without a cursor it's the
 		// existing single-page fixture (status/runs view).
 		if r.URL.Query().Get("before") != "" {
 			_, _ = w.Write(fixture(t, "fleet_runs_p2.json"))
 			return
 		}
-		if r.URL.Query().Get("kind") == "fleet" { // `rc fleet runs` test path: drive the operator-tier digest fixtures
+		if r.URL.Query().Get("kind") == "fleet" { // `rp fleet runs` test path: drive the operator-tier digest fixtures
 			_, _ = w.Write(fixture(t, "fleet_runs_p1.json"))
 			return
 		}
@@ -53,7 +53,7 @@ func stubServer(t *testing.T) *httptest.Server {
 		_, _ = w.Write(fixture(t, "runs.json"))
 	})
 
-	// Fleet enumeration (rc project list + the --all fan-out seed). A "solo" project drives the --all
+	// Fleet enumeration (rp project list + the --all fan-out seed). A "solo" project drives the --all
 	// scoped-token error; the default returns the two-project fleet.
 	mux.HandleFunc("GET /api/v1/projects", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
@@ -67,7 +67,7 @@ func stubServer(t *testing.T) *httptest.Server {
 			`{"id":"bbbbbbbb-0000-0000-0000-000000000002","name":"bravo"}]}`))
 	})
 
-	// Observability feeds (rc fleet runs/patterns/health). The events feed is paged: page 1 carries a
+	// Observability feeds (rp fleet runs/patterns/health). The events feed is paged: page 1 carries a
 	// next_before, page 2 (before set) is the last page — exercising the CLI's paging loop + accumulation.
 	mux.HandleFunc("GET /api/v1/run-events", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
@@ -151,7 +151,7 @@ func stubServer(t *testing.T) *httptest.Server {
 			_, _ = w.Write([]byte(`{"error":{"code":"UNKNOWN_RUN","message":"unknown run"}}`))
 			return
 		}
-		// id "running" never reaches a terminal status — drives the `rc ask` timeout path.
+		// id "running" never reaches a terminal status — drives the `rp ask` timeout path.
 		if r.PathValue("id") == "running" {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"run_id":"running","status":"running","kind":"prompt","created_at":"2026-06-19T09:00:00Z","has_draft":false,"has_note":false,"attachments":[]}`))
@@ -231,7 +231,7 @@ func stubServer(t *testing.T) *httptest.Server {
 			_, _ = w.Write(fixture(t, "ask_email_full.json"))
 			return
 		}
-		// ids "chat-turn-N": the per-turn headers behind `rc run thread <session> --transcript`. Each one
+		// ids "chat-turn-N": the per-turn headers behind `rp run thread <session> --transcript`. Each one
 		// carries the prompt/tenant-settings bulk the transcript and `--brief` must drop.
 		if strings.HasPrefix(r.PathValue("id"), "chat-turn-") {
 			_, _ = w.Write(fixture(t, "full_"+r.PathValue("id")+".json"))
@@ -244,7 +244,7 @@ func stubServer(t *testing.T) *httptest.Server {
 			return
 		}
 		// id "guarded": a chat run whose header carries the additive `guards` roll-up — the input to
-		// `rc run guards`. Blocks/violations/fail-open are all populated so the readback is exercised.
+		// `rp run guards`. Blocks/violations/fail-open are all populated so the readback is exercised.
 		if r.PathValue("id") == "guarded" {
 			_, _ = w.Write(fixture(t, "full_guarded.json"))
 			return
@@ -390,17 +390,17 @@ func stubServer(t *testing.T) *httptest.Server {
 			_, _ = w.Write(smallTruncatedBashRunJSON())
 			return
 		}
-		if strings.Contains(req.Command, "# rc-kb:list") {
+		if strings.Contains(req.Command, "# rp-kb:list") {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write(bashRunResponseJSON("alpha", `{"providers":[{"provider":"helpscout","root":"/kb/helpscout","revision":"def456","collections":[{"name":"getting-started","article_count":3}]},{"provider":"intercom","root":"/kb/intercom","revision":"abc123","collections":[{"name":"restore-amp-recovery","article_count":2}]}],"truncated":false}`, "", false, false))
 			return
 		}
-		if strings.Contains(req.Command, "# rc-kb:search") {
+		if strings.Contains(req.Command, "# rp-kb:search") {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write(bashRunResponseJSON("alpha", `{"providers":["helpscout","intercom"],"query":"restore as new","revision":"","article_count":1,"hit_count":2,"truncated":false,"articles":[{"id":"9286853","title":"How to recover deleted data","url":"https://support.probackup.io/en/articles/9286853-how-to-recover-deleted-data","provider":"intercom","collection":"restore-amp-recovery","path":"intercom/restore-amp-recovery/9286853-how-to-recover-deleted-data.md","score":9,"hits":[{"line":51,"snippet":"Choose Restore as new to avoid overwriting live data."},{"line":52,"snippet":"Overwrite only when you are sure."}]}]}`, "", false, false))
 			return
 		}
-		if strings.Contains(req.Command, "# rc-kb:cat") {
+		if strings.Contains(req.Command, "# rp-kb:cat") {
 			w.Header().Set("Content-Type", "application/json")
 			article := "---\ntitle: How to recover deleted data\narticle_id: 9286853\nurl: \"https://support.probackup.io/en/articles/9286853-how-to-recover-deleted-data\"\n---\n# How to recover deleted data\nChoose Restore as new to avoid overwriting live data.\nOverwrite only when you are sure.\n"
 			_, _ = w.Write(bashRunResponseJSON("alpha", base64.StdEncoding.EncodeToString([]byte(article)), "", false, false))
@@ -891,7 +891,7 @@ func stubServer(t *testing.T) *httptest.Server {
 	})
 
 	registerConfigSurfaceStubs(t, mux)
-	// Chat card routes, both planes: `rc project chat card|decide`. The CLI passes the card route and
+	// Chat card routes, both planes: `rp project chat card|decide`. The CLI passes the card route and
 	// outcome through verbatim; the stub pins the route shape, the origin header and the decision body.
 	chatCard := func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
@@ -1032,7 +1032,7 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 		_, _ = w.Write([]byte(`{"id":"` + r.PathValue("id") + `","provider":"google","email_address":"ops@momentum.test","status":"active","mode":"watch","processing_enabled":false,"has_sync_cursor":true}`))
 	})
 
-	// generic IMAP/SMTP connect (rc project mailbox connect-imap): assert the password rode in the BODY (never
+	// generic IMAP/SMTP connect (rp project mailbox connect-imap): assert the password rode in the BODY (never
 	// argv) and that the client applied the username→email / smtp-host→imap-host defaults, then echo a
 	// created watched-mailbox item. A duplicate email ("dupe@acme.test") drives the 409 MAILBOX_IN_USE path.
 	imapConnect := func(w http.ResponseWriter, r *http.Request) {
@@ -1058,7 +1058,7 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 		_, _ = w.Write([]byte(`{"id":"mb-imap-1","provider":"imap","email_address":"info@acme.test","status":"connected","processing_enabled":false,"has_sync_cursor":false}`))
 	}
 	mux.HandleFunc("POST /api/v1/projects/{project}/mailboxes/imap/connect", imapConnect)
-	// seed (rc project mailbox seed-imap): assert NO password rides along at all and echo the parked row
+	// seed (rp project mailbox seed-imap): assert NO password rides along at all and echo the parked row
 	// plus the no-login password link — the link IS the deliverable of this call.
 	mux.HandleFunc("POST /api/v1/projects/{project}/mailboxes/imap/seed", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
@@ -1105,7 +1105,7 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 	}
 	mux.HandleFunc("GET /api/v1/projects/{project}/mailboxes/{id}/imap-env", imapEnv)
 
-	// local-synthesis harvest/export (rc project mailbox harvest, rc project corpus ls/get/download). Harvest asserts the
+	// local-synthesis harvest/export (rp project mailbox harvest, rp project corpus ls/get/download). Harvest asserts the
 	// clean/max_threads body shape; a mailbox id "busy" drives the 409 HARVEST_IN_PROGRESS path. The export
 	// list/get echo canned fixtures; download returns raw Markdown (ids "v2"/"v3" select versioned renderers,
 	// id "unsupported" simulates future drift, id "malformed" a known-format count mismatch, and id
@@ -1656,7 +1656,7 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 
 // newTestEnv builds an env wired to the stub server with a fixed output mode, capturing stdout/stderr.
 // It injects a static credential source so newClient skips the OAuth token store while still running
-// the real post-credential pipeline, and isolates XDG_CONFIG_HOME so a real ~/.config/rootcause is
+// the real post-credential pipeline, and isolates XDG_CONFIG_HOME so a real ~/.config/replypen is
 // never read or written.
 // testTokenSource is the credential seam for tests: it replaces ONLY the bearer lookup, so newClient's
 // scope header, project validation, selector enforcement and tenant resolution run as they do in prod.
@@ -1667,7 +1667,7 @@ func testTokenSource(tok string) tokenSourceFactory {
 func newTestEnv(t *testing.T, srv *httptest.Server, output string) (*env, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // isolate the token store + config
-	t.Setenv("ROOTCAUSE_BASE_URL", "")       // a stray env must not override the test base URL
+	t.Setenv("REPLYPEN_BASE_URL", "")        // a stray env must not override the test base URL
 	t.Setenv("RC_PROFILE", "")               // ditto for the profile default
 	t.Setenv("RC_OUTPUT_DIR", t.TempDir())   // no test may spill artifacts into the package dir
 	var out, errb bytes.Buffer
@@ -1760,7 +1760,7 @@ func readBody(t *testing.T, r *http.Request) string {
 }
 
 // testdataDir is the absolute path to the fixtures dir, resolved once at package init so a test that
-// os.Chdir's (e.g. the .rootcause default-split-dir test) doesn't break a stub handler's fixture read.
+// os.Chdir's (e.g. the .replypen default-split-dir test) doesn't break a stub handler's fixture read.
 var testdataDir = func() string {
 	abs, err := filepath.Abs("testdata")
 	if err != nil {

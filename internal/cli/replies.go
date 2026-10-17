@@ -5,10 +5,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newRepliesCmd is `rc dev replies`: a tenant's answered turns (trigger → our draft → the human's send)
+// newRepliesCmd is `rp dev replies`: a tenant's answered turns (trigger → our draft → the human's send)
 // and the tenant-fenced feedback write. Needs a runs:read token; project + tenant come from the
 // ambient selectors.
 func newRepliesCmd(e *env) *cobra.Command {

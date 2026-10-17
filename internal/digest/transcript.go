@@ -1,5 +1,5 @@
 // Transcript: the READING view of a chat conversation, folded out of one thread trace plus one
-// /trace header per run. It exists because the raw path (`rc run thread` + one `rc run trace
+// /trace header per run. It exists because the raw path (`rp run thread` + one `rp run trace
 // --raw-output` per turn) hands a reader ~270 KB for ~10 KB of conversation: the system prompt,
 // the prompt sections and two identical tenant-settings blobs dwarf the question and the answer.
 //
@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // formAnswerPrefix marks a clarification-FORM submission rather than a typed question: the chat plane
@@ -141,7 +141,7 @@ const (
 )
 
 // TruncateAnswers clips every answer to a head and marks the transcript truncated. The CLI calls it
-// only for long conversations; the per-turn detail stays one `rc run trace <run> --brief` away.
+// only for long conversations; the per-turn detail stays one `rp run trace <run> --brief` away.
 func (t *Transcript) TruncateAnswers(head int) {
 	if head <= 0 {
 		return

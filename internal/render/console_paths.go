@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 )
 
-// PathsReport is `rc dev console paths`: which absolute paths exist in a real production workspace, per
+// PathsReport is `rp dev console paths`: which absolute paths exist in a real production workspace, per
 // checked tenant. It is a CLI-composed view over several `console bash run` calls (no server endpoint of
 // its own), so the struct doubles as the -o json contract — field names are that contract.
 type PathsReport struct {

@@ -5,10 +5,10 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
-// TenantReplies renders `rc dev replies list`: one line per answered turn, newest first, as the server
+// TenantReplies renders `rp dev replies list`: one line per answered turn, newest first, as the server
 // ordered them. Bodies stay in -o json; the table answers "what happened to each mail".
 func TenantReplies(w io.Writer, list *client.TenantReplyList) {
 	if len(list.Items) == 0 {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# release.sh — cut a rootcause-cli release, end to end, the same way every time.
+# release.sh — cut a replypen-cli release, end to end, the same way every time.
 #
 # WHY THIS EXISTS: a release here is more than "git tag". For consumers and collaborators to see the
 # exact same tested code, six things must land together: (1) the tested HEAD on origin/main, (2) the
@@ -25,16 +25,16 @@
 
 set -euo pipefail
 
-MODULE="github.com/rootcause-org/rootcause-cli"
-GH_REPO="rootcause-org/rootcause-cli"
-HOMEBREW_CASK_PATH="repos/rootcause-org/homebrew-tap/contents/Casks/rc.rb"
+MODULE="github.com/replypen/replypen-cli"
+GH_REPO="replypen/replypen-cli"
+HOMEBREW_CASK_PATH="repos/replypen/homebrew-tap/contents/Casks/rp.rb"
 MAIN_BRANCH="main"
 GOPROXY_URL="https://proxy.golang.org"
 # Same override knob as scripts/cloud-setup.sh, so the release verification and the installer can be
 # pointed at the same non-production mirror (used by internal/releasetest).
 RELEASE_MIRROR_URL="${RC_RELEASE_MIRROR:-https://kampkompas-eu-central-1.s3.eu-central-1.amazonaws.com/cloud-bootstrap/rc}"
 RELEASE_MIRROR_URL="${RELEASE_MIRROR_URL%/}"
-EXPECTED_ASSETS=7 # 6 OS/arch archives + checksums.txt — keep in sync with .goreleaser.yaml
+EXPECTED_ASSETS=13 # 6 OS/arch archives × {rp, legacy rc} + checksums.txt — keep in sync with .goreleaser.yaml
 RELEASE_TIMEOUT=600 # seconds to wait for the GitHub Release assets to appear
 
 cd "$(git rev-parse --show-toplevel)"
@@ -166,7 +166,7 @@ ok "origin/$MAIN_BRANCH verified at $(git rev-parse --short "$RELEASE_SHA")"
 # --- tag + push -----------------------------------------------------------------------------------
 
 step "Tag + push"
-git tag -a "$VERSION" "$RELEASE_SHA" -m "rootcause-cli $VERSION"
+git tag -a "$VERSION" "$RELEASE_SHA" -m "replypen-cli $VERSION"
 ok "created annotated tag $VERSION"
 git push origin "$VERSION"
 ok "pushed tag (triggers .github/workflows/release.yml → GoReleaser)"
@@ -201,15 +201,21 @@ for path in "$VERSION/cloud-setup.sh" cloud-setup.sh; do
 done
 
 # `latest` is the mirror's only version pointer: cloud-setup.sh reads it on every sandbox boot and
-# `rc self update` falls back to it when GitHub is unreachable. The workflow writes it last, so a
+# `rp self update` falls back to it when GitHub is unreachable. The workflow writes it last, so a
 # green run can still leave it stale — in which case every cloud sandbox silently installs the
-# previous rc. The archives are useless without their digests, so check checksums.txt landed too.
+# previous rp. The archives are useless without their digests, so check checksums.txt landed too.
 mirror_latest="$(curl -fsSL --retry 3 --retry-delay 1 "$RELEASE_MIRROR_URL/latest" 2>/dev/null | tr -d '[:space:]')"
 [ "$mirror_latest" = "$VERSION" ] || die "mirror latest is ${mirror_latest:-missing}, want $VERSION"
 ok "mirror latest is $VERSION"
-curl -fsSL --retry 3 --retry-delay 1 -o /dev/null "$RELEASE_MIRROR_URL/$VERSION/checksums.txt" \
+mirror_sums="$(curl -fsSL --retry 3 --retry-delay 1 "$RELEASE_MIRROR_URL/$VERSION/checksums.txt" 2>/dev/null)" \
   || die "mirror $VERSION/checksums.txt is missing"
 ok "mirror $VERSION/checksums.txt"
+# Installed rc <= 1.51 self-update from the rc_* family; current binaries and cloud setup from rp_*.
+for family in rp rc; do
+  grep -q " ${family}_${VERSION#v}_linux_amd64.tar.gz\$" <<<"$mirror_sums" \
+    || die "mirror $VERSION/checksums.txt lacks the ${family}_* archives"
+done
+ok "mirror carries rp_* and legacy rc_* archives"
 
 # --- wait for the GitHub Release + Homebrew cask --------------------------------------------------
 
@@ -262,7 +268,7 @@ cat <<EOF
 
 Consumers can now pull it:
   go get $MODULE@$VERSION          # pin (resolves immediately)
-  go install $MODULE/cmd/rc@$VERSION
+  go install $MODULE/cmd/rp@$VERSION
   go get $MODULE@latest            # may lag a few min until the proxy list cache refreshes
 
 Release page: $(gh release view "$VERSION" --json url --jq .url 2>/dev/null || echo "gh release view $VERSION")

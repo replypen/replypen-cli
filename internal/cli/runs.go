@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// runsFlags holds the `rc run list` filter flags, bound per-command so each invocation is isolated.
+// runsFlags holds the `rp run list` filter flags, bound per-command so each invocation is isolated.
 type runsFlags struct {
 	limit    int
 	days     int
@@ -27,7 +27,7 @@ type runsFlags struct {
 	until    string
 }
 
-// newRunListCmd builds `rc run list`: the filterable list view of GET /api/v1/runs, leading with the run
+// newRunListCmd builds `rp run list`: the filterable list view of GET /api/v1/runs, leading with the run
 // table. Filters are passed to the server as query params so pagination stays correct. Stable outcome
 // and learning enums are checked locally; the server still owns range/kind/category/cursor validation.
 func newRunListCmd(e *env) *cobra.Command {
@@ -55,7 +55,7 @@ func newRunListCmd(e *env) *cobra.Command {
 			render.Runs(e.out, resp)
 			// A triage-skipped or security-blocked email never becomes a run; the address lookup shows it.
 			if len(resp.Runs) == 0 && strings.Contains(f.from, "@") {
-				_, _ = fmt.Fprintf(e.err, "hint: no run — `rc run thread %s` shows threads that stopped before a run (triage skip, security block)\n", f.from)
+				_, _ = fmt.Fprintf(e.err, "hint: no run — `rp run thread %s` shows threads that stopped before a run (triage skip, security block)\n", f.from)
 			}
 			return nil
 		},
@@ -74,7 +74,7 @@ func newRunListCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// addEnvelopeFlags binds the forwarded-email filters shared by `rc run list` and `rc fleet runs`.
+// addEnvelopeFlags binds the forwarded-email filters shared by `rp run list` and `rp fleet runs`.
 func addEnvelopeFlags(cmd *cobra.Command, from, subject, since, until *string) {
 	cmd.Flags().StringVar(from, "from", "", "sender address or name substring (case-insensitive)")
 	cmd.Flags().StringVar(subject, "subject", "", "thread subject substring (case-insensitive)")
@@ -96,7 +96,7 @@ func validateRunFilters(outcome, learning string) error {
 	return nil
 }
 
-// sessionsFlags holds the `rc run sessions` filters, bound per-command so each invocation is isolated.
+// sessionsFlags holds the `rp run sessions` filters, bound per-command so each invocation is isolated.
 type sessionsFlags struct {
 	kind    string
 	days    int
@@ -105,9 +105,9 @@ type sessionsFlags struct {
 	before  string
 }
 
-// newRunSessionsCmd builds `rc run sessions`: the CONVERSATION index (GET /api/v1/sessions), the rung
-// above `rc run list`. It answers "which conversations happened" so the two existing drills have
-// something to drill: `rc run thread <session_id>` for the turns, `rc run trace <run_id>` for one turn's
+// newRunSessionsCmd builds `rp run sessions`: the CONVERSATION index (GET /api/v1/sessions), the rung
+// above `rp run list`. It answers "which conversations happened" so the two existing drills have
+// something to drill: `rp run thread <session_id>` for the turns, `rp run trace <run_id>` for one turn's
 // bodies. Filters go to the server so paging stays correct.
 func newRunSessionsCmd(e *env) *cobra.Command {
 	var f sessionsFlags
@@ -115,8 +115,8 @@ func newRunSessionsCmd(e *env) *cobra.Command {
 		Use:   "sessions",
 		Short: "List chat conversations (sessions) with turns, outcome and feedback",
 		Long: "List chat conversations, newest first. A conversation is N runs sharing one session id: " +
-			"drill its turns with `rc run thread <session_id>`, then one turn's bodies with " +
-			"`rc run trace <run_id>`. The feedback column is the rollup over the conversation's rated " +
+			"drill its turns with `rp run thread <session_id>`, then one turn's bodies with " +
+			"`rp run trace <run_id>`. The feedback column is the rollup over the conversation's rated " +
 			"turns; TIER (when served) is the latest turn's depth, `*` = picked by the member; " +
 			"`-o json` is the server payload verbatim, including next_before.",
 		Args: cobra.NoArgs,
@@ -161,7 +161,7 @@ func validateSessionSurface(surface string) error {
 	}
 }
 
-// feedbackListFlags holds the `rc run feedback list` filters, bound per-command so each invocation is isolated.
+// feedbackListFlags holds the `rp run feedback list` filters, bound per-command so each invocation is isolated.
 type feedbackListFlags struct {
 	score   string
 	kind    string
@@ -173,8 +173,8 @@ type feedbackListFlags struct {
 	before  string
 }
 
-// newRunFeedbackListCmd builds `rc run feedback list`: the rated-runs index (GET /api/v1/feedback), the
-// read side of `rc run feedback <run-id>`. Filters go to the server so paging stays correct.
+// newRunFeedbackListCmd builds `rp run feedback list`: the rated-runs index (GET /api/v1/feedback), the
+// read side of `rp run feedback <run-id>`. Filters go to the server so paging stays correct.
 func newRunFeedbackListCmd(e *env) *cobra.Command {
 	var f feedbackListFlags
 	cmd := &cobra.Command{
@@ -185,11 +185,11 @@ func newRunFeedbackListCmd(e *env) *cobra.Command {
 			"= every row with a score or comment. The --days/--since/--until window applies to when the feedback " +
 			"was last written (feedback_at), not when the run was created. Comments need review-content access " +
 			"and question/answer previews need project-admin access; below those tiers the cells stay empty.\n\n" +
-			"Drill down with `rc run show <run_id>`, and for chat `rc run thread <session_id> --transcript` to " +
+			"Drill down with `rp run show <run_id>`, and for chat `rp run thread <session_id> --transcript` to " +
 			"read the whole conversation. `-o json` is the server payload verbatim (session_id, previews, " +
 			"next_before included).",
-		Example: "  rc run feedback list --score negative --kind chat --since 2026-10-16\n" +
-			"  rc run feedback list --tenant conferentie --days 7 -o json",
+		Example: "  rp run feedback list --score negative --kind chat --since 2026-10-16\n" +
+			"  rp run feedback list --tenant conferentie --days 7 -o json",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if err := validateFeedbackScore(f.score); err != nil {

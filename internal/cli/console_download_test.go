@@ -37,7 +37,7 @@ func truncatedBashServer(t *testing.T, full string) *httptest.Server {
 
 func TestBashRunTruncatedPrintsDownloadHint(t *testing.T) {
 	full := strings.Repeat("x", 70000)
-	want := "rc dev console file get /tmp/rc-console/stdout-7.txt ./stdout-7.txt --tenant dev_org"
+	want := "rp dev console file get /tmp/rc-console/stdout-7.txt ./stdout-7.txt --tenant dev_org"
 	t.Run("table", func(t *testing.T) {
 		e, out, _ := newTestEnv(t, truncatedBashServer(t, full), "table")
 		if err := run(t, e, "dev", "console", "bash", "run", "cat big"); err != nil {
@@ -105,13 +105,13 @@ func TestFileGetDirectoryStagesAndUnpacks(t *testing.T) {
 		commands = append(commands, req.Command)
 		stdout := ""
 		if strings.HasPrefix(req.Command, "p=/kb/knowledgeowl") {
-			stdout = "dir\t/tmp/rc-download-abc\tstaged\n"
+			stdout = "dir\t/tmp/rp-download-abc\tstaged\n"
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"run_id": "r", "stdout": stdout})
 	})
 	mux.HandleFunc("GET /api/v1/console/file", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("path") != "/tmp/rc-download-abc" {
+		if r.URL.Query().Get("path") != "/tmp/rp-download-abc" {
 			t.Errorf("fetched %q", r.URL.Query().Get("path"))
 		}
 		_, _ = w.Write(tarball.Bytes())
@@ -135,7 +135,7 @@ func TestFileGetDirectoryStagesAndUnpacks(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(dst, "b", "escaped")); string(b) != "!" {
 		t.Fatalf("b/escaped = %q, want a plain file inside the tree", b)
 	}
-	if len(commands) != 2 || commands[1] != "rm -f -- /tmp/rc-download-abc" {
+	if len(commands) != 2 || commands[1] != "rm -f -- /tmp/rp-download-abc" {
 		t.Fatalf("bash commands = %q, want stage + cleanup", commands)
 	}
 	if !strings.Contains(out.String(), "3 files") {

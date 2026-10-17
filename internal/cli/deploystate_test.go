@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // gitRepo builds a throwaway checkout with two commits and returns (dir, firstSHA).
@@ -94,7 +94,7 @@ func TestLocalUnpromotedReportsUnusableInput(t *testing.T) {
 // TestWithUnpromotedSplicesIntoRawJSON: -o json must stay one object, server rows untouched.
 func TestWithUnpromotedSplicesIntoRawJSON(t *testing.T) {
 	raw := json.RawMessage(`{"project":"kampadmin","host":{"release":"abc1234"}}`)
-	merged := withUnpromoted(raw, &render.HostUnpromoted{Repo: "/tmp/rc", Ref: "origin/main", Release: "abc1234", Commits: []string{"deadbee fix"}})
+	merged := withUnpromoted(raw, &render.HostUnpromoted{Repo: "/tmp/rp", Ref: "origin/main", Release: "abc1234", Commits: []string{"deadbee fix"}})
 
 	var obj struct {
 		Project    string `json:"project"`

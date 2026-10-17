@@ -3,10 +3,10 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newGitHubCmd builds `rc github status` over GET /api/v1/github/status →
+// newGitHubCmd builds `rp github status` over GET /api/v1/github/status →
 // {installed, account, install_url?}. JSON passthrough (the body is small and structured); the table
 // path renders it as a key:value block so a human sees the install state at a glance.
 func newGitHubCmd(e *env) *cobra.Command {

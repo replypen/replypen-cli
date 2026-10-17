@@ -51,19 +51,24 @@ func TestReleaseMirrorSpelledTheSameEverywhere(t *testing.T) {
 
 // TestReleaseAssetNameSpelledTheSameEverywhere asserts every dialect builds the same archive name.
 // Each template is reduced to its skeleton (see normalizeAssetTemplate), so only the shape
-// rc_<ver>_<os>_<arch> and the extension are compared — the substitution syntax, and whether a caller
+// rp_<ver>_<os>_<arch> and the extension are compared — the substitution syntax, and whether a caller
 // hard-codes its own platform, are none of this test's business.
 func TestReleaseAssetNameSpelledTheSameEverywhere(t *testing.T) {
 	for _, tc := range []struct{ file, pattern, want string }{
-		{".goreleaser.yaml", `name_template:\s*"([^"]+)"`, "rc_%s_%s_%s"},                  // extension comes from `formats`
-		{"internal/cli/upgrade.go", `return fmt\.Sprintf\("(rc_[^"]+)"`, "rc_%s_%s_%s.%s"}, // .zip on windows
-		{"scripts/cloud-setup.sh", `asset="(rc_[^"]+)"`, "rc_%s_%s_%s.tar.gz"},
-		{"scripts/install.sh", `asset="(rc_[^"]+)"`, "rc_%s_%s_%s.tar.gz"},
-		{".github/workflows/release.yml", `--pattern "(rc_[^"]+)"`, "rc_%s_%s_%s.tar.gz"},
+		{".goreleaser.yaml", `name_template:\s*"(rp_[^"]+)"`, "rp_%s_%s_%s"},               // extension comes from `formats`
+		{".goreleaser.yaml", `name_template:\s*"(rc_[^"]+)"`, "rc_%s_%s_%s"},               // legacy copy for rc <= 1.51
+		{"internal/cli/upgrade.go", `return fmt\.Sprintf\("(rp_[^"]+)"`, "rp_%s_%s_%s.%s"}, // .zip on windows
+		{"scripts/cloud-setup.sh", `asset="(rp_[^"]+)"`, "rp_%s_%s_%s.tar.gz"},
+		{"scripts/install.sh", `asset="(rp_[^"]+)"`, "rp_%s_%s_%s.tar.gz"},
+		{".github/workflows/release.yml", `assets\+=\("(\$\{name\}_[^"]+\.tar\.gz)"\)`, "%s_%s_%s.tar.gz"},
 	} {
 		if got := normalizeAssetTemplate(capture(t, tc.file, tc.pattern)); got != tc.want {
 			t.Errorf("%s asset template = %q, want %q", tc.file, got, tc.want)
 		}
+	}
+	// The workflow mirrors both archive families: rp for current binaries, rc for installed rc <= 1.51.
+	if got := capture(t, ".github/workflows/release.yml", `for name in ([a-z ]+); do`); got != "rp rc" {
+		t.Errorf("release.yml mirrors archive families %q, want \"rp rc\"", got)
 	}
 }
 
@@ -72,7 +77,7 @@ func TestReleaseAssetNameSpelledTheSameEverywhere(t *testing.T) {
 var placeholders = regexp.MustCompile(`\{\{[^}]*\}\}|\$\{[^}]*\}|%s`)
 
 // normalizeAssetTemplate reduces one archive-name template to its skeleton: every underscore-separated
-// field after the "rc" prefix becomes %s, whatever produced it (goreleaser `{{ .Os }}`, shell
+// field after the name prefix becomes %s, whatever produced it (goreleaser `{{ .Os }}`, shell
 // `${version}`, Go `%s`, or a literal "linux"). The extension is kept verbatim — it is the one part
 // the dialects legitimately differ on.
 func normalizeAssetTemplate(tpl string) string {

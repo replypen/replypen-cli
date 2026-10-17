@@ -7,13 +7,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
-// newDatabaseCmd: `rc project database ls/get/set` over the databases collection (id = dsn) plus a
+// newDatabaseCmd: `rp project database ls/get/set` over the databases collection (id = dsn) plus a
 // `controls` sub-group over the nested /databases/{dsn}/controls sub-resource. Guarded production reads
-// live separately at `rc dev console database`.
+// live separately at `rp dev console database`.
 func newDatabaseCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "database",
@@ -21,16 +21,16 @@ func newDatabaseCmd(e *env) *cobra.Command {
 		Long: `Manage registered databases (list/read/update + access controls).
 
 There is no "database add": a database EXISTS because a sealed grounding env key named
-<PROJECT>_<DBKEY>_DSN exists. To register one (read-only DB role; the rootcause box must be
+<PROJECT>_<DBKEY>_DSN exists. To register one (read-only DB role; the ReplyPen box must be
 network-allowlisted by your DB provider):
 
-  printf %s "$DSN" | rc project env set key=<PROJECT>_<DBKEY>_DSN
+  printf %s "$DSN" | rp project env set key=<PROJECT>_<DBKEY>_DSN
 
 <dbkey> lowercased is the db= short name brain scripts use: PROBACKUP_BACKUPS_DSN <-> lib.db(db="backups").
-Verify the DSN env actually resolves with ` + "`rc dev console database list`" + `.
+Verify the DSN env actually resolves with ` + "`rp dev console database list`" + `.
 
 ` + "`ls`" + ` here lists the DSNs this project has CONFIGURED (description, scope manifest, or PII columns) —
-a brand-new DSN shows up once you annotate it: ` + "`rc project database set <PROJECT>_<DBKEY>_DSN description=…`" + `.
+a brand-new DSN shows up once you annotate it: ` + "`rp project database set <PROJECT>_<DBKEY>_DSN description=…`" + `.
 
 ` + "`*_WRITE_DSN`" + ` keys are the action/write plane (--plane action), not grounding databases.`,
 	}
@@ -47,8 +47,8 @@ a brand-new DSN shows up once you annotate it: ` + "`rc project database set <PR
 // databaseConventionHint is the one-line discovery hint for the implicit registration convention: a
 // database is not created through this surface, it exists because its grounding DSN env exists.
 const databaseConventionHint = "databases come from grounding env keys `<PROJECT>_<DBKEY>_DSN` " +
-	"(register: printf %s \"$DSN\" | rc project env set key=<PROJECT>_<DBKEY>_DSN); " +
-	"`rc dev console database list` shows which DSN envs actually exist"
+	"(register: printf %s \"$DSN\" | rp project env set key=<PROJECT>_<DBKEY>_DSN); " +
+	"`rp dev console database list` shows which DSN envs actually exist"
 
 // databaseSetCmd is the generic collection `set` with a databases-specific Long listing the ONE editable
 // field, so an agent doesn't have to guess the k=v vocabulary (server: databasesAdapter.update).
@@ -59,8 +59,8 @@ func databaseSetCmd(e *env) *cobra.Command {
 Accepted keys:
   description=<text>   one-line description shown to the agent (empty value clears it)
 
-Scope/PII controls live under ` + "`rc project database controls set`" + `, not here. The DSN itself is the
-sealed grounding env key ` + "`<PROJECT>_<DBKEY>_DSN`" + ` — set it with ` + "`rc project env set`" + `.`
+Scope/PII controls live under ` + "`rp project database controls set`" + `, not here. The DSN itself is the
+sealed grounding env key ` + "`<PROJECT>_<DBKEY>_DSN`" + ` — set it with ` + "`rp project env set`" + `.`
 	return cmd
 }
 
@@ -81,7 +81,7 @@ func withDSNHint(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-// newDatabasePreviewCmd: `rc project database preview <dsn> --tenant … --principal-kind … --principal-id …
+// newDatabasePreviewCmd: `rp project database preview <dsn> --tenant … --principal-kind … --principal-id …
 // [--table …]` over POST /api/v1/databases/{dsn}/scope-preview — the ONE real per-principal preview. It
 // mints the scoped views a real run of (tenant, principal) would see and returns per-table counts + sample
 // rows + the compiled predicate. Preview-only (never writes); the principal pair validates together.
@@ -129,7 +129,7 @@ func newDatabasePreviewCmd(e *env) *cobra.Command {
 	return cmd
 }
 
-// newDatabaseControlsCmd: `rc project database controls get|set <dsn>` over GET/PATCH
+// newDatabaseControlsCmd: `rp project database controls get|set <dsn>` over GET/PATCH
 // /api/v1/databases/{dsn}/controls — a hand-written nested-path call (not a generic collection route).
 func newDatabaseControlsCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "controls", Short: "Read or change a database's access controls"}

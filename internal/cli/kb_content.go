@@ -12,8 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/localstate"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 const defaultKBLimit = 25
@@ -334,7 +335,7 @@ func finishKBArtifacts(e *env, c *client.Client, version string, resp *kbSearchR
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "articles"), 0o755); err != nil {
+	if err := mkdirLocal(filepath.Join(dir, "articles"), 0o755); err != nil {
 		return nil, fmt.Errorf("create kb artifact dir: %w", err)
 	}
 	for _, article := range resp.Articles {
@@ -486,7 +487,7 @@ func kbArtifactDir(out, query string) (string, string, error) {
 }
 
 func uniqueKBArtifactDir(query string) string {
-	base := filepath.Join(".rootcause", "tmp", "kb-searches", time.Now().Format("20060102-150405")+"-"+querySlug(query))
+	base := localstate.Path("tmp", "kb-searches", time.Now().Format("20060102-150405")+"-"+querySlug(query))
 	if _, err := os.Stat(base); os.IsNotExist(err) {
 		return base
 	}
@@ -559,7 +560,7 @@ func mustGetwd() string {
 
 func kbListScript(provider, collection string, limit int) string {
 	return kbPython(map[string]any{"provider": provider, "collection": collection, "limit": limit}, `
-# rc-kb:list
+# rp-kb:list
 import json, os
 collection_filter = (ARGS.get("collection") or "").strip("/")
 limit = int(ARGS.get("limit") or 0)
@@ -591,7 +592,7 @@ print(json.dumps(payload, ensure_ascii=False))
 
 func kbSearchScript(query, provider string, limit int) string {
 	return kbPython(map[string]any{"provider": provider, "query": query, "limit": limit}, `
-# rc-kb:search
+# rp-kb:search
 import json, os, re
 query = ARGS.get("query") or ""
 limit = int(ARGS.get("limit") or 0)
@@ -672,7 +673,7 @@ print(json.dumps(kb_result(providers, articles, query=query, hit_count=total_hit
 
 func kbArticleSelectScript(article, provider string) string {
 	return kbPython(map[string]any{"provider": provider, "article": article}, `
-# rc-kb:article
+# rp-kb:article
 import json, os
 needle = (ARGS.get("article") or "").strip("/")
 providers = kb_providers(ARGS.get("provider") or "")
@@ -709,7 +710,7 @@ print(json.dumps(kb_result(providers, items, query=needle), ensure_ascii=False))
 
 func kbAllScript(provider string) string {
 	return kbPython(map[string]any{"provider": provider}, `
-# rc-kb:all
+# rp-kb:all
 import json, os
 providers = kb_providers(ARGS.get("provider") or "")
 items = []
@@ -728,7 +729,7 @@ print(json.dumps(kb_result(providers, items), ensure_ascii=False))
 // multi-provider search is fetchable without carrying its provider separately.
 func kbCatScript(rel string) string {
 	return kbPython(map[string]any{"path": cleanKBRelPath(rel)}, `
-# rc-kb:cat
+# rp-kb:cat
 import base64, os, sys
 rel = (ARGS.get("path") or "").strip("/")
 root = os.path.realpath("/kb")

@@ -1,9 +1,11 @@
 # Local build artifacts
+/rp
 /rc
 /dist/
 
-# `rc run debug <id>` default output dir
+# `rp run debug <id>` default output dir
 /rc-debug/
+/.replypen/
 /.rootcause/
 
 # agent git worktrees (keep the shared checkout clean for release.sh)

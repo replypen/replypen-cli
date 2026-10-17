@@ -1,9 +1,9 @@
-// `rc fleet deploy-state` — the audit pre-flight: which host build, which brain channel pointer, and
+// `rp fleet deploy-state` — the audit pre-flight: which host build, which brain channel pointer, and
 // which source-mirror commits are LIVE right now, plus the timelines the server stores. Run it before
 // attributing a defect, so a finding is never blamed on code or knowledge that was not yet deployed.
 //
 // The host plane has no server-side history (the box only knows what it runs now). --host-repo closes
-// that gap locally and offline: it lists the commits on a rootcause checkout's main that the deployed
+// that gap locally and offline: it lists the commits on a ReplyPen checkout's main that the deployed
 // release does not contain. It never fetches — the caller decides how fresh the checkout is.
 package cli
 
@@ -17,7 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rootcause-org/rootcause-cli/internal/render"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 // maxUnpromotedCommits caps the local delta list so a badly-stale checkout cannot flood the report.
@@ -32,7 +32,7 @@ func newDeployStateCmd(e *env) *cobra.Command {
 		Long: "Fetch GET /api/v1/deploy-state and render what is LIVE per plane: the host release the " +
 			"server was built from, the project brain's channel pointers (plus the recorded promotion " +
 			"timeline), and each source mirror's checked-out commit (plus its refresh timeline). " +
-			"--host-repo <path> additionally lists the commits on that local rootcause checkout's main " +
+			"--host-repo <path> additionally lists the commits on that local ReplyPen checkout's main " +
 			"that the deployed release does not contain (offline; it never fetches). -o json passes the " +
 			"raw server rows through, with the local delta added under \"unpromoted\".",
 		Args: cobra.NoArgs,
@@ -59,7 +59,7 @@ func newDeployStateCmd(e *env) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&history, "history", 15, "how many brain promotions and mirror refreshes to list")
-	cmd.Flags().StringVar(&hostRepo, "host-repo", "", "path to a local rootcause checkout, to list commits not in the deployed release")
+	cmd.Flags().StringVar(&hostRepo, "host-repo", "", "path to a local ReplyPen checkout, to list commits not in the deployed release")
 	return cmd
 }
 
@@ -88,7 +88,7 @@ func withUnpromoted(raw json.RawMessage, u *render.HostUnpromoted) json.RawMessa
 	return merged
 }
 
-// localUnpromoted lists the commits a local rootcause checkout has on main (origin/main when present —
+// localUnpromoted lists the commits a local ReplyPen checkout has on main (origin/main when present —
 // the shared truth — else the local main) that the deployed release does not contain. Every failure is
 // reported as an Error rather than an empty list: "no local checkout" must never read as "nothing
 // pending". The release SHA is passed to git only after a hex check, so it can't smuggle a git option.

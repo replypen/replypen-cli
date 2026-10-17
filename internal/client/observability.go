@@ -176,7 +176,7 @@ func (c *Client) AllEgress(ctx context.Context, p FeedParams) (rows []EgressRow,
 	return rows, meta, nil
 }
 
-// AllRuns pages GET /api/v1/runs (the run index, reused by `rc fleet runs`) until next_before runs out or the
+// AllRuns pages GET /api/v1/runs (the run index, reused by `rp fleet runs`) until next_before runs out or the
 // page cap trips. It accumulates the safe per-run rows AND keeps the FIRST page's summary (the
 // server-computed health rollup over the most recent window) for the digest header.
 func (c *Client) AllRuns(ctx context.Context, p RunsParams) (runs []RunSummary, capped bool, err error) {
@@ -208,7 +208,7 @@ func ThreadTracePath(id, project, tenant string) string {
 }
 
 // ThreadTrace fetches GET /api/v1/threads/{id}/trace — every run for one thread (or session) id. Used by
-// both the table view of `rc run thread` and its `-o json` passthrough: ONE fetch, the verbatim bytes
+// both the table view of `rp run thread` and its `-o json` passthrough: ONE fetch, the verbatim bytes
 // returned alongside the typed view (render, don't reshape). project is the optional --project scope.
 func (c *Client) ThreadTrace(ctx context.Context, id, project, tenant string) (*ThreadTrace, json.RawMessage, error) {
 	return fetchBoth[ThreadTrace](ctx, c, http.MethodGet, ThreadTracePath(id, project, tenant), nil)

@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 var grepRx = regexp.MustCompile(`^\s*(rg|grep|egrep|fgrep)\b`)

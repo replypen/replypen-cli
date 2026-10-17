@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/config"
-	"github.com/rootcause-org/rootcause-cli/internal/token"
+	"github.com/replypen/replypen-cli/internal/config"
+	"github.com/replypen/replypen-cli/internal/token"
 )
 
 // oauthStub is a minimal OAuth server: a device flow that approves after the first poll, a refresh that
@@ -99,10 +99,10 @@ func newWhoamiStub(t *testing.T, body string) *httptest.Server {
 func isolatedConfig(t *testing.T) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("ROOTCAUSE_BASE_URL", "")
+	t.Setenv("REPLYPEN_BASE_URL", "")
 }
 
-// TestLoginDeviceStoresToken: `rc auth login --device` runs the device flow and persists the token under the
+// TestLoginDeviceStoresToken: `rp auth login --device` runs the device flow and persists the token under the
 // resolved profile at 0600.
 func TestLoginDeviceStoresToken(t *testing.T) {
 	isolatedConfig(t)
@@ -145,7 +145,7 @@ func TestLoginDeviceStoresToken(t *testing.T) {
 	}
 }
 
-// TestLogoutRevokesAndClears: `rc auth logout` revokes server-side and clears the local store.
+// TestLogoutRevokesAndClears: `rp auth logout` revokes server-side and clears the local store.
 func TestLogoutRevokesAndClears(t *testing.T) {
 	isolatedConfig(t)
 	stub := newOAuthStub(t)
@@ -167,14 +167,14 @@ func TestLogoutRevokesAndClears(t *testing.T) {
 	}
 }
 
-// TestWhoamiLocal: `rc auth status` reports the brain project, login scope, and logged-in status.
+// TestWhoamiLocal: `rp auth status` reports the brain project, login scope, and logged-in status.
 func TestWhoamiLocal(t *testing.T) {
 	isolatedConfig(t)
 	srv := newWhoamiStub(t, `{"all_projects":false,"project":{"id":"11111111-1111-1111-1111-111111111111","name":"momentum-tools"}}`)
-	t.Setenv("ROOTCAUSE_BASE_URL", srv.URL)
+	t.Setenv("REPLYPEN_BASE_URL", srv.URL)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".replypen.toml"),
 		[]byte("project = \"momentum-tools\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestWhoamiLocal(t *testing.T) {
 		t.Fatalf("whoami: %v", err)
 	}
 	got := out.String()
-	for _, want := range []string{"momentum-tools", srv.URL, "ROOTCAUSE_BASE_URL", "logged in"} {
+	for _, want := range []string{"momentum-tools", srv.URL, "REPLYPEN_BASE_URL", "logged in"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("whoami missing %q\n--- got ---\n%s", want, got)
 		}
@@ -199,10 +199,10 @@ func TestWhoamiLocal(t *testing.T) {
 func TestWhoamiBrainFallsBackToDefaultProfile(t *testing.T) {
 	isolatedConfig(t)
 	srv := newWhoamiStub(t, `{"all_projects":true}`)
-	t.Setenv("ROOTCAUSE_BASE_URL", srv.URL)
+	t.Setenv("REPLYPEN_BASE_URL", srv.URL)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".replypen.toml"),
 		[]byte("project = \"pro-backup\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +243,7 @@ func TestWhoamiUnknownProjectFailsWithProjectsHint(t *testing.T) {
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	t.Setenv("ROOTCAUSE_BASE_URL", srv.URL)
+	t.Setenv("REPLYPEN_BASE_URL", srv.URL)
 	seedToken(t, "default", token.Token{
 		AccessToken: "rcoa_x", RefreshToken: "rcor_x",
 		ExpiresAt: time.Now().Add(time.Hour), BaseURL: srv.URL,
@@ -257,7 +257,7 @@ func TestWhoamiUnknownProjectFailsWithProjectsHint(t *testing.T) {
 	}
 	printError(&errb, err)
 	got := errb.String()
-	for _, want := range []string{"UNKNOWN_PROJECT", "pb-admin", "rc project list"} {
+	for _, want := range []string{"UNKNOWN_PROJECT", "pb-admin", "rp project list"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
@@ -270,17 +270,17 @@ func TestWhoamiUnknownProjectFailsWithProjectsHint(t *testing.T) {
 func TestWhoamiShowsLocalTenantSource(t *testing.T) {
 	isolatedConfig(t)
 	srv := newWhoamiStub(t, `{"all_projects":false,"project":{"id":"11111111-1111-1111-1111-111111111111","name":"dentai"},"tenant":{"id":"22222222-2222-2222-2222-222222222222","slug":"de-kies","name":"De Kies"}}`)
-	t.Setenv("ROOTCAUSE_BASE_URL", srv.URL)
+	t.Setenv("REPLYPEN_BASE_URL", srv.URL)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".replypen.toml"),
 		[]byte("project = \"dentai\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, ".rootcause"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".replypen"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause", "local.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".replypen", "local.toml"),
 		[]byte("tenant = \"de-kies\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +295,7 @@ func TestWhoamiShowsLocalTenantSource(t *testing.T) {
 		t.Fatalf("whoami: %v", err)
 	}
 	got := out.String()
-	for _, want := range []string{"profile:   dentai", "project:   dentai", "tenant:    de-kies (.rootcause/local.toml)"} {
+	for _, want := range []string{"profile:   dentai", "project:   dentai", "tenant:    de-kies (.replypen/local.toml)"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("whoami missing %q\n--- got ---\n%s", want, got)
 		}
@@ -305,10 +305,10 @@ func TestWhoamiShowsLocalTenantSource(t *testing.T) {
 func TestWhoamiJSONIncludesTenantSource(t *testing.T) {
 	isolatedConfig(t)
 	srv := newWhoamiStub(t, `{"all_projects":false,"project":{"id":"11111111-1111-1111-1111-111111111111","name":"dentai"},"tenant":{"id":"22222222-2222-2222-2222-222222222222","slug":"de-kies","name":"De Kies"}}`)
-	t.Setenv("ROOTCAUSE_BASE_URL", srv.URL)
+	t.Setenv("REPLYPEN_BASE_URL", srv.URL)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, ".rootcause.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".replypen.toml"),
 		[]byte("project = \"dentai\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -329,8 +329,8 @@ func TestWhoamiJSONIncludesTenantSource(t *testing.T) {
 	if got["tenant"] != "other" || got["tenant_source"] != "--tenant" || got["login_tenant"] != "de-kies" {
 		t.Fatalf("tenant/source/login = %v/%v/%v, want other/--tenant/de-kies", got["tenant"], got["tenant_source"], got["login_tenant"])
 	}
-	if got["base_url"] != srv.URL || got["base_url_source"] != "ROOTCAUSE_BASE_URL" {
-		t.Fatalf("base/source = %v/%v, want env stub/ROOTCAUSE_BASE_URL", got["base_url"], got["base_url_source"])
+	if got["base_url"] != srv.URL || got["base_url_source"] != "REPLYPEN_BASE_URL" {
+		t.Fatalf("base/source = %v/%v, want env stub/REPLYPEN_BASE_URL", got["base_url"], got["base_url_source"])
 	}
 }
 
@@ -365,7 +365,7 @@ func TestRefreshOn401(t *testing.T) {
 }
 
 // TestRefreshConcurrentRotation: when a refresh gets invalid_grant because a sibling OUTSIDE the store
-// lock (an older rc) already rotated the token, we re-read the store once and adopt the sibling's fresh
+// lock (an older rp) already rotated the token, we re-read the store once and adopt the sibling's fresh
 // access token instead of forcing a spurious re-login. The stub plays that sibling: it rewrites
 // tokens.json directly (no lock) before rejecting the stale refresh.
 func TestRefreshConcurrentRotation(t *testing.T) {
@@ -403,7 +403,7 @@ func TestRefreshConcurrentRotation(t *testing.T) {
 	}
 }
 
-// TestRefreshDeadTokenPromptsReauth: a dead refresh token surfaces a "run `rc auth login`" error.
+// TestRefreshDeadTokenPromptsReauth: a dead refresh token surfaces a "run `rp auth login`" error.
 func TestRefreshDeadTokenPromptsReauth(t *testing.T) {
 	isolatedConfig(t)
 	stub := newOAuthStub(t)
@@ -414,7 +414,7 @@ func TestRefreshDeadTokenPromptsReauth(t *testing.T) {
 
 	src := newLiveSource("default", stub.srv.URL)
 	_, err := src.Token(t.Context())
-	if err == nil || !strings.Contains(err.Error(), "rc auth login") {
+	if err == nil || !strings.Contains(err.Error(), "rp auth login") {
 		t.Fatalf("expected a re-login prompt, got %v", err)
 	}
 }
@@ -440,7 +440,7 @@ func TestAuthStatusDisclosesSecondaryBinding(t *testing.T) {
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	t.Setenv("ROOTCAUSE_BASE_URL", srv.URL)
+	t.Setenv("REPLYPEN_BASE_URL", srv.URL)
 	dir := t.TempDir()
 	t.Chdir(dir)
 	if err := os.WriteFile(filepath.Join(dir, config.MarkerFileName), []byte(alsoMarker), 0o600); err != nil {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rootcause-org/rootcause-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/client"
 )
 
 // DNSResult is the outcome of looking up one configured chat origin's host. The CLI performs the lookup;
@@ -22,7 +22,7 @@ const (
 	DNSError    DNSResult = "error"     // timeout or resolver failure
 )
 
-// ChatDoctorInputs is everything `rc project chat doctor` fetched or probed, already decoded. The CLI
+// ChatDoctorInputs is everything `rp project chat doctor` fetched or probed, already decoded. The CLI
 // owns the I/O (HTTP, DNS, the loader probe); ChatDoctor turns this into the verdict.
 type ChatDoctorInputs struct {
 	Settings   client.Settings          // GET /chat

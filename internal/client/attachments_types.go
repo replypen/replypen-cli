@@ -1,6 +1,6 @@
 package client
 
-// Wire contract of `rc run attachments`: a chat session's files and the resource → session link.
+// Wire contract of `rp run attachments`: a chat session's files and the resource → session link.
 // Field names match the server verbatim; a shape change is a one-line fix here.
 
 // SessionAttachments is GET /api/v1/projects/{p}[/tenants/{t}]/sessions/{session}/attachments: every
