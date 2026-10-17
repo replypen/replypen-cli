@@ -236,8 +236,10 @@ redirect traffic. `.rootcause/local.toml` overlays `tenant` only.
 - **`rc run debug`** ([`internal/debugdump`](internal/debugdump/dump.go)) writes files and deliberately
   does **not** summarize into stdout; the agent reads the index, then drills the JSONL. Its JSONL shape
   (header line + `disp`-keyed events) is a contract shared with rootcause's Python renderer — jq recipes
-  in the field depend on it. Historical `/trace` snapshots are authoritative; current state appears only
-  as drift annotations.
+  in the field depend on it. Header = server run object + CLI overlay (`runHeader` in jsonl.go): a new
+  server field needs no CLI change; keys the overlay owns keep the CLI shape, host-only keys drop, and
+  event-key collisions become `run_<key>`. Historical `/trace` snapshots are authoritative; current state
+  appears only as drift annotations.
 - **`rc dev brain`** ([brain.go](internal/cli/brain.go)) is project-scoped by design: tenant overlays use
   main, have no channels, and a tenant-scoped principal is denied, never redirected. `preflight` is
   promote's dry run over the same server-side canary — it exits non-zero on a refusing verdict, but the

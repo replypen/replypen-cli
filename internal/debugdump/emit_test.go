@@ -33,7 +33,7 @@ func TestHTMLFallbackDraftRendersInDebugDump(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := EmitJSONL(&buf, full); err != nil {
+	if err := EmitJSONL(&buf, full, nil); err != nil {
 		t.Fatalf("EmitJSONL: %v", err)
 	}
 	var header struct {
@@ -224,7 +224,7 @@ func TestRedactedIndexLeadsWithWithheld(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := EmitJSONL(&buf, full); err != nil {
+	if err := EmitJSONL(&buf, full, nil); err != nil {
 		t.Fatalf("EmitJSONL: %v", err)
 	}
 	var header map[string]any
@@ -260,7 +260,7 @@ func TestPromptContextAbsenceIsStated(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := EmitJSONL(&buf, full); err != nil {
+	if err := EmitJSONL(&buf, full, nil); err != nil {
 		t.Fatalf("EmitJSONL: %v", err)
 	}
 	var header map[string]any
@@ -336,7 +336,7 @@ func TestScrubbedEventsRenderRetentionState(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := EmitJSONL(&buf, full); err != nil {
+	if err := EmitJSONL(&buf, full, nil); err != nil {
 		t.Fatalf("EmitJSONL: %v", err)
 	}
 	lines := bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n"))
@@ -373,7 +373,7 @@ func TestRequestedMirrorRefsSurviveFailedRunDump(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := EmitJSONL(&out, &full); err != nil {
+	if err := EmitJSONL(&out, &full, raw); err != nil {
 		t.Fatalf("EmitJSONL: %v", err)
 	}
 	var header struct {
@@ -442,7 +442,7 @@ func TestInheritedPromptContextIsLabelled(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := EmitJSONL(&buf, full); err != nil {
+	if err := EmitJSONL(&buf, full, nil); err != nil {
 		t.Fatalf("EmitJSONL: %v", err)
 	}
 	var header map[string]any
@@ -498,7 +498,7 @@ func TestDeclineRendersInDebugDump(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := EmitJSONL(&buf, full); err != nil {
+	if err := EmitJSONL(&buf, full, nil); err != nil {
 		t.Fatalf("EmitJSONL: %v", err)
 	}
 	var header struct {

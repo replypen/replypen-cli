@@ -5,7 +5,8 @@
 //
 // The JSONL contract is the load-bearing seam, kept compatible with the Python operator script
 // (.agents/skills/support/scripts/rc_agent_debug.py via the shared rootcause-runtime renderer): line 1
-// is a {"type":"run"…} header, every later line is a {"type":"event"…} keyed by `disp` (the index's `#`
+// is a {"type":"run"…} header (the server's raw `run` object + the CLI overlay, jsonl.go runHeader: new
+// server fields arrive without a CLI change), every later line is a {"type":"event"…} keyed by `disp` (the index's `#`
 // column; grounding pre-steps are P1,P2,…, the main loop 1,2,…). Existing jq recipes
 // (`select(.disp=="23").command`) keep working.
 //

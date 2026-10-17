@@ -13,11 +13,96 @@ import (
 // draft/note bodies + the untrimmed system prompt + egress) followed by one {"type":"event"} line per
 // tool call, every field FULL and untruncated, keyed by `disp`. Header rollups are `run_`-prefixed so
 // event-space jq queries (`select(.duration_ms > 60000)`) never match the header.
-func EmitJSONL(w io.Writer, full *client.FullResponse) error {
-	events := decorate(full.Events)
+//
+// raw is the verbatim /trace body (FullWithRaw / SharedRunTrace): header = the server's raw `run`
+// object + the CLI overlay (runHeader), so a server field the CLI does not model yet still reaches jq.
+// nil (or an undecodable body) degrades to the overlay alone — the pre-raw allowlist.
+func EmitJSONL(w io.Writer, full *client.FullResponse, raw json.RawMessage) error {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
+	if err := enc.Encode(runHeader(full, raw)); err != nil {
+		return err
+	}
+	return emitEvents(enc, decorate(full.Events))
+}
 
+// runHeader is the {"type":"run"} line: the server's raw `run` object as the base, then the overlay on
+// top. The small compat layer between the two:
+//   - every key the overlay OWNS (overlayKeys, emitted or not) is deleted from the base first, so each
+//     existing key keeps exactly its pre-raw value and semantics — emptyNil nulls, parsed tenant_settings,
+//     the notes/egress shapes, the host-only-filtered metadata — and a conditional overlay key the overlay
+//     omits (empty mirror_refs, a non-redacted detail_redacted) stays omitted rather than reappearing raw;
+//   - a host-only top-level key (client.HostOnlyMetadataKey: spend/tokens/serving model, which an older
+//     server emits on the run itself) is dropped, as metadataJSON already does one level down;
+//   - a raw key that is also an EVENT key (eventKeys) is renamed `run_<key>` (dropped if that name is
+//     taken), so event-space jq never matches the header. Today only `status` collides, and it is owned.
+//
+// Numbers and nested objects stay json.RawMessage bytes: never float-decoded, unknown fields verbatim.
+func runHeader(full *client.FullResponse, raw json.RawMessage) map[string]any {
+	base := rawRunObject(raw)
+	header := make(map[string]any, len(base)+len(overlayKeys))
+	for k, v := range base {
+		if overlayKeys[k] || client.HostOnlyMetadataKey(k) {
+			continue
+		}
+		if eventKeys[k] {
+			if _, taken := base["run_"+k]; taken || overlayKeys["run_"+k] {
+				continue
+			}
+			k = "run_" + k
+		}
+		header[k] = v
+	}
+	for k, v := range overlayHeader(full) {
+		header[k] = v
+	}
+	return header
+}
+
+// rawRunObject decodes `.run` of the verbatim /trace body into per-key raw bytes; nil when there is no
+// usable body (old callers, a non-object run), which leaves the overlay on its own.
+func rawRunObject(raw json.RawMessage) map[string]json.RawMessage {
+	if len(raw) == 0 {
+		return nil
+	}
+	var bundle struct {
+		Run map[string]json.RawMessage `json:"run"`
+	}
+	if json.Unmarshal(raw, &bundle) != nil {
+		return nil
+	}
+	return bundle.Run
+}
+
+// overlayKeys is every key overlayHeader can emit. Keep it in lockstep with overlayHeader
+// (TestOverlayKeysCoverOverlay): a key missing here would let the raw base reintroduce a field the
+// overlay deliberately omits or reshapes.
+var overlayKeys = map[string]bool{
+	"type": true, "run_id": true, "project": true, "tenant": true, "status": true, "kind": true,
+	"trigger": true, "brain_ref": true, "brain_resolved": true, "tenant_settings": true,
+	"tenant_settings_current": true, "error": true, "thread_id": true, "session_id": true, "topic": true,
+	"question": true, "warm_start_digest": true, "grounding_seed": true, "system_prompt": true,
+	"created_at": true, "finished_at": true, "draft": true, "decline": true, "notes": true, "metadata": true,
+	"egress": true, "detail_redacted": true, "grounding_sources": true, "grounding_source_drift_count": true,
+	"mirror_refs": true, "answer_markdown": true, "replay_of_run_id": true, "inspiration": true,
+	"proposed_actions": true, "outbound_email": true, "reply_scope": true, "context_schema_version": true,
+	"prompt_sections": true, "manifest_blocks": true, "bootstrap_turn": true, "context_capture_origin": true,
+	"context_capture_origin_run_id": true, "context_captured_at": true, "prompt_decomposition": true,
+	"preselected_turn": true, "tenant_settings_drift": true,
+}
+
+// eventKeys is every key an event line can carry (emitEvents; TestEventKeysCoverEvents). A raw header
+// key in this set is renamed so it can't satisfy an event-space jq filter.
+var eventKeys = map[string]bool{
+	"type": true, "disp": true, "seq": true, "grounding": true, "tool": true, "label": true, "command": true,
+	"stdout": true, "stderr": true, "exit_code": true, "status": true, "duration_ms": true, "at": true,
+	"reasoning": true, "args": true, "output_scrubbed_at": true, "output_bytes": true, "output_sha256": true,
+	"kept": true,
+}
+
+// overlayHeader is the CLI-computed header: the pre-raw allowlist, unchanged. It owns every key in
+// overlayKeys; runHeader layers it over the server's raw run object.
+func overlayHeader(full *client.FullResponse) map[string]any {
 	r := full.Run
 	header := map[string]any{
 		"type":                    "run",
@@ -112,9 +197,10 @@ func EmitJSONL(w io.Writer, full *client.FullResponse) error {
 	if drift, err := digest.TenantSettingsDrift(r.TenantSettings, r.TenantSettingsCurrent); err == nil && len(drift) > 0 {
 		header["tenant_settings_drift"] = drift
 	}
-	if err := enc.Encode(header); err != nil {
-		return err
-	}
+	return header
+}
+
+func emitEvents(enc *json.Encoder, events []decEvent) error {
 	for _, e := range events {
 		line := map[string]any{
 			"type":        "event",

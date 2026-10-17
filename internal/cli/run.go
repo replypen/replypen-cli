@@ -166,11 +166,11 @@ func newRunDebugCmd(e *env) *cobra.Command {
 			if outDir == "" {
 				outDir = defaultDebugDir
 			}
-			full, _, err := fetchRunTrace(e, target)
+			full, raw, err := fetchRunTrace(e, target)
 			if err != nil {
 				return withRunAccessHint(err)
 			}
-			return writeRunDebug(e, full, outDir)
+			return writeRunDebug(e, full, raw, outDir)
 		},
 	}
 	addShareTokenFlag(cmd, &shareToken)
@@ -498,8 +498,8 @@ const defaultDebugDir = ".rootcause/debug"
 // writeRunDebug turns a /trace bundle into the raw jq-able JSONL event log + a thin markdown index,
 // printing both paths. It does NOT render the run into stdout — the whole point is to hand the agent
 // primitives (the two files) it drills into itself. Credential-blind: the bearer and share-token paths
-// hand it the same bundle.
-func writeRunDebug(e *env, full *client.FullResponse, outDir string) error {
+// hand it the same bundle. raw is that bundle's verbatim body — the base of the JSONL run header.
+func writeRunDebug(e *env, full *client.FullResponse, raw json.RawMessage, outDir string) error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("create out dir %s: %w", outDir, err)
 	}
@@ -510,7 +510,7 @@ func writeRunDebug(e *env, full *client.FullResponse, outDir string) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", jsonlPath, err)
 	}
-	if err := debugdump.EmitJSONL(jf, full); err != nil {
+	if err := debugdump.EmitJSONL(jf, full, raw); err != nil {
 		_ = jf.Close()
 		return fmt.Errorf("write %s: %w", jsonlPath, err)
 	}
