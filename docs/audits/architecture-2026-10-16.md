@@ -25,20 +25,28 @@ Released **v1.51.1**; live-verified on a declined DA run (`run show` Why, `run t
 
 Suite: `go test ./... -count=1` 8.75 s wall (was 10.0 s); cli 4.9 s, releasetest 2.1 s (skipped by `-short`).
 
-## Needs PJ's green light (ranked)
+## Round 2 — P1–P4 (approved 2026-10-17)
 
-### P1. Decide the JSON contract for computed commands
-Evidence: doctors invent envelopes (`chat.go:568`, `action_dx.go`), `console_paths.go:96` emits a computed report and drops raw bash bodies, `withJSONHint` splices a key into a server body (`console_download.go:323`), `token_ls.go:49` filters. AGENTS.md says raw rows MUST stay reachable; SKILL.md says JSON can't invent a field. Both models flagged it independently.
-Proposal: rule = "passthrough commands: verbatim; computed reports: `{report…, raw:{<endpoint>: body}}`; CLI annotations to stderr/manifest, never inside a server body". Benefit: consumers can trust `-o json`; unblocks P2. Effort S (doc) + M (≈5 commands). Risk: breaks scripts reading today's shapes — why approval.
+Two independent designs (Opus + Astra) → Opus implementation → Sol High review: approve, 0 findings.
 
-### P2. Chat doctor → pure `digest.ChatDoctor(inputs, now)` + `render.ChatDoctor` (old F6, grew 143 → 175 LOC, does DNS lookups in `RunE`)
-Benefit: goldens possible, diagnosis testable without stubs. Effort M (~250 LOC moved), blast radius 2 files. Depends on P1.
+| P | commit | what landed |
+|---|---|---|
+| P1 | `a2ad50f` | SKILL.md rule: passthrough verbatim (row filters ok) · computed reports keep keys + top-level `raw:{source: body}` · CLI notes never inside a server body. chat/action doctor `-o json` carry `raw`; `--bundle` keeps lean shape, no raw; bash-run `hint` → stderr + manifest |
+| P2 | `1b48b0c` | `digest.ChatDoctor(inputs, now)` + `render.ChatDoctor` + golden; CLI keeps I/O. JSON byte-identical over 18 combos except `raw`. Also fixed forbidigo `time.Now`/`os.Getenv` bans that never fired |
+| P3 | `db8924a` | `renderJSONInline` (93 sites, no behaviour change) vs spill-aware `renderJSON`; 4 new outputs spill (`run feedback list`, `dev replies list`, `project chat replay`, `run attachments --download`); forbidigo bans bare `render.JSON` in cli |
+| P4 | `ba8d1a7` | JSONL header = server raw `run` + CLI overlay (owned keys win, host-only keys dropped, event-key collisions → `run_*`) |
 
-### P3. Route all `-o json` through the spill (`e.renderJSON`)
-98 direct `render.JSON(e.out,…)` vs 53 spill-aware; new big outputs (`run feedback list`, `dev replies`, `chat replay`, attachments) can flood an agent context. Spec lists a coverage set, so this widens the contract. Effort S (mechanical + forbidigo rule with secret-reveal exemptions). Risk: low, but changes stdout for large payloads fleet-wide.
+> [!IMPORTANT]
+> **P3 deviates from the approved wording on purpose.** "Spill everything" would hand ≥16 sibling scripts (brain-skills `context.py`, `simulate.py`, `brain_projection.py`, `sent_delta_report.py`, `brain_git_sync.py`, DentAdmin `run_eval.py`, PB `autoqa/_rc.py`) a manifest instead of JSON above 6 KB. Both planners rejected it. Follow-up: migrate those scripts to `--raw-output`, then flip commands to spill one by one.
 
-### P4. `run debug` JSONL header: pass the raw run object instead of an allowlist (`jsonl.go:22-48`)
-`jsonl.go` changed in 6 feature commits in two weeks, each to plumb one new server field each; `questions`, `answers`, `parent_run_id`, `guards`, `prior_*` never reach the JSONL. Effort S–M. Risk: JSONL is consumed by the Python operator script — key-set change needs a compat check.
+Live (local build vs prod, DA run `2d08cf43`): JSONL header gains `guards`, `scenario`, no key lost; chat doctor `raw` has 5 sources, `--bundle` none. Bash-run hint move: tests only, not live.
+
+> [!WARNING]
+> Release **v1.52.0 blocked**: tag + main pushed, GoReleaser upload 307 because the [ReplyPen rename](t3-thread://v1/mcp:9d03e3c2-c948-4198-8a94-a65a9422f0b3) renamed the GitHub repo to `replypen-cli` mid-release. Release config is that thread's; it has been told and will re-run / cut next. Brew + mirror stay 1.51.1.
+
+Existing risk found (not introduced): `rc project tenant profile get` already spills; `brain_projection.py` parses it without `--raw-output` → breaks on profiles > 6 KB fields / 20 KB total. Fix belongs in brain-skills (`--raw-output`).
+
+## Lower value, not proposed
 
 <details><summary>Lower value, not proposed now</summary>
 
