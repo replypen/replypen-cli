@@ -38,17 +38,32 @@ func truncatedBashServer(t *testing.T, full string) *httptest.Server {
 func TestBashRunTruncatedPrintsDownloadHint(t *testing.T) {
 	full := strings.Repeat("x", 70000)
 	want := "rc dev console file get /tmp/rc-console/stdout-7.txt ./stdout-7.txt --tenant dev_org"
-	for _, output := range []string{"table", "json"} {
-		t.Run(output, func(t *testing.T) {
-			e, out, _ := newTestEnv(t, truncatedBashServer(t, full), output)
-			if err := run(t, e, "dev", "console", "bash", "run", "cat big"); err != nil {
-				t.Fatal(err)
-			}
-			if !strings.Contains(out.String(), want) {
-				t.Fatalf("output lacks the download command:\n%s", out.String())
-			}
-		})
-	}
+	t.Run("table", func(t *testing.T) {
+		e, out, _ := newTestEnv(t, truncatedBashServer(t, full), "table")
+		if err := run(t, e, "dev", "console", "bash", "run", "cat big"); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("output lacks the download command:\n%s", out.String())
+		}
+	})
+	// JSON stdout is the verbatim server body: the CLI hint goes to stderr, never into the body.
+	t.Run("json", func(t *testing.T) {
+		e, out, errb := newTestEnv(t, truncatedBashServer(t, full), "json")
+		if err := run(t, e, "dev", "console", "bash", "run", "cat big"); err != nil {
+			t.Fatal(err)
+		}
+		var body map[string]any
+		if err := json.Unmarshal(out.Bytes(), &body); err != nil {
+			t.Fatalf("stdout is not JSON: %v (%s)", err, out.String())
+		}
+		if _, ok := body["hint"]; ok {
+			t.Fatalf("hint spliced into the server body: %s", out.String())
+		}
+		if !strings.Contains(errb.String(), want) {
+			t.Fatalf("stderr lacks the download command: %q", errb.String())
+		}
+	})
 }
 
 func TestBashRunOutFetchesFullTruncatedStdout(t *testing.T) {

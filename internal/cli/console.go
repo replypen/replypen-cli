@@ -346,7 +346,7 @@ func newBashCmd(e *env) *cobra.Command {
 				fullFetched := false
 				switch {
 				case e.jsonOut():
-					_, werr = target.Writer().Write(append(withJSONHint(raw, hint), '\n'))
+					_, werr = target.Writer().Write(append(raw, '\n'))
 				case resp.StdoutTruncated && resp.StdoutPath != "":
 					werr = c.FileGet(e.ctx(), resp.StdoutPath, e.scopeProject(), e.scopeTenant(), principal, target.Writer())
 					fullFetched = werr == nil
@@ -360,7 +360,7 @@ func newBashCmd(e *env) *cobra.Command {
 				if err := target.finish(e, resp.StdoutTruncated && !fullFetched); err != nil {
 					return err
 				}
-				if hint != "" && !fullFetched && !e.jsonOut() {
+				if hint != "" && !fullFetched {
 					_, _ = fmt.Fprintln(e.err, hint)
 				}
 				if !e.jsonOut() && resp.Stderr != "" {

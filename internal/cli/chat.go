@@ -557,6 +557,9 @@ type doctorBundle struct {
 	Rejects    []doctorReject      `json:"rejects"`
 	Probes     map[string]any      `json:"probes"`
 	Findings   []chatDoctorFinding `json:"findings"`
+	// Raw carries every fetched server body verbatim, keyed by source (SKILL.md "Output" rule b). Set for
+	// `-o json` only: the --bundle escalation artifact stays compact.
+	Raw map[string]json.RawMessage `json:"raw,omitempty"`
 }
 
 type doctorReject struct {
@@ -581,6 +584,7 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 		}
 		project := e.scopeProject()
 		b := doctorBundle{Project: project, RCVersion: version, Timestamp: time.Now().UTC(), Since: since, Config: map[string]any{}, Principals: map[string]any{}, Secret: map[string]any{}, Branding: map[string]any{}, Probes: map[string]any{}}
+		sources := map[string]json.RawMessage{}
 		// A shape the doctor cannot decode is an error, never an empty section: empty rejects would read as a
 		// clean bill of health.
 		decodeDoctor := func(what string, raw json.RawMessage, dst any) error {
@@ -598,11 +602,13 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 		if err := decodeDoctor("chat settings", raw, &b.Config); err != nil {
 			return err
 		}
+		sources["chat_settings"] = raw
 		config := *settings
-		manifest, _, err := c.Principals(e.ctx(), project)
+		manifest, raw, err := c.Principals(e.ctx(), project)
 		if err != nil {
 			return err
 		}
+		sources["principals"] = raw
 		kinds := manifest.KindNames()
 		b.Principals = map[string]any{
 			"configured":              len(kinds) > 0,
@@ -616,12 +622,14 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 		if err := decodeDoctor("chat secret status", raw, &b.Secret); err != nil {
 			return err
 		}
+		sources["chat_secret"] = raw
 		// Branding is a diagnostic input, not a precondition: a doctor that aborts on it reports nothing
 		// about the chat wiring the operator actually came to check.
-		brandingBag, _, brandingErr := c.GetBag(e.ctx(), "/api/v1/branding", project)
+		brandingBag, brandingRaw, brandingErr := c.GetBag(e.ctx(), "/api/v1/branding", project)
 		var branding client.Settings
 		if brandingErr == nil {
 			branding = *brandingBag
+			sources["branding"] = brandingRaw
 		}
 		b.Branding = map[string]any{
 			"reachable":                brandingErr == nil,
@@ -638,6 +646,7 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 		if err := decodeDoctor("chat rejects", raw, &rejects); err != nil {
 			return err
 		}
+		sources["chat_rejects"] = raw
 		cutoff := b.Timestamp.Add(-sinceDuration)
 		for i := range rejects.Rejects {
 			rejects.Rejects[i].Stale = rejects.Rejects[i].Timestamp.Before(cutoff)
@@ -728,6 +737,9 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 			}
 		}
 		if bundle || e.jsonOut() {
+			if !bundle {
+				b.Raw = sources
+			}
 			encoded, marshalErr := json.Marshal(b)
 			if marshalErr != nil {
 				return marshalErr
@@ -754,7 +766,7 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 	}}
 	cmd.Flags().StringVar(&origin, "origin", "", "origin to check against the allowlist")
 	cmd.Flags().StringVar(&kind, "principal-kind", "", "principal kind to check")
-	cmd.Flags().BoolVar(&bundle, "bundle", false, "print a redacted JSON escalation bundle")
+	cmd.Flags().BoolVar(&bundle, "bundle", false, "print a compact JSON report for escalation, without raw server bodies")
 	cmd.Flags().StringVar(&since, "since", "24h", "reject warning window: 30m, 1h, or 24h")
 	return cmd
 }

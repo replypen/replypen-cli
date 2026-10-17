@@ -101,6 +101,51 @@ func TestActionDoctorBundleIsRedacted(t *testing.T) {
 			t.Fatalf("bundle missing %q: %s", required, got)
 		}
 	}
+	if strings.Contains(got, `"raw"`) {
+		t.Fatalf("--bundle carries raw server bodies: %s", got)
+	}
+}
+
+// `-o json` is a computed report, so it carries every fetched body verbatim under raw — a field the CLI
+// does not know survives there (SKILL.md "Output" rule b).
+func TestActionDoctorJSONCarriesRawServerBodies(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/projects", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"projects":[{"id":"aaaaaaaa-0000-0000-0000-000000000001","name":"alpha"}]}`))
+	})
+	mux.HandleFunc("GET /api/v1/console/action/{id}", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"project":"alpha","id":"ship_order","digest":"sha256:abc","future_show":"s"}`))
+	})
+	mux.HandleFunc("POST /api/v1/action/probe", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"reachable":true,"status":405,"latency_ms":3,"future_probe":"p"}`))
+	})
+	mux.HandleFunc("POST /api/v1/console/action/{id}/preflight", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"succeeded","duration_ms":4,"future_preflight":"f"}`))
+	})
+	mux.HandleFunc("GET /api/v1/action", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"actions_enabled":{"effective":true},"future_setting":{"effective":"x"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	e, out, _ := newTestEnv(t, srv, "json")
+	if err := run(t, e, "--project", "alpha", "dev", "action", "doctor", "ship_order"); err != nil {
+		t.Fatal(err)
+	}
+	var report struct {
+		Steps []json.RawMessage                     `json:"steps"`
+		Raw   map[string]map[string]json.RawMessage `json:"raw"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
+	}
+	if len(report.Steps) != 3 {
+		t.Fatalf("report keys moved: %s", out.String())
+	}
+	for source, field := range map[string]string{"action": "future_show", "probe": "future_probe", "preflight": "future_preflight", "action_settings": "future_setting"} {
+		if _, ok := report.Raw[source][field]; !ok {
+			t.Fatalf("raw.%s lacks %s: %s", source, field, out.String())
+		}
+	}
 }
 
 func TestActionDoctorFailsWhenPreflightReturnsHTTP200Failure(t *testing.T) {

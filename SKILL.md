@@ -127,20 +127,25 @@ map. The rules that make the layering real:
 ### Output: pipe-first, TTY-aware
 
 `render.IsJSON` — `-o json`/`-o table` wins, else **JSON unless stdout is a terminal**, so
-`rc … | jq` always works. JSON mode is a **verbatim pretty-print of the server body**: the CLI cannot
-invent or drop a field.
+`rc … | jq` always works. The `-o json` contract has three rules:
 
-Deliberate exceptions, each documented at its code site:
+- **(a) Passthrough commands** print the verbatim server body. A client-side row filter (a flag, or a
+  documented default like `rc project token ls`'s active-only) may drop ROWS, never invent or drop fields
+  (`replaceListItems`, [`token_ls.go`](internal/cli/token_ls.go)).
+- **(b) Computed reports** (`project chat doctor`, `dev action doctor`, `project knowledge content
+  search`, `dev console paths`, an explicitly passed fleet `--format` digest — `rawRowsJSON`,
+  [`observability.go`](internal/cli/observability.go)) own a documented CLI shape. When the report derives
+  from server bodies it does not carry verbatim, `-o json` adds a top-level `raw` object
+  `{"<source>": <verbatim body>}` — the `json.RawMessage` the client returned, never re-marshalled typed
+  structs. Report keys stay where they are (no wrapper). A report over the CLI's OWN sandbox script
+  output (console paths, KB search) needs no `raw`; the doctors' `--bundle` escalation artifact omits it.
+- **(c) CLI annotations never go inside a server body**: they go to stderr and to spill-manifest
+  `hints` (the truncated `bash run` download command, `renderJSONHinted`,
+  [`console_download.go`](internal/cli/console_download.go)).
 
-- an **explicitly passed** `--format` pins a computed fleet digest even over a pipe (`rawRowsJSON`,
-  [`observability.go`](internal/cli/observability.go)); explicit `-o json` still wins.
-- console query output is a normalized `columns` + positional `rows` shape streamed as
-  `json|ndjson|csv|tsv`, with a terminal row-count frame so a cut-off stream fails instead of installing a
-  partial file.
-- a truncated `rc dev console bash run -o json` gets one appended CLI `hint` key naming the exact
-  full-stdout download command (`withJSONHint`, [`console_download.go`](internal/cli/console_download.go)).
-- `rc project token ls -o json` filters/sorts items client-side but keeps the server envelope and raw item
-  keys (`replaceListItems`, [`token_ls.go`](internal/cli/token_ls.go)).
+Console query output is its own streamed shape: normalized `columns` + positional `rows` as
+`json|ndjson|csv|tsv`, with a terminal row-count frame so a cut-off stream fails instead of installing a
+partial file.
 
 Large payloads spill to `.rootcause/output/` with a preview/manifest on stdout
 ([`internal/outputspill`](internal/outputspill/outputspill.go), wired in

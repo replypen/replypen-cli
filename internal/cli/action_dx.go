@@ -117,6 +117,9 @@ type actionDoctorBundle struct {
 	Probe          *client.ActionProbeResponse `json:"probe,omitempty"`
 	Steps          []actionDoctorStep          `json:"steps"`
 	GeneratedAt    string                      `json:"generated_at"`
+	// Raw carries every fetched server body verbatim, keyed by source (SKILL.md "Output" rule b). Set for
+	// `-o json` only: the --bundle escalation artifact stays compact.
+	Raw map[string]json.RawMessage `json:"raw,omitempty"`
 }
 
 func newActionDoctorCmd(e *env, version string) *cobra.Command {
@@ -141,13 +144,15 @@ func newActionDoctorCmd(e *env, version string) *cobra.Command {
 			}
 			human := !bundle && !e.jsonOut()
 			failed := false
-			show, _, showErr := c.ActionShow(e.ctx(), args[0], e.scopeProject(), e.scopeTenant())
+			sources := map[string]json.RawMessage{}
+			show, showRaw, showErr := c.ActionShow(e.ctx(), args[0], e.scopeProject(), e.scopeTenant())
 			if showErr != nil {
 				d := actionDiagnosticForError(showErr)
 				out.Steps = append(out.Steps, actionDoctorStep{Name: "resolve", Diagnostic: d})
 				writeActionDiagnostic(e, d)
 				failed = true
 			} else {
+				sources["action"] = showRaw
 				if out.Project == "" {
 					out.Project = show.Project
 				}
@@ -157,13 +162,14 @@ func newActionDoctorCmd(e *env, version string) *cobra.Command {
 				}
 			}
 
-			probe, _, probeErr := c.ActionProbe(e.ctx(), e.scopeProject())
+			probe, probeRaw, probeErr := c.ActionProbe(e.ctx(), e.scopeProject())
 			if probeErr != nil {
 				d := actionDiagnosticForError(probeErr)
 				out.Steps = append(out.Steps, actionDoctorStep{Name: "probe", Diagnostic: d})
 				writeActionDiagnostic(e, d)
 				failed = true
 			} else {
+				sources["probe"] = probeRaw
 				out.Probe = probe
 				if probe.Health != nil {
 					out.EmbassyVersion = probe.Health.Version
@@ -182,7 +188,10 @@ func newActionDoctorCmd(e *env, version string) *cobra.Command {
 			}
 
 			if showErr == nil {
-				preflight, _, preflightErr := c.ActionPreflight(e.ctx(), args[0], client.ActionExecRequest{Params: params}, e.scopeProject(), e.scopeTenant())
+				preflight, preflightRaw, preflightErr := c.ActionPreflight(e.ctx(), args[0], client.ActionExecRequest{Params: params}, e.scopeProject(), e.scopeTenant())
+				if preflightErr == nil {
+					sources["preflight"] = preflightRaw
+				}
 				if preflightErr != nil {
 					d := actionDiagnosticForError(preflightErr)
 					out.Steps = append(out.Steps, actionDoctorStep{Name: "preflight", Diagnostic: d})
@@ -204,10 +213,14 @@ func newActionDoctorCmd(e *env, version string) *cobra.Command {
 				writeActionDiagnostic(e, d)
 			}
 
-			if settings, _, settingsErr := c.GetBag(e.ctx(), "/api/v1/action", e.scopeProject()); settingsErr == nil {
+			if settings, settingsRaw, settingsErr := c.GetBag(e.ctx(), "/api/v1/action", e.scopeProject()); settingsErr == nil {
 				out.Config = doctorActionConfig(*settings)
+				sources["action_settings"] = settingsRaw
 			}
 			if bundle || e.jsonOut() {
+				if !bundle {
+					out.Raw = sources
+				}
 				raw, marshalErr := json.Marshal(out)
 				if marshalErr != nil {
 					return marshalErr
@@ -223,7 +236,7 @@ func newActionDoctorCmd(e *env, version string) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&paramsJSON, "params", "", "JSON object of action params")
-	cmd.Flags().BoolVar(&bundle, "bundle", false, "print a redacted JSON escalation bundle")
+	cmd.Flags().BoolVar(&bundle, "bundle", false, "print a compact JSON report for escalation, without raw server bodies")
 	return cmd
 }
 

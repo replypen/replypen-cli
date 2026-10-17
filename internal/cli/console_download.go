@@ -320,32 +320,16 @@ func consoleScopeFlags(e *env, r *client.BashRunResponse) string {
 	return b.String()
 }
 
-// withJSONHint appends a top-level "hint" member to a JSON object without re-encoding (key order and
-// number formatting stay exactly the server's).
-func withJSONHint(raw json.RawMessage, hint string) json.RawMessage {
-	if hint == "" {
-		return raw
-	}
-	trimmed := strings.TrimRight(string(raw), " \t\r\n")
-	if !strings.HasSuffix(trimmed, "}") {
-		return raw
-	}
-	h, _ := json.Marshal(hint)
-	body := strings.TrimSuffix(trimmed, "}")
-	sep := ","
-	if strings.TrimSpace(body) == "{" {
-		sep = ""
-	}
-	return json.RawMessage(body + sep + `"hint":` + string(h) + "}")
-}
-
-// renderJSONHinted is renderJSON with hint also surfaced in a spill manifest's hints, so an agent reading
-// either the inline JSON or the manifest sees it.
+// renderJSONHinted is renderJSON for a body that comes with a CLI hint. The hint never enters the server
+// body (SKILL.md "Output" rule c): stdout stays the verbatim body (or its spill manifest); the hint goes to
+// stderr, and also leads the manifest's hints when the body spills.
 func (e *env) renderJSONHinted(label string, raw json.RawMessage, hint string) error {
-	raw = withJSONHint(raw, hint)
 	m, err := outputspill.MaybeSpillJSON(e.spillConfig(), label, raw)
 	if err != nil {
 		return err
+	}
+	if hint != "" {
+		_, _ = fmt.Fprintln(e.err, hint)
 	}
 	if m == nil {
 		return render.JSON(e.out, raw)

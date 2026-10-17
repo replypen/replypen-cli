@@ -3495,7 +3495,7 @@ Usage:
   rc project chat doctor [flags]
 
 Flags:
-      --bundle                  print a redacted JSON escalation bundle
+      --bundle                  print a compact JSON report for escalation, without raw server bodies
       --origin string           origin to check against the allowlist
       --principal-kind string   principal kind to check
       --since string            reject warning window: 30m, 1h, or 24h (default "24h")
@@ -4319,7 +4319,7 @@ Usage:
   rc dev action doctor <action-id> [flags]
 
 Flags:
-      --bundle          print a redacted JSON escalation bundle
+      --bundle          print a compact JSON report for escalation, without raw server bodies
       --params string   JSON object of action params
 
 Global Flags:

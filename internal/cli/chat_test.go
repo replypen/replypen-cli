@@ -168,6 +168,9 @@ func TestChatDoctorBundleIsRedacted(t *testing.T) {
 	if first["code"] != "OK" || first["check"] != "CHAT_ENABLED" {
 		t.Fatalf("success finding lost check identity: %#v", first)
 	}
+	if _, ok := bundle["raw"]; ok {
+		t.Fatalf("--bundle carries raw server bodies: %s", out.String())
+	}
 }
 
 func TestChatSendPrintsSSE(t *testing.T) {
@@ -610,6 +613,36 @@ func TestChatDoctorNearMissFindingsAreSorted(t *testing.T) {
 	want := []string{"https://a.example.com,", "https://b.example.com,", "https://c.example.com,", "https://d.example.com,", "https://e.example.com,", "https://f.example.com,"}
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Fatalf("near-miss order = %q, want %q", got, want)
+	}
+}
+
+// `-o json` is a computed report: next to the unchanged report keys it carries every fetched server body
+// verbatim under raw, so a field the doctor drops (ip_prefix) or does not know yet survives there.
+func TestChatDoctorJSONCarriesRawServerBodies(t *testing.T) {
+	srv := chatDoctorServer(t, `{"rejects":[{"code":"BAD_TOKEN","ip_prefix":"192.0.2.0/24","timestamp":"2026-09-01T00:00:00Z"}],"future_field":"kept"}`)
+	defer srv.Close()
+	e, out, _ := newTestEnv(t, srv, "json")
+	if err := run(t, e, "--project", "alpha", "project", "chat", "doctor"); err != nil {
+		t.Fatal(err)
+	}
+	var report struct {
+		Project string                                `json:"project"`
+		Rejects []map[string]any                      `json:"rejects"`
+		Raw     map[string]map[string]json.RawMessage `json:"raw"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
+	}
+	if report.Project != "alpha" || len(report.Rejects) != 1 || report.Rejects[0]["ip_prefix"] != nil {
+		t.Fatalf("report keys changed: %s", out.String())
+	}
+	if string(report.Raw["chat_rejects"]["future_field"]) != `"kept"` || !strings.Contains(string(report.Raw["chat_rejects"]["rejects"]), "192.0.2.0/24") {
+		t.Fatalf("raw.chat_rejects not verbatim: %s", out.String())
+	}
+	for _, source := range []string{"chat_settings", "principals", "chat_secret", "branding"} {
+		if len(report.Raw[source]) == 0 {
+			t.Fatalf("raw lacks %s: %s", source, out.String())
+		}
 	}
 }
 

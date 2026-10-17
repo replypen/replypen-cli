@@ -843,8 +843,8 @@ to stdout. `--out auto` writes a unique `.rootcause/output/<command>-<runid8>.<e
 concurrent calls do not clobber each other.
 
 Bash stdout is capped server-side at ~64 KiB. A truncated `bash run` keeps the full stdout in the sandbox
-(`stdout_path`) and ends its output (table line, JSON `hint`, spill-manifest hint) with the exact
-download command; `bash run --out FILE` fetches the full stdout automatically. `file get` copies any
+(`stdout_path`) and ends its output (table line, stderr under `-o json`, spill-manifest hint) with the
+exact download command; `bash run --out FILE` fetches the full stdout automatically. `file get` copies any
 sandbox file or directory without the cap (512 MiB max): directories are tar'ed in the sandbox and
 unpacked locally, and paths outside `/tmp`/`/home/agent` are staged through `/tmp` transparently. The
 sandbox lives with the warm console session (~2 min idle), so fetch promptly.
