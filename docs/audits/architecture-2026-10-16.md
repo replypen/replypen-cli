@@ -41,8 +41,8 @@ Two independent designs (Opus + Astra) → Opus implementation → Sol High revi
 
 Live (local build vs prod, DA run `2d08cf43`): JSONL header gains `guards`, `scenario`, no key lost; chat doctor `raw` has 5 sources, `--bundle` none. Bash-run hint move: tests only, not live.
 
-> [!WARNING]
-> Release **v1.52.0 blocked**: tag + main pushed, GoReleaser upload 307 because the [ReplyPen rename](t3-thread://v1/mcp:9d03e3c2-c948-4198-8a94-a65a9422f0b3) renamed the GitHub repo to `replypen-cli` mid-release. Release config is that thread's; it has been told and will re-run / cut next. Brew + mirror stay 1.51.1.
+> [!NOTE]
+> Shipped in **v1.53.0** (the [ReplyPen rename](t3-thread://v1/mcp:9d03e3c2-c948-4198-8a94-a65a9422f0b3) moved the repo mid-release; v1.52.0 never published, its code is in 1.53.0). Re-verified live on `rp` 1.53.0: `run show/trace/debug` decline, JSONL `guards`/`scenario`, doctor `raw` (5 sources) vs `--bundle` (none), same exit code table/json, `run feedback list` spills at a low threshold while script-consumed `project repo ls` stays inline.
 
 Existing risk found (not introduced): `rc project tenant profile get` already spills; `brain_projection.py` parses it without `--raw-output` → breaks on profiles > 6 KB fields / 20 KB total. Fix belongs in brain-skills (`--raw-output`).
 
