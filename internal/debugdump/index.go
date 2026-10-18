@@ -406,7 +406,7 @@ func renderPromptContext(r client.RunHeader, jsonlName string) []string {
 			fmt.Sprintf(`jq -r '.prompt_sections[]? | select(.on).text' %s   # the gated prompt, section by section`, jsonlName),
 			fmt.Sprintf(`jq -r '.prompt_sections[]? | select(.on|not) | .id + " — " + .gate' %s   # what stayed OFF, and why`, jsonlName),
 			fmt.Sprintf(`jq -r '.bootstrap_turn // "(none)"' %s   # the pasted orientation turn, verbatim`, jsonlName),
-			fmt.Sprintf(`jq -r '.preselected_turn // "(none)"' %s   # the pre-pass's pre-selected ranges`, jsonlName),
+			fmt.Sprintf(`jq -r '.preselected_turn // "(none)"' %s   # the grounding step's pre-selected ranges`, jsonlName),
 		}, "\n"), "sh"), "")
 	return out
 }

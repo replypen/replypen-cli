@@ -336,7 +336,7 @@ func TestRunDebug(t *testing.T) {
 		}
 		disps[ev["disp"].(string)] = true
 	}
-	// Grounding pre-step → P1; the two main steps → 1, 2; the post-loop polish rows get their own band
+	// Grounding step → P1; the two main steps → 1, 2; the post-loop polish rows get their own band
 	// (C1, C2) so adding one never renumbers the agent's steps.
 	for _, d := range []string{"P1", "1", "2", "C1", "C2"} {
 		if !disps[d] {

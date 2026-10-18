@@ -22,7 +22,7 @@ func newContextExportCmd(e *env) *cobra.Command {
 		Use:   "context-export",
 		Short: "Render a project's full opening context offline (needs a ReplyPen host checkout)",
 		Long: "Render, offline, the complete opening context each model receives across a run's three model " +
-			"steps — triage, the grounding pre-step, the main loop — as one markdown file per project, with " +
+			"steps — triage, the grounding step, the main loop — as one markdown file per project, with " +
 			"per-section sources and token estimates.\n\n" +
 			"It runs the host repo's renderer (`go run ./cmd/context-export`), so it needs a local ReplyPen " +
 			"host checkout: --host-repo, RC_HOST_REPO, or a sibling directory of this one.",

@@ -4663,7 +4663,7 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp dev context-export --help
-Render, offline, the complete opening context each model receives across a run's three model steps — triage, the grounding pre-step, the main loop — as one markdown file per project, with per-section sources and token estimates.
+Render, offline, the complete opening context each model receives across a run's three model steps — triage, the grounding step, the main loop — as one markdown file per project, with per-section sources and token estimates.
 
 It runs the host repo's renderer (`go run ./cmd/context-export`), so it needs a local ReplyPen host checkout: --host-repo, RC_HOST_REPO, or a sibling directory of this one.
 

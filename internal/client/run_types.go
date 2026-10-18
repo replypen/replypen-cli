@@ -104,7 +104,7 @@ type RunHealth struct {
 	BashTotal      int64 `json:"bash_total"`
 	BashErrCount   int64 `json:"bash_err_count"`
 	// BashErrRealCount / BashErrExploreCount split BashErrCount (real + explore = total): "explore" is
-	// benign exploration noise (rg/grep exit-1 no-match, grounding pre-step probes), "real" a genuine
+	// benign exploration noise (rg/grep exit-1 no-match, grounding step probes), "real" a genuine
 	// failure. Both zero on a pre-split server — render helpers fall back to BashErrCount as real.
 	BashErrRealCount    int64 `json:"bash_err_real_count"`
 	BashErrExploreCount int64 `json:"bash_err_explore_count"`

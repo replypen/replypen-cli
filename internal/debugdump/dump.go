@@ -7,7 +7,7 @@
 // (.agents/skills/support/scripts/rc_agent_debug.py via the shared replypen-runtime renderer): line 1
 // is a {"type":"run"…} header (the server's raw `run` object + the CLI overlay, jsonl.go runHeader: new
 // server fields arrive without a CLI change), every later line is a {"type":"event"…} keyed by `disp` (the index's `#`
-// column; grounding pre-steps are P1,P2,…, the main loop 1,2,…). Existing jq recipes
+// column; grounding steps are P1,P2,…, the main loop 1,2,…). Existing jq recipes
 // (`select(.disp=="23").command`) keep working.
 //
 // One concern per file: dump.go decorates raw events (disp numbering, labels, gists) and holds the

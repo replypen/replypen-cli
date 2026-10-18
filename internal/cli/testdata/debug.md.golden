@@ -68,7 +68,7 @@ Full texts (never in this index) live in the JSONL run header:
 jq -r '.prompt_sections[]? | select(.on).text' 11111111-coca-cola.jsonl   # the gated prompt, section by section
 jq -r '.prompt_sections[]? | select(.on|not) | .id + " — " + .gate' 11111111-coca-cola.jsonl   # what stayed OFF, and why
 jq -r '.bootstrap_turn // "(none)"' 11111111-coca-cola.jsonl   # the pasted orientation turn, verbatim
-jq -r '.preselected_turn // "(none)"' 11111111-coca-cola.jsonl   # the pre-pass's pre-selected ranges
+jq -r '.preselected_turn // "(none)"' 11111111-coca-cola.jsonl   # the grounding step's pre-selected ranges
 ```
 
 ## Question
