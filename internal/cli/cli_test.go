@@ -1373,7 +1373,7 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode mirror refresh body: %v", err)
 		}
-		if body.Repo != "kampadmin-rootcause-common" || body.ExpectedSHA != "d2f9de784ab7cded001f2b6ac86892795f58a8ce" {
+		if body.Repo != "kampadmin-replypen-common" || body.ExpectedSHA != "d2f9de784ab7cded001f2b6ac86892795f58a8ce" {
 			t.Fatalf("mirror refresh body = %+v", body)
 		}
 		w.Header().Set("Content-Type", "application/json")
