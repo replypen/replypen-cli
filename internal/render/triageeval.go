@@ -94,7 +94,7 @@ func triageEvalProvenance(w io.Writer, rep client.TriageEvalReport) {
 	_, _ = fmt.Fprintf(w, "\nbrain    %s @ %s · triage docs: %s\n", rep.Brain.Ref, rep.Brain.SHA, orDash(strings.Join(p.BrainFiles, ", "), "none"))
 	_, _ = fmt.Fprintf(w, "cases    %s @ %s · %s · %d cases · hash %s\n", rep.Cases.Ref, shortSHA(rep.Cases.SHA), rep.Cases.Dir, rep.Cases.Count, shortSHA(rep.Cases.Hash))
 	_, _ = fmt.Fprintf(w, "policy   %s scope · guidance %s · %d rules %s · language %s · email-type gate %s\n",
-		scope, orDash(strings.Join(guidance, " "), "none"), p.RuleCount, shortSHA(p.RulesHash), p.Language, onOff(p.EmailTypesGate))
+		scope, orDash(strings.Join(guidance, " "), "none"), p.RuleCount, shortSHA(p.RulesHash), truncate(p.Language, 40), onOff(p.EmailTypesGate))
 	model := rep.Model.Name
 	if rep.Model.Fallback != "" {
 		model += " (fallback " + rep.Model.Fallback + ")"
@@ -122,10 +122,14 @@ func triageExpect(e client.TriageEvalExpect) string {
 func triageDecided(c digest.TriageCaseScore) string {
 	n := len(c.Case.Attempts)
 	switch {
-	case c.Processed == n && n == 1:
+	case n == 1 && c.Processed == 1:
 		return "process"
-	case c.Processed == 0 && n == 1:
+	case n == 1:
 		return "skip"
+	case c.Processed == 0:
+		return fmt.Sprintf("skip ×%d", n)
+	case c.Processed == n:
+		return fmt.Sprintf("process ×%d", n)
 	default:
 		return fmt.Sprintf("process %d/%d", c.Processed, n)
 	}
