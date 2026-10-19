@@ -99,6 +99,8 @@ func commandScope(path string) scopeSpec {
 		return projectTenant
 	case path == "project egress":
 		return projectTenant
+	case strings.HasPrefix(path, "project review "):
+		return projectTenant
 	case strings.HasPrefix(path, "dev brain "):
 		return projectTenant
 	// A mirror is registered at project OR tenant scope (config.repos), so the exact-SHA refresh follows

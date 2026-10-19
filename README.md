@@ -635,6 +635,12 @@ help using `go test ./internal/cli -update`.
 | `rp project repo rm` | Delete a repo |
 | `rp project repo set` | Update a repo |
 | `rp project repo` | Manage source repos (mirrors + per-repo PR config) |
+| `rp project review close` | Close a queue card already handled elsewhere, with a note saying where (commits, thread) |
+| `rp project review decide` | Decide a card: one of its option labels (see show), Other or Skip, plus an instruction |
+| `rp project review finish` | Finish the current review (a weekly review applies its decisions; the queue only acknowledges) |
+| `rp project review ls` | List open review cards of one audience |
+| `rp project review show` | Show one review card (also once applied or closed) with its options and review-page link |
+| `rp project review` | Work the review queue: list, show, decide, close or finish cards (like the Review page) |
 | `rp project senders allow` | Never treat mail from <pattern> as spam |
 | `rp project senders block` | Always treat mail from <pattern> as spam |
 | `rp project senders ls` | List the spam allow and block rules |
@@ -874,6 +880,20 @@ Compatibility note for scripts upgrading from rp 1.18: query spills now use uniq
 `.replypen/output/console-db-query-<run8>.*` paths rather than the old fixed
 `.replypen/output/console-db-query/response.json`, and a result above the inline 500-row cap exits 3
 instead of succeeding with partial data.
+
+### `rp project review` — the Review page from a script
+
+Same cards, gates and writes as the Review page (`?audience=technical` needs a global admin). An agent
+that already fixed a card's issue elsewhere retires it in one step, so the review-implement run never
+starts a duplicate worker:
+
+```sh
+rp --project dentai project review close 75d0a3dd-d39c-40a2-af97-ae46fed56a3d --note "Fixed in brain 98d13c0, live 2026-10-19"
+rp --project dentai project review decide <card-id> --label "Do it" [--instruction "…"]
+```
+
+`close` records "Already handled" plus a done receipt holding the note (repeat-safe); `show`/`decide`/
+`close` try the owner audience, then technical, unless `--audience` is given.
 
 ### `rp project env` — self-serve grounding-env sync
 

@@ -548,6 +548,7 @@ Available Commands:
   chat            Configure, diagnose, and smoke-test embedded chat
   principals      Read or replace the project principal manifest
   egress          Inspect outbound endpoints, volume, and unattributed traffic
+  review          Work the review queue: list, show, decide, close or finish cards (like the Review page)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -3675,6 +3676,131 @@ Global Flags:
       --raw-output       disable progressive output spill and print full payloads to stdout
       --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
       --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project review --help
+Work the review queue: list, show, decide, close or finish cards (like the Review page)
+
+Usage:
+  rp project review [flags]
+  rp project review [command]
+
+Available Commands:
+  ls          List open review cards of one audience
+  show        Show one review card (also once applied or closed) with its options and review-page link
+  decide      Decide a card: one of its option labels (see show), Other or Skip, plus an instruction
+  close       Close a queue card already handled elsewhere, with a note saying where (commits, thread)
+  finish      Finish the current review (a weekly review applies its decisions; the queue only acknowledges)
+
+Flags:
+      --audience string   owner|technical (default owner; show/decide/close try owner, then technical)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+Use "rp project review [command] --help" for more information about a command.
+
+$ rp project review ls --help
+List open review cards of one audience
+
+Usage:
+  rp project review ls [flags]
+
+Global Flags:
+      --audience string   owner|technical (default owner; show/decide/close try owner, then technical)
+      --no-preview        write large output artifacts but omit head/tail previews
+      --out-dir string    directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string     output format: json|table (default: auto-detect)
+      --profile string    token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string    scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output        disable progressive output spill and print full payloads to stdout
+      --scope string      force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string     override the login tenant where supported (default: RC_TENANT)
+
+$ rp project review show --help
+Show one review card (also once applied or closed) with its options and review-page link
+
+Usage:
+  rp project review show <card-id> [flags]
+
+Global Flags:
+      --audience string   owner|technical (default owner; show/decide/close try owner, then technical)
+      --no-preview        write large output artifacts but omit head/tail previews
+      --out-dir string    directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string     output format: json|table (default: auto-detect)
+      --profile string    token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string    scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output        disable progressive output spill and print full payloads to stdout
+      --scope string      force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string     override the login tenant where supported (default: RC_TENANT)
+
+$ rp project review decide --help
+Records the decision exactly like the Review page. A decided queue card is picked up by the
+review-implement run (Accept/Noise/Later close there; other labels become work). If the issue is
+already fixed elsewhere, use `close` instead so no duplicate worker starts.
+
+Usage:
+  rp project review decide <card-id> [flags]
+
+Flags:
+      --instruction string   instruction for the implementer (required for Other and on weekly reviews)
+      --label string         decision label: one of the card's options, Other or Skip
+
+Global Flags:
+      --audience string   owner|technical (default owner; show/decide/close try owner, then technical)
+      --no-preview        write large output artifacts but omit head/tail previews
+      --out-dir string    directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string     output format: json|table (default: auto-detect)
+      --profile string    token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string    scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output        disable progressive output spill and print full payloads to stdout
+      --scope string      force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string     override the login tenant where supported (default: RC_TENANT)
+
+$ rp project review close --help
+Records the decision "Already handled" and a done receipt carrying --note, in one step: the
+card leaves the queue and the review-implement run never picks it up. If the issue is seen
+again later, the publisher reopens it as a regression of that fix. Repeating the same close is safe.
+
+Usage:
+  rp project review close <card-id> [flags]
+
+Flags:
+      --note string   where the issue was handled (required)
+
+Global Flags:
+      --audience string   owner|technical (default owner; show/decide/close try owner, then technical)
+      --no-preview        write large output artifacts but omit head/tail previews
+      --out-dir string    directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string     output format: json|table (default: auto-detect)
+      --profile string    token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string    scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output        disable progressive output spill and print full payloads to stdout
+      --scope string      force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string     override the login tenant where supported (default: RC_TENANT)
+
+$ rp project review finish --help
+Finish the current review (a weekly review applies its decisions; the queue only acknowledges)
+
+Usage:
+  rp project review finish [flags]
+
+Global Flags:
+      --audience string   owner|technical (default owner; show/decide/close try owner, then technical)
+      --no-preview        write large output artifacts but omit head/tail previews
+      --out-dir string    directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string     output format: json|table (default: auto-detect)
+      --profile string    token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string    scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output        disable progressive output spill and print full payloads to stdout
+      --scope string      force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string     override the login tenant where supported (default: RC_TENANT)
 
 $ rp dev --help
 Develop and inspect project behavior

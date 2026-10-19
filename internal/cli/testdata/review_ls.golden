@@ -1,0 +1,3 @@
+ID                                    STATUS   SEVERITY  DECISION  SUBJECT
+75d0a3dd-d39c-40a2-af97-ae46fed56a3d  open     high      -         Cancel/delete/restore refuse appointments whose subject is empty
+75d0a3dd-0000-0000-0000-000000000002  decided  low       Later     Greeting too formal

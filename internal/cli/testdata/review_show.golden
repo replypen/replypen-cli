@@ -1,0 +1,7 @@
+Cancel/delete/restore refuse appointments whose subject is empty
+ID:        75d0a3dd-d39c-40a2-af97-ae46fed56a3d
+Status:    open
+Severity:  high · script_error
+Since:     2026-10-12
+Options:   Do it | Later (or Other, Skip)
+Link:      <base>/projects/alpha/weekly-review?audience=technical&item=75d0a3dd-d39c-40a2-af97-ae46fed56a3d

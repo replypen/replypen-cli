@@ -751,6 +751,53 @@ func stubServer(t *testing.T) *httptest.Server {
 		})
 	}
 
+	// Review queue — the bearer twin of the Review page. Owner-audience item reads/writes 404 so the CLI's
+	// owner→technical fallback is exercised; close asserts the note arrives.
+	for _, base := range []string{"/api/v1/projects/{project}/review", "/api/v1/projects/{project}/tenants/{tenant}/review"} {
+		mux.HandleFunc("GET "+base, func(w http.ResponseWriter, r *http.Request) {
+			requireAuth(t, r)
+			if r.PathValue("project") != "alpha" {
+				t.Fatalf("review routes take the project name, got %q", r.PathValue("project"))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Query().Get("audience") != "technical" && r.URL.Query().Get("item") != "" {
+				_, _ = w.Write([]byte(`{"audience":"owner","cadence":"queue","id":"5e551011-0000-0000-0000-000000000009","base_url":"/projects/alpha","items":[]}`))
+				return
+			}
+			_, _ = w.Write(fixture(t, "review.json"))
+		})
+		reviewWrite := func(w http.ResponseWriter, r *http.Request) {
+			requireAuth(t, r)
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Query().Get("audience") != "technical" {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"error":{"code":"NOT_FOUND","message":"no such review card in this scope and audience"}}`))
+				return
+			}
+			body := readBody(t, r)
+			if r.PathValue("verb") == "close" {
+				if !strings.Contains(body, `"note":"fixed in abc123"`) {
+					t.Fatalf("close body = %q, want the --note", body)
+				}
+				_, _ = fmt.Fprintf(w, `{"id":%q,"status":"applied","decision_label":"Already handled","decision_instruction":"fixed in abc123","applied":{"disposition":"done","rounds":[],"note":"fixed in abc123"}}`, r.PathValue("id"))
+				return
+			}
+			if !strings.Contains(body, `"decision_label":"Do it"`) {
+				t.Fatalf("decide body = %q, want the --label", body)
+			}
+			_, _ = fmt.Fprintf(w, `{"id":%q,"status":"decided","decision_label":"Do it","decision_instruction":"","applied":{}}`, r.PathValue("id"))
+		}
+		mux.HandleFunc("POST "+base+"/items/{id}", reviewWrite)
+		mux.HandleFunc("POST "+base+"/items/{id}/{verb}", reviewWrite)
+		mux.HandleFunc("POST "+base+"/finish", func(w http.ResponseWriter, r *http.Request) {
+			requireAuth(t, r)
+			if !strings.Contains(readBody(t, r), `"session_id":"5e551011-0000-0000-0000-000000000001"`) {
+				t.Fatal("finish must post the deck's session id")
+			}
+			w.WriteHeader(http.StatusNoContent)
+		})
+	}
+
 	// Collection resources (repos / connections / members / tokens). Each list GET echoes a canned
 	// fixture; create/patch echo a single item; the connection/token item-verbs return their canned
 	// shapes. Handlers assert the auth header (via requireAuth) and, where load-bearing, the request body.

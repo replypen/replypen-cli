@@ -108,6 +108,14 @@ func TestTableGolden(t *testing.T) {
 		// (resolved_by:"none"), not an error.
 		{"ThreadTraceUnknownTable", []string{"run", "thread", "unknown"}, "thread_trace_none.golden"},
 		{"SettingProposalsTable", []string{"--project", "alpha", "project", "settings", "proposals", "ls"}, "setting_proposals_ls.golden"},
+		{"ReviewListTable", []string{"--project", "alpha", "project", "review", "ls", "--audience", "technical"}, "review_ls.golden"},
+		// show/close without --audience: owner 404s, the technical retry answers.
+		{"ReviewShowTable", []string{"--project", "alpha", "project", "review", "show", "75d0a3dd-d39c-40a2-af97-ae46fed56a3d"}, "review_show.golden"},
+		{"ReviewCloseTable", []string{"--project", "alpha", "project", "review", "close", "75d0a3dd-d39c-40a2-af97-ae46fed56a3d", "--note", "fixed in abc123"}, "review_close.golden"},
+		{"ReviewDecideTable", []string{"--project", "alpha", "project", "review", "decide", "75d0a3dd-d39c-40a2-af97-ae46fed56a3d", "--label", "Do it", "--audience", "technical"}, "review_decide.golden"},
+		// A UUID --project is mapped to its name: the review routes resolve {project} by name only.
+		{"ReviewListByProjectIDTable", []string{"--project", "aaaaaaaa-0000-0000-0000-000000000001", "project", "review", "ls", "--audience", "technical"}, "review_ls.golden"},
+		{"ReviewFinishTable", []string{"--project", "alpha", "project", "review", "finish", "--audience", "technical"}, "review_finish.golden"},
 		{"ConfigGetTable", []string{"project", "settings", "runtime", "get"}, "config_get.golden"},
 		{"ConfigSetTable", []string{"project", "settings", "runtime", "set", `models.agent={"tier":"pro"}`, "max_run_usd=5"}, "config_set.golden"},
 		// ConfigSetListValue locks the list-coercion contract: `project settings runtime set pr.triggers=inbound,mcp` sends a
@@ -177,7 +185,8 @@ func TestTableGolden(t *testing.T) {
 			if err := run(t, e, tc.args...); err != nil {
 				t.Fatalf("rp %s: %v", strings.Join(tc.args, " "), err)
 			}
-			assertGolden(t, tc.golden, out.String())
+			// The stub's port changes per run; links printed against it are pinned as <base>.
+			assertGolden(t, tc.golden, strings.ReplaceAll(out.String(), srv.URL, "<base>"))
 		})
 	}
 }
@@ -226,6 +235,7 @@ func TestJSONPassthrough(t *testing.T) {
 		{"RunDetailJSONPassthrough", []string{"run", "show", "11111111-1111-1111-1111-111111111111"}, "run.json"},
 		{"RunFeedbackListJSONPassthrough", []string{"run", "feedback", "list"}, "feedback.json"},
 		{"SettingProposalsJSONPassthrough", []string{"--project", "alpha", "--tenant", "acme", "project", "settings", "proposals", "ls"}, "setting_proposals.json"},
+		{"ReviewListJSONPassthrough", []string{"--project", "alpha", "--tenant", "acme", "project", "review", "ls", "--audience", "technical"}, "review.json"},
 		{"ConfigGetJSONPassthrough", []string{"project", "settings", "runtime", "get"}, "settings.json"},
 		{"TenantSettingsGetJSON", []string{"project", "tenant", "settings", "get", "de-kies"}, "hierarchy_tenant_settings.json"},
 		{"TenantProfileGetJSON", []string{"project", "tenant", "profile", "get", "de-kies"}, "tenant_settings.json"},
@@ -322,6 +332,11 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		// The steering text has one source; accepting both would silently pick one.
 		{"RunRetryRejectsCommentAndCommentFile", []string{"run", "retry", "11111111-1111-1111-1111-111111111111", "--comment", "hi", "--comment-file", "-"}, "none of the others can be"},
 		// Whitespace-only steering would reach the server as an empty comment; refuse instead.
+		// Close without a note would retire a card with no trace of where it was handled.
+		{"ReviewCloseRequiresNote", []string{"--project", "alpha", "project", "review", "close", "75d0a3dd-d39c-40a2-af97-ae46fed56a3d"}, "--note is required"},
+		{"ReviewDecideRequiresLabel", []string{"--project", "alpha", "project", "review", "decide", "75d0a3dd-d39c-40a2-af97-ae46fed56a3d"}, "--label is required"},
+		{"ReviewRejectsPrefixID", []string{"--project", "alpha", "project", "review", "close", "75d0a3dd", "--note", "x"}, "full card id"},
+		{"ReviewRejectsAudience", []string{"--project", "alpha", "project", "review", "ls", "--audience", "staff"}, "invalid --audience"},
 		{"RunRetryRejectsEmptyComment", []string{"run", "retry", "11111111-1111-1111-1111-111111111111", "--comment", "   "}, "empty retry comment"},
 		// The list is windowed (pending + recent decided), so a prefix could resolve to the wrong row:
 		// decisions take the full uuid and never guess.
