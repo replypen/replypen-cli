@@ -1,0 +1,109 @@
+{
+ "brain": {
+  "ref": "dev/shorter",
+  "sha": "2222222222222222222222222222222222222222"
+ },
+ "cases": {
+  "ref": "HEAD",
+  "sha": "1111111111111111111111111111111111111111",
+  "dir": "_internal/triage/cases",
+  "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "count": 3
+ },
+ "policy": {
+  "scope": "project",
+  "guidance": [
+   {
+    "scope": "project",
+    "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   }
+  ],
+  "guidance_hash": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+  "rules_hash": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+  "rule_count": 0,
+  "brain_files": [
+   "triage.md"
+  ],
+  "brain_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "language": "Dutch",
+  "email_types_gate": false
+ },
+ "model": {
+  "name": "GPT 6 Luna (low)",
+  "fingerprint": "0123456789abcdef"
+ },
+ "host_build": "abc1234",
+ "prompt_hash": "p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2p2",
+ "repeat": 1,
+ "not_covered": [
+  "main agent: an active-session follow-up skips this classifier"
+ ],
+ "results": [
+  {
+   "id": "akkoord-op-voorstel",
+   "path": "_internal/triage/cases/akkoord-op-voorstel.md",
+   "status": "proposed",
+   "expect": {
+    "process": true,
+    "needs_action": true,
+    "needs_patient_text": false
+   },
+   "why": "accepts slot",
+   "messages": 3,
+   "current_message": "m3",
+   "attempts": [
+    {
+     "should_process": false,
+     "decision_source": "model",
+     "category": "c",
+     "reason": "Patient accepts\nthe proposed slot",
+     "confidence": 0.8
+    }
+   ]
+  },
+  {
+   "id": "bedankt-na-bevestiging",
+   "path": "_internal/triage/cases/bedankt-na-bevestiging.md",
+   "status": "approved",
+   "expect": {
+    "process": false,
+    "needs_action": false,
+    "needs_patient_text": false
+   },
+   "why": "closed",
+   "messages": 4,
+   "current_message": "m4",
+   "attempts": [
+    {
+     "should_process": false,
+     "decision_source": "model",
+     "category": "c",
+     "reason": "bare thanks",
+     "confidence": 0.8
+    }
+   ]
+  },
+  {
+   "id": "afwezigheidsmelding",
+   "path": "_internal/triage/cases/afwezigheidsmelding.md",
+   "status": "proposed",
+   "expect": {
+    "process": false,
+    "needs_action": false,
+    "needs_patient_text": false
+   },
+   "why": "auto reply",
+   "messages": 1,
+   "current_message": "m1",
+   "attempts": [
+    {
+     "should_process": false,
+     "decision_source": "deterministic",
+     "category": "c",
+     "reason": "auto-submitted header",
+     "confidence": 0.8
+    }
+   ]
+  }
+ ]
+}

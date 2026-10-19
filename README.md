@@ -682,6 +682,7 @@ help using `go test ./internal/cli -update`.
 | `rp project token mint` | Mint a new token (refresh token shown once) |
 | `rp project token revoke` | Revoke a token |
 | `rp project token` | Manage API tokens |
+| `rp project triage eval` | Run the brain's triage case corpus through the real triage decision at a brain ref |
 | `rp project triage policy get` | Show triage policy guidance |
 | `rp project triage policy set` | Replace triage policy guidance |
 | `rp project triage policy` | Read or edit free-form triage guidance |

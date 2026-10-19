@@ -1,0 +1,19 @@
+baseline  HEAD @ 111111111111: 3/3 pass · 0 false skip · 0 extra process · 0 flaky · 0 failed open · 2/3 labels proposed (not owner-approved)
+candidate dev/shorter @ 222222222222: 2/3 pass · 1 false skip · 0 extra process · 0 flaky · 0 failed open · 2/3 labels proposed (not owner-approved)
+
+CASE                 BASELINE  CANDIDATE
+akkoord-op-voorstel  pass      false_skip
+
+— candidate —
+dev/shorter @ 222222222222: 2/3 pass · 1 false skip · 0 extra process · 0 flaky · 0 failed open · 2/3 labels proposed (not owner-approved)
+
+CLASS       CASE                 EXPECTED          DECIDED  BY     REASON
+false_skip  akkoord-op-voorstel  process (action)  skip     model  Patient accepts the proposed slot
+
+pass: afwezigheidsmelding, bedankt-na-bevestiging
+
+brain    dev/shorter @ 2222222222222222222222222222222222222222 · triage docs: triage.md
+cases    HEAD @ 111111111111 · _internal/triage/cases · 3 cases · hash cccccccccccc
+policy   project scope · guidance project:aaaaaaaaaaaa · 0 rules rrrrrrrrrrrr · language Dutch · email-type gate off
+model    GPT 6 Luna (low) · route 0123456789abcdef · prompt p2p2p2p2p2p2 · host abc1234
+not covered: main agent: an active-session follow-up skips this classifier

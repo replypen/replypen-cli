@@ -65,3 +65,24 @@ func (c *Client) PatchTriageRule(ctx context.Context, project, tenant, id string
 func (c *Client) DeleteTriageRule(ctx context.Context, project, tenant, id string) (json.RawMessage, error) {
 	return c.triage(ctx, http.MethodDelete, "/rules/"+url.PathEscape(id), project, tenant, nil)
 }
+
+// TriageEval runs the brain's triage case corpus through the real triage decision on the server.
+// Project-tree only (no flat alias); it spends model calls, so the token needs runs:trigger.
+func (c *Client) TriageEval(ctx context.Context, project, tenant string, req TriageEvalRequest) (TriageEvalReport, json.RawMessage, error) {
+	var out TriageEvalReport
+	if project == "" {
+		return out, nil, fmt.Errorf("--project <project> is required for a triage eval")
+	}
+	path, err := triagePath("/eval", project, tenant)
+	if err != nil {
+		return out, nil, err
+	}
+	var raw json.RawMessage
+	if err := c.do(ctx, http.MethodPost, path, req, &raw); err != nil {
+		return out, nil, err
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return out, raw, fmt.Errorf("decode triage eval: %w", err)
+	}
+	return out, raw, nil
+}

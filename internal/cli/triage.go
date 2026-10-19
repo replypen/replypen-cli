@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 func newTriageCmd(e *env) *cobra.Command {
@@ -16,7 +18,7 @@ func newTriageCmd(e *env) *cobra.Command {
 		Use:   "triage",
 		Short: "Read or change mail triage policy and hard rules",
 	}
-	cmd.AddCommand(triagePolicyCmd(e), triageRulesCmd(e))
+	cmd.AddCommand(triagePolicyCmd(e), triageRulesCmd(e), triageEvalCmd(e))
 	return cmd
 }
 
@@ -194,4 +196,82 @@ func parseTriageRuleArgs(args []string) (map[string]any, error) {
 		}
 	}
 	return body, nil
+}
+
+func triageEvalCmd(e *env) *cobra.Command {
+	var req client.TriageEvalRequest
+	var baseline, only string
+	cmd := &cobra.Command{
+		Use:   "eval",
+		Short: "Run the brain's triage case corpus through the real triage decision at a brain ref",
+		Long: "Reads every case in the brain's _internal/triage/cases/ at --cases-ref (default HEAD, the synced main), " +
+			"classifies each through the server's real triage path (prefilter, live policy + rules, the triage docs " +
+			"of --brain-ref, persona language, email-type gate, model route) and scores it against the case's " +
+			"expected outcome. Nothing is ingested, drafted or sent; it spends one model call per case and --repeat. " +
+			"--baseline <ref> runs that ref first and grades both on the baseline's exact cases commit. " +
+			"It does not measure the main agent (active-session follow-ups skip triage).",
+		Example: "  rp project triage eval --brain-ref dev/shorter-triage --baseline HEAD --repeat 2",
+		Args:    cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			c, err := e.newClient()
+			if err != nil {
+				return err
+			}
+			if only != "" {
+				for _, id := range strings.Split(only, ",") {
+					if id = strings.TrimSpace(id); id != "" {
+						req.Only = append(req.Only, id)
+					}
+				}
+			}
+			project, tenant := e.scopeProject(), e.scopeTenant()
+			if project == "" {
+				project = e.resolved.Project
+			}
+			if baseline == "" {
+				rep, raw, err := c.TriageEval(e.ctx(), project, tenant, req)
+				if err != nil {
+					return err
+				}
+				if e.jsonOut() {
+					return e.renderJSON("triage-eval", raw)
+				}
+				render.TriageEval(e.out, rep, digest.ScoreTriageEval(rep))
+				return nil
+			}
+			baseReq := req
+			baseReq.BrainRef = baseline
+			base, baseRaw, err := c.TriageEval(e.ctx(), project, tenant, baseReq)
+			if err != nil {
+				return fmt.Errorf("baseline %s: %w", baseline, err)
+			}
+			// Pin the candidate to the baseline's exact answer key, even if --cases-ref moves meanwhile.
+			req.CasesRef = base.Cases.SHA
+			cand, candRaw, err := c.TriageEval(e.ctx(), project, tenant, req)
+			if err != nil {
+				return fmt.Errorf("candidate %s: %w", orHEAD(req.BrainRef), err)
+			}
+			if e.jsonOut() {
+				both, _ := json.Marshal(map[string]json.RawMessage{"baseline": baseRaw, "candidate": candRaw})
+				return e.renderJSON("triage-eval", both)
+			}
+			render.TriageEvalCompare(e.out, base, cand, digest.ScoreTriageEval(base), digest.ScoreTriageEval(cand))
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&req.BrainRef, "brain-ref", "", "brain revision whose triage docs to test: HEAD (default), stable, edge, a commit SHA or a dev/* branch")
+	f.StringVar(&req.CasesRef, "cases-ref", "", "brain revision to read the cases (answer key) from (default HEAD)")
+	f.StringVar(&baseline, "baseline", "", "also run this brain ref first and show which cases changed class")
+	f.StringVar(&req.Mailbox, "mailbox", "", "mailbox id: adds its mailbox-scoped policy, rules and persona language")
+	f.StringVar(&only, "only", "", "comma-separated case ids to run")
+	f.IntVar(&req.Repeat, "repeat", 1, "decisions per case (1-3): a case passes only when every attempt agrees")
+	return cmd
+}
+
+func orHEAD(ref string) string {
+	if ref == "" {
+		return "HEAD"
+	}
+	return ref
 }

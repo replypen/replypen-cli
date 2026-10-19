@@ -1507,6 +1507,7 @@ Usage:
 Available Commands:
   policy      Read or edit free-form triage guidance
   rules       Read or edit deterministic triage rules
+  eval        Run the brain's triage case corpus through the real triage decision at a brain ref
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -1653,6 +1654,33 @@ Delete a triage hard rule
 
 Usage:
   rp project triage rules rm <id> [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project triage eval --help
+Reads every case in the brain's _internal/triage/cases/ at --cases-ref (default HEAD, the synced main), classifies each through the server's real triage path (prefilter, live policy + rules, the triage docs of --brain-ref, persona language, email-type gate, model route) and scores it against the case's expected outcome. Nothing is ingested, drafted or sent; it spends one model call per case and --repeat. --baseline <ref> runs that ref first and grades both on the baseline's exact cases commit. It does not measure the main agent (active-session follow-ups skip triage).
+
+Usage:
+  rp project triage eval [flags]
+
+Examples:
+  rp project triage eval --brain-ref dev/shorter-triage --baseline HEAD --repeat 2
+
+Flags:
+      --baseline string    also run this brain ref first and show which cases changed class
+      --brain-ref string   brain revision whose triage docs to test: HEAD (default), stable, edge, a commit SHA or a dev/* branch
+      --cases-ref string   brain revision to read the cases (answer key) from (default HEAD)
+      --mailbox string     mailbox id: adds its mailbox-scoped policy, rules and persona language
+      --only string        comma-separated case ids to run
+      --repeat int         decisions per case (1-3): a case passes only when every attempt agrees (default 1)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
