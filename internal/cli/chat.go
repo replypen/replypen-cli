@@ -434,11 +434,23 @@ func (t *chatCardTarget) fetch(e *env,
 	return raw, err
 }
 
+// cardIDArg accepts a memory or brain-change card as `send` prints its frame id (`bc_<uuid>`,
+// `mem_<uuid>`); the card routes take the bare uuid.
+func cardIDArg(arg string) string {
+	id := strings.TrimSpace(arg)
+	for _, prefix := range []string{"bc_", "mem_"} {
+		if rest, ok := strings.CutPrefix(id, prefix); ok && len(rest) == 36 {
+			return rest
+		}
+	}
+	return id
+}
+
 // chatCardDecideCmd settles a chat card the way its widget button does (e.g. publish a website change).
 func chatCardDecideCmd(e *env) *cobra.Command {
 	var t chatCardTarget
 	cmd := &cobra.Command{Use: "decide <session-id> <card-id> <outcome>", Short: "Settle a chat card (e.g. publish or decline a website change) and print its projection", Args: cobra.ExactArgs(3), RunE: func(_ *cobra.Command, args []string) error {
-		sessionID, cardID, outcome := strings.TrimSpace(args[0]), strings.TrimSpace(args[1]), strings.TrimSpace(args[2])
+		sessionID, cardID, outcome := strings.TrimSpace(args[0]), cardIDArg(args[1]), strings.TrimSpace(args[2])
 		raw, err := t.fetch(e, func(c *client.Client, project, origin, token string) (json.RawMessage, error) {
 			return c.ChatCardDecide(e.ctx(), project, origin, token, sessionID, t.card, cardID, outcome)
 		}, func(c *client.Client, project, tenant string) (json.RawMessage, error) {
@@ -464,7 +476,7 @@ func chatCardStatusCmd(e *env) *cobra.Command {
 	var wait bool
 	var timeout time.Duration
 	cmd := &cobra.Command{Use: "card <session-id> <card-id>", Short: "Print a chat card's current projection (--wait polls until it settles)", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
-		sessionID, cardID := strings.TrimSpace(args[0]), strings.TrimSpace(args[1])
+		sessionID, cardID := strings.TrimSpace(args[0]), cardIDArg(args[1])
 		ctx := e.ctx()
 		if wait {
 			// One deadline over every request, so a stalled poll cannot outlive --timeout.

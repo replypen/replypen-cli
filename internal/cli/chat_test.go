@@ -780,3 +780,12 @@ func TestChatCardWaitFollowAndAttachmentEdges(t *testing.T) {
 		t.Fatalf("temp files left: %v", left)
 	}
 }
+
+func TestCardIDArgStripsFramePrefix(t *testing.T) {
+	const id = "0c24867a-f29e-45d2-b79e-88ec7b15f076"
+	for in, want := range map[string]string{"bc_" + id: id, " mem_" + id: id, id: id, "wc_abc123": "wc_abc123"} {
+		if got := cardIDArg(in); got != want {
+			t.Errorf("cardIDArg(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
