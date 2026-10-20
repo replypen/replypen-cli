@@ -28,7 +28,7 @@ const (
 	attachmentExpired    = "expired"
 	attachmentFailed     = "failed"
 
-	attachmentExpiredMessage = "chat files are kept 30 days after upload"
+	attachmentExpiredMessage = "file no longer stored; chat files are kept as long as their conversation"
 
 	maxNameCandidates = 100
 )
