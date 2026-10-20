@@ -324,6 +324,9 @@ type SubmitRequest struct {
 	Subject         string       `json:"subject,omitempty"`
 	Principal       *Principal   `json:"principal,omitempty"`
 	Attachments     []Attachment `json:"attachments,omitempty"`
+	// Credentials are integrator-minted tokens (env name → value) the host seals for this run only and
+	// injects as workspace env; a simulation only carries names the project allow-lists.
+	Credentials map[string]string `json:"credentials,omitempty"`
 	// DryScope resolves and returns the principal scope this run WOULD get, then stops — no agent loop, no
 	// LLM spend, no run row. The response is a ScopePreview, not a SubmitResponse.
 	DryScope bool `json:"dry_scope,omitempty"`

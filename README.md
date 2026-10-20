@@ -779,6 +779,12 @@ the project's action plane and catalog being enabled.
 provider effort values; use it when you explicitly want a stronger retry. Omit it, or pass
 `--effort default`, for normal behavior.
 
+`rp ask --credential-env NAME` (repeatable) sends the local env var `NAME` as a run **credential** —
+an integrator-minted, user-scoped token the host seals for this run only and injects into the
+workspace as `NAME` (the Prompt API `credentials` member, same rules as the chat embed claim). The
+value is read from your environment, never argv. On `--simulation` / `--replay-chat-run` the host only
+accepts names the project lists in `behavior.simulation_credentials`.
+
 `rp ask --principal-kind <K> --principal-id <ID>` asserts a **principal** on the run — a structured
 identity that scopes the run's read-only data access to that entity's rows (e.g.
 `--principal-kind kampadmin_person --principal-id <person-uuid>`). Both flags are a pair (supply both

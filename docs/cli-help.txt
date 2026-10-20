@@ -60,24 +60,25 @@ Usage:
   rp ask [question] [flags]
 
 Flags:
-      --asserted-by string       who asserted the principal (default server-side); requires the --principal-kind/--principal-id pair
-      --assurance string         assurance level of the principal assertion (default server-side); requires the --principal-kind/--principal-id pair
-      --brain-ref string         run against a non-main brain ref (e.g. dev/refund-rework) — a test run
-      --dry-scope                resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)
-      --effort string            reasoning effort override: default, pro, or max
-      --file stringArray         attach a local file to the synthetic run (repeatable; max 4 files, 5 MiB each, 15 MiB total)
-      --from string              sender address for --scenario email (default "rp-ask@example.test")
-      --mailbox string           with --simulation --scenario email: replay this watched mailbox's contract (id, slug or address; default: the scope's single processing mailbox)
-      --mirror-ref stringArray   mount <repo>=<ref> (dev/* branch or SHA) of a source mirror for this run only — a test run; repeatable
-      --no-wait                  submit and print the run_id immediately, without waiting
-      --principal-id string      principal external id (the asserted identity); requires --principal-kind
-      --principal-kind string    principal kind to scope the run's data (e.g. kampadmin_person); requires --principal-id
-      --replay-chat-run string   replay one stored in-app chat turn (run id or run link) as a side-effect-free test run; the question becomes an optional override
-      --scenario string          answer shape: email or raw (default "email")
-      --session string           session id to thread the run onto
-      --simulation               dress rehearsal: real brain + grounding, but no action executes, no journal commit and nothing is placed in a mailbox (attachments are refused)
-      --subject string           subject for --scenario email (default: compact prompt first line)
-      --timeout duration         max time to wait for a terminal status (default 5m0s)
+      --asserted-by string           who asserted the principal (default server-side); requires the --principal-kind/--principal-id pair
+      --assurance string             assurance level of the principal assertion (default server-side); requires the --principal-kind/--principal-id pair
+      --brain-ref string             run against a non-main brain ref (e.g. dev/refund-rework) — a test run
+      --credential-env stringArray   send the local env var NAME as run credential NAME (the value never touches argv); repeatable
+      --dry-scope                    resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)
+      --effort string                reasoning effort override: default, pro, or max
+      --file stringArray             attach a local file to the synthetic run (repeatable; max 4 files, 5 MiB each, 15 MiB total)
+      --from string                  sender address for --scenario email (default "rp-ask@example.test")
+      --mailbox string               with --simulation --scenario email: replay this watched mailbox's contract (id, slug or address; default: the scope's single processing mailbox)
+      --mirror-ref stringArray       mount <repo>=<ref> (dev/* branch or SHA) of a source mirror for this run only — a test run; repeatable
+      --no-wait                      submit and print the run_id immediately, without waiting
+      --principal-id string          principal external id (the asserted identity); requires --principal-kind
+      --principal-kind string        principal kind to scope the run's data (e.g. kampadmin_person); requires --principal-id
+      --replay-chat-run string       replay one stored in-app chat turn (run id or run link) as a side-effect-free test run; the question becomes an optional override
+      --scenario string              answer shape: email or raw (default "email")
+      --session string               session id to thread the run onto
+      --simulation                   dress rehearsal: real brain + grounding, but no action executes, no journal commit and nothing is placed in a mailbox (attachments are refused)
+      --subject string               subject for --scenario email (default: compact prompt first line)
+      --timeout duration             max time to wait for a terminal status (default 5m0s)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -355,7 +356,7 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp run thread --help
-Trace a run id, provider conversation id (Gmail thread or Intercom conversation), ReplyPen thread UUID, session id, or an email address (the newest threads it sent or received — the forwarded-email entry point, incl. triage-skipped mail that never became a run). A run id is resolved through its safe run-status identity first. Shows the pre-agent channel outcome, then every run (newest first) with health, placement, and a deterministic why-no-draft hint. An unknown id is a clean empty answer, not an error. A pasted run link (…/runs/<id>?t=<token>) works with no login.
+Trace a run id, provider conversation id (Gmail thread or Intercom conversation), ReplyPen thread UUID, session id, a pasted Gmail link (print/permalink, #inbox/<id>), or an email address (the newest threads it sent or received — the forwarded-email entry point, incl. triage-skipped mail that never became a run). A run id is resolved through its safe run-status identity first. Shows the pre-agent channel outcome, then every run (newest first) with health, placement, and a deterministic why-no-draft hint. An unknown id is a clean empty answer, not an error. A pasted run link (…/runs/<id>?t=<token>) works with no login.
 
 --transcript flips the view from PIPELINE to CONVERSATION: every turn in reading order (question, answer, outcome, feedback, run link) as compact Markdown, or a {session_id,turns[]} envelope with -o json. It needs a login (a share link carries one run only).
 

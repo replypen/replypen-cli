@@ -38,6 +38,7 @@ type askFlags struct {
 	mailbox       string
 	dryScope      bool
 	replayChatRun string
+	credentialEnv []string
 	timeout       time.Duration
 }
 
@@ -127,6 +128,10 @@ func newAskCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			credentials, err := credentialsFromEnv(f.credentialEnv)
+			if err != nil {
+				return err
+			}
 			c, err := e.newClient()
 			if err != nil {
 				return err
@@ -148,6 +153,7 @@ func newAskCmd(e *env) *cobra.Command {
 				Subject:         subject,
 				Principal:       principal,
 				Attachments:     attachments,
+				Credentials:     credentials,
 				Project:         e.scopeProject(),
 			})
 			if err != nil {
@@ -206,6 +212,7 @@ func newAskCmd(e *env) *cobra.Command {
 	cmd.Flags().BoolVar(&f.simulation, "simulation", false, "dress rehearsal: real brain + grounding, but no action executes, no journal commit and nothing is placed in a mailbox (attachments are refused)")
 	cmd.Flags().StringVar(&f.mailbox, "mailbox", "", "with --simulation --scenario email: replay this watched mailbox's contract (id, slug or address; default: the scope's single processing mailbox)")
 	cmd.Flags().BoolVar(&f.noWait, "no-wait", false, "submit and print the run_id immediately, without waiting")
+	cmd.Flags().StringArrayVar(&f.credentialEnv, "credential-env", nil, "send the local env var NAME as run credential NAME (the value never touches argv); repeatable")
 	cmd.Flags().BoolVar(&f.dryScope, "dry-scope", false, "resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)")
 	cmd.Flags().StringVar(&f.replayChatRun, "replay-chat-run", "", "replay one stored in-app chat turn (run id or run link) as a side-effect-free test run; the question becomes an optional override")
 	cmd.Flags().DurationVar(&f.timeout, "timeout", 5*time.Minute, "max time to wait for a terminal status")
@@ -240,6 +247,10 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 	if len(args) == 1 {
 		override = args[0]
 	}
+	credentials, err := credentialsFromEnv(f.credentialEnv)
+	if err != nil {
+		return err
+	}
 	c, err := e.newClient()
 	if err != nil {
 		return err
@@ -252,6 +263,7 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 		MirrorRefs:      mirrorRefs,
 		Simulation:      true,
 		ReasoningEffort: effort,
+		Credentials:     credentials,
 		Project:         e.scopeProject(),
 	}
 	if f.dryScope {
@@ -529,4 +541,21 @@ func isTerminalStatus(s string) bool {
 	default:
 		return true
 	}
+}
+
+// credentialsFromEnv reads each --credential-env NAME from the local environment, so a token reaches the
+// request body without ever sitting in argv or shell history. The server owns the claim rules.
+func credentialsFromEnv(names []string) (map[string]string, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]string, len(names))
+	for _, name := range names {
+		v, ok := os.LookupEnv(name)
+		if !ok || v == "" {
+			return nil, fmt.Errorf("--credential-env %s: the environment variable is not set", name)
+		}
+		out[name] = v
+	}
+	return out, nil
 }

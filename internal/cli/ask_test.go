@@ -804,3 +804,29 @@ func TestAskReplayChatRunRejectsConflicts(t *testing.T) {
 		t.Fatal("ask without a question or --replay-chat-run must be a usage error")
 	}
 }
+
+// TestAskCredentialEnvForwarded: --credential-env NAME sends the local env value under NAME, and an unset
+// variable is a client error before any request is made.
+func TestAskCredentialEnvForwarded(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"run_id":"r1","status":"done","status_url":"/api/v1/runs/r1","poll_after_ms":1}`))
+	}))
+	defer srv.Close()
+	t.Setenv("KAMPADMIN_READS_TOKEN", "tok-1")
+	e, _, _ := newTestEnv(t, srv, "json")
+	if err := run(t, e, "ask", "q", "--credential-env", "KAMPADMIN_READS_TOKEN", "--no-wait"); err != nil {
+		t.Fatalf("ask --credential-env: %v", err)
+	}
+	if c, _ := got["credentials"].(map[string]any); c["KAMPADMIN_READS_TOKEN"] != "tok-1" {
+		t.Fatalf("credentials = %v", got["credentials"])
+	}
+	got = nil
+	if err := run(t, e, "ask", "q", "--credential-env", "RP_TEST_UNSET_TOKEN", "--no-wait"); err == nil || got != nil {
+		t.Fatalf("unset env: err = %v, request sent = %v", err, got != nil)
+	}
+}
