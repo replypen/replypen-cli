@@ -23,6 +23,8 @@ func TestParseShareTarget(t *testing.T) {
 		wantErr   string
 	}{
 		{name: "BareID", arg: "11111111-1111-1111-1111-111111111111", wantRun: "11111111-1111-1111-1111-111111111111"},
+		// The 8-hex short id as DentAI Mailfeedback shows it; the host resolves the prefix.
+		{name: "HashShortID", arg: " #9674ABCD ", wantRun: "9674abcd"},
 		{name: "BareIDWithFlagToken", arg: "run-1", flagToken: "shr_abc", wantRun: "run-1", wantToken: "shr_abc"},
 		{
 			name: "FullURL", arg: "https://app.replypen.com/runs/run-1?t=shr_abc",

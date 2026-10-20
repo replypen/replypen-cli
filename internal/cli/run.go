@@ -59,7 +59,7 @@ func runIDCommand(e *env, use, short string, run func(c *client.Client, id strin
 			if err != nil {
 				return err
 			}
-			return run(c, args[0], render.IsJSON(e.mode(), e.out))
+			return run(c, normalizeRunID(args[0]), render.IsJSON(e.mode(), e.out))
 		},
 	}
 }

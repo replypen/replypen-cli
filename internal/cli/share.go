@@ -46,7 +46,7 @@ func parseRunTarget(arg, flagToken string) (shareTarget, error) {
 		return shareTarget{}, fmt.Errorf("expected a run id or a run link like https://app.replypen.com/runs/<id>?t=<token>")
 	}
 	if !looksLikeURL(arg) {
-		return shareTarget{runID: arg, token: strings.TrimSpace(flagToken)}, nil
+		return shareTarget{runID: normalizeRunID(arg), token: strings.TrimSpace(flagToken)}, nil
 	}
 	u, err := url.Parse(arg)
 	if err != nil {

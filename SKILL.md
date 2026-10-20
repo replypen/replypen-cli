@@ -40,6 +40,9 @@ authoring a skill:
 | bundle | `rp run trace <id>` | `GET /api/v1/runs/{id}/trace` (JSONL in `-o json`) |
 | decompose | `rp run debug <id>` | `/trace` → local jq-able JSONL + thin markdown index |
 
+`<id>` = full uuid or the 8-hex short id surfaces print (`96745381`, `#96745381`): the CLI strips `#`
+(`normalizeRunID`), the host resolves the prefix in scope (404 none, 409 `AMBIGUOUS_RUN` + candidates never guessed).
+
 `rp run sessions` sits ABOVE the index for chat: a conversation is N runs sharing one session id, so its
 row hands you the id for `rp run thread <session_id> --transcript` (READ the conversation: every turn in
 order, form answers folded under the turn they answer) and from there `rp run trace <run_id> --brief`

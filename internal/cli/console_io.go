@@ -158,6 +158,13 @@ func (t *outputTarget) finish(e *env, truncated bool) error {
 	return outputspill.WriteManifest(e.out, outputspill.ManifestForArtifact(art))
 }
 
+// normalizeRunID accepts a run id as surfaces display it: `#96745381` (DentAI Mailfeedback), stray
+// whitespace, upper case. The host resolves a full uuid or an unambiguous >=8-char prefix (404 none,
+// 409 AMBIGUOUS_RUN), so the CLI only strips the decoration.
+func normalizeRunID(id string) string {
+	return strings.ToLower(strings.TrimPrefix(strings.TrimSpace(id), "#"))
+}
+
 func shortRunID(id string) string {
 	id = strings.ReplaceAll(id, "-", "")
 	if len(id) > 8 {
