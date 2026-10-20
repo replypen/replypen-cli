@@ -43,6 +43,15 @@ func TestRunFeedbackListQuery(t *testing.T) {
 		}
 	}
 
+	for arg, want := range map[string]string{"--processed=false": "false", "--processed": "true"} {
+		if err := run(t, e, "run", "feedback", "list", arg); err != nil {
+			t.Fatal(err)
+		}
+		if q.Get("processed") != want {
+			t.Errorf("%s sent processed=%q, want %q", arg, q.Get("processed"), want)
+		}
+	}
+
 	if err := run(t, e, "run", "feedback", "list"); err != nil {
 		t.Fatal(err)
 	}

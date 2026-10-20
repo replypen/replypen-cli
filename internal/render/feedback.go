@@ -16,15 +16,26 @@ func Feedback(w io.Writer, resp *client.FeedbackResponse) {
 		return
 	}
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "RUN\tKIND\tTENANT\tSCORE\tCOMMENT\tANSWER\tWHEN")
+	_, _ = fmt.Fprintln(tw, "RUN\tKIND\tTENANT\tSCORE\tCOMMENT\tANSWER\tPROCESSED\tWHEN")
 	for _, f := range resp.Feedback {
 		score := "-"
 		if f.Score > 0 {
 			score = fmt.Sprintf("%d★", f.Score)
 		}
-		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		// "-" below the project-admin tier; "yes: <note>" once triaged.
+		processed := "-"
+		if f.Processed != nil {
+			processed = "no"
+			if *f.Processed {
+				processed = "yes"
+				if f.ResolutionNote != "" {
+					processed += ": " + truncate(f.ResolutionNote, 40)
+				}
+			}
+		}
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			f.RunID, f.Kind, dash(f.TenantSlug), score,
-			orDashTrimmed(truncate(f.Comment, 40), "-"), orDashTrimmed(truncate(f.AnswerPreview, 50), "-"), f.FeedbackAt)
+			orDashTrimmed(truncate(f.Comment, 40), "-"), orDashTrimmed(truncate(f.AnswerPreview, 50), "-"), processed, f.FeedbackAt)
 	}
 	_ = tw.Flush()
 	if resp.NextBefore != "" {

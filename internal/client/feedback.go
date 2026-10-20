@@ -9,8 +9,8 @@ import (
 )
 
 // FeedbackRow is one rated run as GET /api/v1/feedback projects it. Field names match the server
-// verbatim. Score is absent on comment-only rows, Comment below the review-content tier and the
-// previews below the project-admin tier.
+// verbatim. Score is absent on comment-only rows, Comment below the review-content tier, and the
+// previews + triage fields (Processed nil ⇒ not your tier) below the project-admin tier.
 type FeedbackRow struct {
 	RunID           string `json:"run_id"`
 	Kind            string `json:"kind"`
@@ -28,6 +28,9 @@ type FeedbackRow struct {
 	RunCreatedAt    string `json:"run_created_at"`
 	QuestionPreview string `json:"question_preview,omitempty"`
 	AnswerPreview   string `json:"answer_preview,omitempty"`
+	Processed       *bool  `json:"processed,omitempty"`
+	ProcessedAt     string `json:"processed_at,omitempty"`
+	ResolutionNote  string `json:"resolution_note,omitempty"`
 }
 
 type FeedbackResponse struct {
@@ -46,8 +49,10 @@ type FeedbackParams struct {
 	Until   string
 	Limit   int
 	Before  string
-	Project string
-	Tenant  string
+	// Processed nil ⇒ no filter (server: every row). Project-admin only server-side.
+	Processed *bool
+	Project   string
+	Tenant    string
 }
 
 // Feedback fetches GET /api/v1/feedback — the rated-runs index behind `rp run feedback list`.
@@ -63,6 +68,9 @@ func (c *Client) Feedback(ctx context.Context, p FeedbackParams) (*FeedbackRespo
 	}
 	if p.Days > 0 {
 		q.Set("days", fmt.Sprintf("%d", p.Days))
+	}
+	if p.Processed != nil {
+		q.Set("processed", fmt.Sprintf("%t", *p.Processed))
 	}
 	if p.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", p.Limit))

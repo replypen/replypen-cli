@@ -171,6 +171,8 @@ type feedbackListFlags struct {
 	until   string
 	limit   int
 	before  string
+	// processed is only sent when the flag was given (--processed=false is a real filter, not "unset").
+	processed bool
 }
 
 // newRunFeedbackListCmd builds `rp run feedback list`: the rated-runs index (GET /api/v1/feedback), the
@@ -185,13 +187,16 @@ func newRunFeedbackListCmd(e *env) *cobra.Command {
 			"= every row with a score or comment. The --days/--since/--until window applies to when the feedback " +
 			"was last written (feedback_at), not when the run was created. Comments need review-content access " +
 			"and question/answer previews need project-admin access; below those tiers the cells stay empty.\n\n" +
+			"--processed=false lists what nobody has handled yet, --processed (=true) what was, with its resolution " +
+			"note; mark a row with `rp run feedback <run-id> --processed --resolution-note TEXT`. Project-admin only.\n\n" +
 			"Drill down with `rp run show <run_id>`, and for chat `rp run thread <session_id> --transcript` to " +
 			"read the whole conversation. `-o json` is the server payload verbatim (session_id, previews, " +
 			"next_before included).",
 		Example: "  rp run feedback list --score negative --kind chat --since 2026-10-16\n" +
+			"  rp run feedback list --processed=false -o json\n" +
 			"  rp run feedback list --tenant conferentie --days 7 -o json",
 		Args: cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateFeedbackScore(f.score); err != nil {
 				return err
 			}
@@ -205,6 +210,9 @@ func newRunFeedbackListCmd(e *env) *cobra.Command {
 			params := client.FeedbackParams{
 				Score: f.score, Kind: f.kind, Surface: f.surface, Days: f.days, Since: f.since, Until: f.until,
 				Limit: f.limit, Before: f.before, Project: e.scopeProject(), Tenant: e.scopeTenant(),
+			}
+			if cmd.Flags().Changed("processed") {
+				params.Processed = &f.processed
 			}
 			resp, raw, err := c.Feedback(e.ctx(), params)
 			if err != nil {
@@ -225,6 +233,7 @@ func newRunFeedbackListCmd(e *env) *cobra.Command {
 	cmd.Flags().StringVar(&f.until, "until", "", "feedback written before this RFC3339 time, or through this YYYY-MM-DD (UTC)")
 	cmd.Flags().IntVar(&f.limit, "limit", 0, "max rows to return (1..100, server default 50)")
 	cmd.Flags().StringVar(&f.before, "before", "", "cursor: next_before of the previous page (keep the other filters the same)")
+	cmd.Flags().BoolVar(&f.processed, "processed", false, "only processed rows (--processed=false: only unhandled ones); omitted = both")
 	return cmd
 }
 

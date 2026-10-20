@@ -454,6 +454,8 @@ List runs that received human feedback (a score and/or a comment), newest rating
 
 Scores run 1..5 (chat thumbs: 👎 = 1, 👍 = 5); --score negative = 1-2, positive = 4-5, any (default) = every row with a score or comment. The --days/--since/--until window applies to when the feedback was last written (feedback_at), not when the run was created. Comments need review-content access and question/answer previews need project-admin access; below those tiers the cells stay empty.
 
+--processed=false lists what nobody has handled yet, --processed (=true) what was, with its resolution note; mark a row with `rp run feedback <run-id> --processed --resolution-note TEXT`. Project-admin only.
+
 Drill down with `rp run show <run_id>`, and for chat `rp run thread <session_id> --transcript` to read the whole conversation. `-o json` is the server payload verbatim (session_id, previews, next_before included).
 
 Usage:
@@ -461,6 +463,7 @@ Usage:
 
 Examples:
   rp run feedback list --score negative --kind chat --since 2026-10-16
+  rp run feedback list --processed=false -o json
   rp run feedback list --tenant conferentie --days 7 -o json
 
 Flags:
@@ -468,6 +471,7 @@ Flags:
       --days int         feedback written in the last N days
       --kind string      filter by run kind: email|prompt|mcp|analysis|console|chat
       --limit int        max rows to return (1..100, server default 50)
+      --processed        only processed rows (--processed=false: only unhandled ones); omitted = both
       --score string     negative (1-2) | positive (4-5) | any (server default: any)
       --since string     feedback written at/after this RFC3339 time or YYYY-MM-DD (UTC midnight)
       --surface string   chat surface: embed|dashboard|all (server default: all)
