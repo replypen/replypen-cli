@@ -151,14 +151,28 @@ func newRunTraceCmd(e *env) *cobra.Command {
 // A pasted run link (with its `?t=` share token) takes the account-less path — same files, no login.
 func newRunDebugCmd(e *env) *cobra.Command {
 	var shareToken string
+	var phoneLab bool
 	cmd := &cobra.Command{
 		Use:   "debug <id|url>",
 		Short: "Decompose a run into local debug artifacts",
 		Long: "Write a run's trace to .replypen/debug/ as a jq-able JSONL plus a thin markdown index. " +
-			"Accepts a run id (using your login) or a run link someone shared with you " +
+			"Phone-lab URLs use your developer login and write a timeline index plus full JSON; bare phone ids need --phone-lab and --project. Accepts a run id (using your login) or a run link someone shared with you " +
 			"(https://app.replypen.com/runs/<id>?t=<token>) — a link needs no `rp auth login` and no profile.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			phone, isPhone, err := parsePhoneLabTarget(args[0])
+			if err != nil {
+				return err
+			}
+			if isPhone || phoneLab {
+				if shareToken != "" {
+					return fmt.Errorf("phone-lab runs require your developer login, not --share-token")
+				}
+				if !isPhone {
+					phone.runID = args[0]
+				}
+				return runPhoneLabDebug(e, phone, e.outDir)
+			}
 			target, err := parseRunTarget(args[0], shareToken)
 			if err != nil {
 				return err
@@ -175,6 +189,7 @@ func newRunDebugCmd(e *env) *cobra.Command {
 		},
 	}
 	addShareTokenFlag(cmd, &shareToken)
+	cmd.Flags().BoolVar(&phoneLab, "phone-lab", false, "debug a bare phone-lab run id (requires project scope)")
 	return cmd
 }
 

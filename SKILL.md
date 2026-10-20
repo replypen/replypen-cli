@@ -238,6 +238,13 @@ brains only gitignore the legacy `/.rootcause/`.
   every surface that can receive one prints "withheld" instead of an empty section
   ([`internal/render/redaction.go`](internal/render/redaction.go), `render.Patterns`, the `run debug`
   index). Absent field = older server = full detail.
+- **Phone-lab URLs** (`/projects/{p}/phone-lab/runs/{id}`) route through `run debug`'s
+  `phone_lab.go` adapter, using normal OAuth and the URL project. The configured API origin must
+  match before any I/O; a URL never redirects a bearer. Bare IDs require `--phone-lab` plus project
+  scope. `client.PhoneLabRunWithRaw` preserves full JSON, including future fields; `debugdump.PhoneLabIndex`
+  supplies a thin timeline/signals index. Both use the existing debug directory / `--out-dir` and
+  spill-manifest contract. Transcript latency/gaps are not audio timing. Ordinary run/share traces
+  remain on the JSONL path.
 - **`rp run debug`** ([`internal/debugdump`](internal/debugdump/dump.go)) writes files and deliberately
   does **not** summarize into stdout; the agent reads the index, then drills the JSONL. Its JSONL shape
   (header line + `disp`-keyed events) is a contract shared with ReplyPen's Python renderer — jq recipes
