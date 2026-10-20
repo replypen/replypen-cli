@@ -106,7 +106,11 @@ func TestTableGolden(t *testing.T) {
 		{"RunTraceBriefTable", []string{"run", "trace", "chat-turn-1", "--brief"}, "trace_brief.golden"},
 		// ThreadTraceUnknownTable pins the explicit-empty case: an unknown id is a clean "no runs" answer
 		// (resolved_by:"none"), not an error.
+		{"DraftRenderTable", []string{"--project", "alpha", "dev", "tools", "draft-render", "testdata/draft_render.md"}, "draft_render.golden"},
 		{"ThreadTraceUnknownTable", []string{"run", "thread", "unknown"}, "thread_trace_none.golden"},
+		// ThreadTraceGmailLinkTable: a pasted Gmail print link resolves to its hex thread id; with no record,
+		// the Google mailboxes (never the same-address Microsoft/Intercom rows) and the likely ingestion gap print.
+		{"ThreadTraceGmailLinkTable", []string{"--project", "alpha", "run", "thread", "https://mail.google.com/mail/u/1/?ik=85be6e80b2&view=pt&search=all&permthid=thread-f:1879575123597418725&simpl=msg-f:1879575123597418725"}, "thread_trace_gmail_none.golden"},
 		{"SettingProposalsTable", []string{"--project", "alpha", "project", "settings", "proposals", "ls"}, "setting_proposals_ls.golden"},
 		{"ReviewListTable", []string{"--project", "alpha", "project", "review", "ls", "--audience", "technical"}, "review_ls.golden"},
 		// show/close without --audience: owner 404s, the technical retry answers.

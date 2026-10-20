@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -299,6 +300,24 @@ func stubServer(t *testing.T) *httptest.Server {
 		_, _ = w.Write(fixture(t, "shared_session_transcript.json"))
 	})
 
+	// Draft render: echo one canned rendering per input, so the CLI's file reading + order are pinned.
+	mux.HandleFunc("POST /api/v1/projects/{project}/draft-render", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		var req struct {
+			Markdown []string `json:"markdown"`
+		}
+		if err := json.Unmarshal([]byte(readBody(t, r)), &req); err != nil || len(req.Markdown) == 0 {
+			http.Error(w, "bad body", http.StatusBadRequest)
+			return
+		}
+		html := make([]string, len(req.Markdown))
+		for i, md := range req.Markdown {
+			html[i] = "<div>rendered " + strconv.Itoa(len(md)) + " bytes</div>"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string][]string{"html": html})
+	})
+
 	mux.HandleFunc("GET /api/v1/threads/{id}/trace", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		w.Header().Set("Content-Type", "application/json")
@@ -313,6 +332,8 @@ func stubServer(t *testing.T) *httptest.Server {
 			_, _ = w.Write(fixture(t, "thread_trace_chat.json"))
 		case "unknown": // an id matching nothing → clean empty (resolved_by:"none")
 			_, _ = w.Write([]byte(`{"id":"unknown","resolved_by":"none","threads":[],"runs":[]}`))
+		case "1a15979dd2af60e5": // a pasted Gmail print link ReplyPen never ingested
+			_, _ = w.Write([]byte(`{"id":"1a15979dd2af60e5","resolved_by":"none","threads":[],"runs":[]}`))
 		default:
 			_, _ = w.Write(fixture(t, "thread_trace.json"))
 		}

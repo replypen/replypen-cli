@@ -146,6 +146,9 @@ func commandScope(path string) scopeSpec {
 		return projectOnly
 	case path == "auth access":
 		return projectOnly
+	// The renderer is project-agnostic; the project only authorizes the call.
+	case path == "dev tools draft-render":
+		return projectOnly
 	}
 
 	return scopeSpec{} // project list, admin, auth login/logout, dev API/tools, and self are unscoped.

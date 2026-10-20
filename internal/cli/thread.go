@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/idutil"
 	"github.com/replypen/replypen-cli/internal/render"
 )
 
@@ -21,7 +22,7 @@ func newThreadCmd(e *env) *cobra.Command {
 		Use:   "thread <id|url>",
 		Short: "Trace one run, provider/local thread, or session through pipeline and placement",
 		Long: "Trace a run id, provider conversation id (Gmail thread or Intercom conversation), ReplyPen " +
-			"thread UUID, session id, or an email address (the newest threads it sent or received — the " +
+			"thread UUID, session id, a pasted Gmail link (print/permalink, #inbox/<id>), or an email address (the newest threads it sent or received — the " +
 			"forwarded-email entry point, incl. triage-skipped mail that never became a run). A run id is resolved through its safe run-status identity first. " +
 			"Shows the pre-agent channel outcome, then every run (newest first) " +
 			"with health, placement, and a deterministic why-no-draft hint. An unknown id is a clean empty " +
@@ -31,6 +32,14 @@ func newThreadCmd(e *env) *cobra.Command {
 			"envelope with -o json. It needs a login (a share link carries one run only).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			gmail := isGmailURL(args[0])
+			if gmail {
+				hex, err := gmailThreadHex(args[0])
+				if err != nil {
+					return err
+				}
+				args[0] = hex
+			}
 			target, err := parseRunTarget(args[0], shareToken)
 			if err != nil {
 				return err
@@ -48,6 +57,10 @@ func newThreadCmd(e *env) *cobra.Command {
 				return e.renderJSONInline(raw)
 			}
 			render.ThreadTrace(e.out, tr)
+			if gmail {
+				gmailMailboxContext(e, tr)
+				return nil
+			}
 			// An empty answer for a bearer read is indistinguishable from "not yours" — the server
 			// never says which. Point at the share link rather than let an agent conclude "no such run".
 			if !target.shared() && len(tr.Runs) == 0 && len(tr.Threads) == 0 {
@@ -85,6 +98,9 @@ func fetchThreadTrace(e *env, target shareTarget) (*client.ThreadTrace, json.Raw
 func resolveThreadLookupID(e *env, c *client.Client, id string) (string, error) {
 	if strings.Contains(id, "@") {
 		return id, nil // an email address resolves server-side to the threads it took part in
+	}
+	if idutil.ClassifyGmail(id).Kind == "hex" {
+		return id, nil // a Gmail thread id is never a run id
 	}
 	detail, err := c.Run(e.ctx(), id, e.scopeProject(), e.scopeTenant())
 	if err == nil {

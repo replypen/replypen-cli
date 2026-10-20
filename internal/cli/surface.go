@@ -85,8 +85,8 @@ func newDevCmd(e *env, version string) *cobra.Command {
 	learning.AddCommand(dreamEvidenceCmd(e))
 	api := &cobra.Command{Use: "api", Short: "Inspect the public API contract"}
 	api.AddCommand(newRoutesCmd(e), newOpenAPICmd(e))
-	tools := &cobra.Command{Use: "tools", Short: "Use local provider and identifier utilities"}
-	tools.AddCommand(newIDCmd(e), newProviderCmd(e))
+	tools := &cobra.Command{Use: "tools", Short: "Use provider, identifier and draft-render utilities"}
+	tools.AddCommand(newIDCmd(e), newProviderCmd(e), newDraftRenderCmd(e))
 	action := &cobra.Command{Use: "action", Short: "Diagnose project actions"}
 	action.AddCommand(newActionDoctorCmd(e, version))
 	cmd.AddCommand(newBrainCmd(e), newMirrorCmd(e), console, action, learning, newRepliesCmd(e), api, tools, newContextExportCmd(e), newDevOnboardingCmd(e))

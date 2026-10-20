@@ -4,6 +4,8 @@ package idutil
 
 import (
 	"encoding/base64"
+	"math/big"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,7 +16,7 @@ import (
 // (client-local drafts, opaque web blobs, unknown shapes).
 type GmailResult struct {
 	Input   string `json:"input"`
-	Kind    string `json:"kind"` // legacy-f|local|web-opaque|decimal|hex|unknown
+	Kind    string `json:"kind"` // legacy-f|web|local|web-opaque|decimal|hex|unknown
 	Hex     string `json:"hex"`
 	Decimal uint64 `json:"decimal"`
 	ThreadF string `json:"thread_f"`
@@ -24,13 +26,13 @@ type GmailResult struct {
 }
 
 var (
-	reGmailURLFragment = regexp.MustCompile(`#[^/]+/([A-Za-z0-9_-]+)`)
-	reGmailLegacyF     = regexp.MustCompile(`^(?:thread|msg)-f:(\d+)$`)
-	reGmailLocalA      = regexp.MustCompile(`^(?:thread|msg)-a:.+$`)
-	reGmailDraftR      = regexp.MustCompile(`^r\d{6,}$`)
-	reGmailB64url      = regexp.MustCompile(`^[A-Za-z0-9_-]{20,}$`)
-	reGmailHex16       = regexp.MustCompile(`^[0-9a-fA-F]{16}$`)
-	reGmailDecimal     = regexp.MustCompile(`^\d{15,20}$`)
+	reGmailWebDecoded = regexp.MustCompile(`(?:^|-)f:(\d{1,20})$`)
+	reGmailLegacyF    = regexp.MustCompile(`^(?:thread|msg)-f:(\d+)$`)
+	reGmailLocalA     = regexp.MustCompile(`^(?:thread|msg)-a:.+$`)
+	reGmailDraftR     = regexp.MustCompile(`^r\d{6,}$`)
+	reGmailB64url     = regexp.MustCompile(`^[A-Za-z0-9_-]{20,}$`)
+	reGmailHex16      = regexp.MustCompile(`^[0-9a-fA-F]{16}$`)
+	reGmailDecimal    = regexp.MustCompile(`^\d{15,20}$`)
 )
 
 // ClassifyGmail identifies a Gmail thread/message id token and, where the id is
@@ -49,9 +51,16 @@ func classifyGmailUser(token, user string) GmailResult {
 	res := GmailResult{Input: token}
 	t := strings.TrimSpace(token)
 
-	// Full URL? pull the id after the last '#folder/' segment.
-	if m := reGmailURLFragment.FindStringSubmatch(t); m != nil {
-		t = m[1]
+	if strings.HasPrefix(t, "http://") || strings.HasPrefix(t, "https://") {
+		var hexOnly bool
+		t, hexOnly = gmailURLToken(t)
+		// th=/#folder/ ids are hex even when every digit happens to be 0-9.
+		if hexOnly && reGmailHex16.MatchString(t) {
+			dec, _ := strconv.ParseUint(strings.ToLower(t), 16, 64)
+			res.Kind = "hex"
+			fillGmailHex(&res, dec, user)
+			return res
+		}
 	}
 
 	// Legacy prefixed forms: thread-f:<dec> / msg-f:<dec> — decimal of the hex id.
@@ -66,6 +75,13 @@ func classifyGmailUser(token, user string) GmailResult {
 	if reGmailLocalA.MatchString(t) || reGmailDraftR.MatchString(t) {
 		res.Kind = "local"
 		res.Note = "client-local / draft id — no hex equivalent"
+		return res
+	}
+
+	// Web-UI token (#inbox/FMfcg…): the vowel-free alphabet re-encodes "thread-f:<dec>" losslessly.
+	if dec, ok := decodeGmailWebToken(t); ok {
+		res.Kind = "web"
+		fillGmailHex(&res, dec, user)
 		return res
 	}
 
@@ -124,4 +140,57 @@ func decodeURLSafe(s string) []byte {
 		return nil
 	}
 	return raw
+}
+
+// gmailURLToken pulls the id out of a pasted Gmail URL: the print/permalink query
+// (permthid=thread-f:<dec>, th=<hex>) first, else the last '#folder/…/<id>' segment. hexOnly marks
+// the positions that only ever carry a hex id.
+func gmailURLToken(raw string) (token string, hexOnly bool) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw, false
+	}
+	q := u.Query()
+	if v := q.Get("permthid"); v != "" {
+		return v, false
+	}
+	if v := q.Get("th"); v != "" {
+		return v, true
+	}
+	frag, _, _ := strings.Cut(u.Fragment, "?")
+	if i := strings.LastIndex(frag, "/"); i >= 0 {
+		return frag[i+1:], true
+	}
+	return raw, false
+}
+
+// gmailWebAlphabet is the consonant alphabet of Gmail's web-UI ids; read as a base-40 number and
+// re-spelled in base64 it decodes to the tail of "thread-f:<dec>" (client-local ids yield "a:…").
+const gmailWebAlphabet = "BCDFGHJKLMNPQRSTVWXZbcdfghjklmnpqrstvwxz"
+
+func decodeGmailWebToken(t string) (uint64, bool) {
+	if len(t) < 20 || strings.Trim(t, gmailWebAlphabet) != "" {
+		return 0, false
+	}
+	n, base := new(big.Int), big.NewInt(int64(len(gmailWebAlphabet)))
+	for _, r := range t {
+		n.Mul(n, base).Add(n, big.NewInt(int64(strings.IndexRune(gmailWebAlphabet, r))))
+	}
+	const b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	var digits []byte
+	sixtyFour, mod := big.NewInt(64), new(big.Int)
+	for n.Sign() > 0 {
+		n.DivMod(n, sixtyFour, mod)
+		digits = append([]byte{b64[mod.Int64()]}, digits...)
+	}
+	raw, err := base64.RawStdEncoding.DecodeString(strings.TrimRight(string(digits), "="))
+	if err != nil {
+		return 0, false
+	}
+	m := reGmailWebDecoded.FindStringSubmatch(string(raw))
+	if m == nil {
+		return 0, false
+	}
+	dec, err := strconv.ParseUint(m[1], 10, 64)
+	return dec, err == nil
 }

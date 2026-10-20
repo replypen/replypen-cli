@@ -3902,7 +3902,7 @@ Available Commands:
   learning       Inspect learning and consolidation inputs
   replies        Review a tenant's answered mails and rate the proposed replies
   api            Inspect the public API contract
-  tools          Use local provider and identifier utilities
+  tools          Use provider, identifier and draft-render utilities
   context-export Render a project's full opening context offline (needs a ReplyPen host checkout)
   onboarding     Drive onboarding worlds on a local make dev server
 
@@ -4755,15 +4755,16 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp dev tools --help
-Use local provider and identifier utilities
+Use provider, identifier and draft-render utilities
 
 Usage:
   rp dev tools [flags]
   rp dev tools [command]
 
 Available Commands:
-  id          Translate provider message/thread ids
-  provider    Provider (channel) utilities
+  id           Translate provider message/thread ids
+  provider     Provider (channel) utilities
+  draft-render Render draft markdown to the HTML ReplyPen places in a mail draft
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -4862,6 +4863,22 @@ Detect a domain's email backend (google/microsoft/other) from DNS
 
 Usage:
   rp dev tools provider detect <domain|email> [more…] [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp dev tools draft-render --help
+Render 1-4 draft markdown files (- = stdin) with the host's placement renderer, the HTML a Gmail/Outlook/IMAP draft gets before any font, signature or quoted original. -o json prints {"html":[...]} in input order; otherwise the HTML of each input, one per block.
+
+Usage:
+  rp dev tools draft-render <markdown-file|->... [flags]
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

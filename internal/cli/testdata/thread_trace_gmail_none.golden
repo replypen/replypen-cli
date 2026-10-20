@@ -1,0 +1,13 @@
+Thread: 1a15979dd2af60e5
+Resolved by: nothing (unknown id)
+
+No channel thread or run for this id.
+Check the provider id and project/tenant scope.
+
+Google mailbox(es) in alpha:
+  ops@momentum.test  status=active mode=live processing=true last_sync=never
+
+No visible record of this Gmail thread in alpha: never processed, or your login cannot see this mailbox's runs (ask a project admin, or rerun with a run link). If never processed, likely:
+  - the link's Gmail account (/u/N/) is not one of the mailboxes above
+  - the mail arrived before the mailbox was connected, or outside what it watches (archived, filtered, category)
+  - ingestion dropped it before triage (own/suppressed sender, automated bulk mail); not visible via the public API

@@ -516,12 +516,13 @@ help using `go test ./internal/cli -update`.
 | `rp dev replies feedback` | Rate one proposed reply (score 1-5 and/or comment, saved independently) |
 | `rp dev replies list` | List a tenant's answered mails, newest first |
 | `rp dev replies` | Review a tenant's answered mails and rate the proposed replies |
+| `rp dev tools draft-render` | Render draft markdown to the HTML ReplyPen places in a mail draft |
 | `rp dev tools id gmail` | Translate Gmail hex/decimal/thread-f: ids + build a clickable URL |
 | `rp dev tools id outlook` | Classify an Outlook/Graph id + tell you which DB column matches it |
 | `rp dev tools id` | Translate provider message/thread ids |
 | `rp dev tools provider detect` | Detect a domain's email backend (google/microsoft/other) from DNS |
 | `rp dev tools provider` | Provider (channel) utilities |
-| `rp dev tools` | Use local provider and identifier utilities |
+| `rp dev tools` | Use provider, identifier and draft-render utilities |
 | `rp dev` | Develop and inspect project behavior |
 | `rp fleet actions` | Find actions across recent runs with exact params and run URLs |
 | `rp fleet deploy-state` | Show the live host, brain, and mirror SHAs with their history |
