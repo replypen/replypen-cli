@@ -314,7 +314,11 @@ type SubmitRequest struct {
 	// Simulation asks the server for a dress-rehearsal run: the tenant's normal production brain and
 	// grounding, but action autonomy clamped to human, no durable journal commit and no mailbox
 	// placement. The server rejects it together with attachments.
-	Simulation      bool         `json:"simulation,omitempty"`
+	Simulation bool `json:"simulation,omitempty"`
+	// Mailbox (id, slug or address) names the watched mailbox a simulation email run replays, so it runs
+	// that mailbox's prompt contract (notes on/off, persona). Omitted: the server picks the scope's single
+	// processing mailbox. Simulation email runs only (the server 400s otherwise).
+	Mailbox         string       `json:"mailbox,omitempty"`
 	ReasoningEffort string       `json:"reasoning_effort,omitempty"`
 	Sender          string       `json:"sender,omitempty"`
 	Subject         string       `json:"subject,omitempty"`

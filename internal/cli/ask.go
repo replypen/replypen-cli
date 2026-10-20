@@ -35,6 +35,7 @@ type askFlags struct {
 	attachPaths   []string // deprecated --attach alias, merged after --file
 	noWait        bool
 	simulation    bool
+	mailbox       string
 	dryScope      bool
 	replayChatRun string
 	timeout       time.Duration
@@ -141,6 +142,7 @@ func newAskCmd(e *env) *cobra.Command {
 				BrainRef:        f.brainRef,
 				MirrorRefs:      mirrorRefs,
 				Simulation:      f.simulation,
+				Mailbox:         f.mailbox,
 				ReasoningEffort: effort,
 				Sender:          sender,
 				Subject:         subject,
@@ -202,6 +204,7 @@ func newAskCmd(e *env) *cobra.Command {
 	cmd.Flags().StringArrayVar(&f.attachPaths, "attach", nil, "deprecated alias for --file")
 	_ = cmd.Flags().MarkDeprecated("attach", "use --file instead")
 	cmd.Flags().BoolVar(&f.simulation, "simulation", false, "dress rehearsal: real brain + grounding, but no action executes, no journal commit and nothing is placed in a mailbox (attachments are refused)")
+	cmd.Flags().StringVar(&f.mailbox, "mailbox", "", "with --simulation --scenario email: replay this watched mailbox's contract (id, slug or address; default: the scope's single processing mailbox)")
 	cmd.Flags().BoolVar(&f.noWait, "no-wait", false, "submit and print the run_id immediately, without waiting")
 	cmd.Flags().BoolVar(&f.dryScope, "dry-scope", false, "resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)")
 	cmd.Flags().StringVar(&f.replayChatRun, "replay-chat-run", "", "replay one stored in-app chat turn (run id or run link) as a side-effect-free test run; the question becomes an optional override")
@@ -211,7 +214,7 @@ func newAskCmd(e *env) *cobra.Command {
 
 // askReplayConflicts are the flags a chat replay refuses: the turn's identity, framing and session are
 // the stored ones, so each would silently mean something else.
-var askReplayConflicts = []string{"principal-kind", "principal-id", "asserted-by", "assurance", "file", "attach", "scenario", "from", "subject", "session"}
+var askReplayConflicts = []string{"mailbox", "principal-kind", "principal-id", "asserted-by", "assurance", "file", "attach", "scenario", "from", "subject", "session"}
 
 // runAskReplay is `rp ask --replay-chat-run`: replay a stored chat turn as a simulation, then wait and
 // print the chat answer like a raw ask. --simulation is implied (accepted, never needed).

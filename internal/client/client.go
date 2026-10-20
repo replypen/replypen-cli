@@ -290,7 +290,7 @@ func shouldRetryLegacySubmit(err error, req SubmitRequest) bool {
 	if req.Principal != nil {
 		return false
 	}
-	if req.SessionID != "" || req.BrainRef != "" || len(req.MirrorRefs) > 0 || req.Simulation || req.ReasoningEffort != "" || len(req.Attachments) > 0 || req.ReplayChatRun != "" {
+	if req.SessionID != "" || req.BrainRef != "" || len(req.MirrorRefs) > 0 || req.Simulation || req.Mailbox != "" || req.ReasoningEffort != "" || len(req.Attachments) > 0 || req.ReplayChatRun != "" {
 		return false
 	}
 	var apiErr *APIError
