@@ -5214,8 +5214,9 @@ Usage:
   rp admin project [command]
 
 Available Commands:
-  ls          List projects
-  add         Create a project (name=… [default_tier=standard|pro] [egress_mode=wildcard|enforce])
+  ls                List projects
+  identity-failures List identity failures without patient details (global admin)
+  add               Create a project (name=… [default_tier=standard|pro] [egress_mode=wildcard|enforce])
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -5234,6 +5235,26 @@ List projects
 
 Usage:
   rp admin project ls [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp admin project identity-failures --help
+List 50 identity failures, newest first. The project name or UUID is required. Live runs only unless --simulation is set; use --cursor for the next page.
+
+Usage:
+  rp admin project identity-failures <project> [flags]
+
+Flags:
+      --cursor string   next_cursor from a previous page
+      --simulation      show simulation failures instead of live failures
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

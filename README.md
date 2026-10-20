@@ -460,6 +460,7 @@ help using `go test ./internal/cli -update`.
 | `rp admin catalog upsert` | Create or update a catalog entry (keyed on key=) |
 | `rp admin catalog` | Manage the integration catalog |
 | `rp admin project add` | Create a project (name=… [default_tier=standard|pro] [egress_mode=wildcard|enforce]) |
+| `rp admin project identity-failures` | List identity failures without patient details (global admin) |
 | `rp admin project ls` | List projects |
 | `rp admin project` | Manage box-level projects |
 | `rp admin user add` | Create a user (email=… [admin=true] [password=…]) |

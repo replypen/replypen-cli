@@ -120,6 +120,7 @@ func newAdminProjectCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "project", Short: "Manage box-level projects"}
 	cmd.AddCommand(
 		adminListCmd(e, "projects"),
+		adminIdentityFailuresCmd(e),
 		adminAddCmd(e, "projects",
 			// default_tier here is the create-body rung NAME the server folds into settings.models.agent.tier
 			// — not the settings-bag key path.

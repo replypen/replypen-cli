@@ -1708,6 +1708,17 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(fixture(t, "admin_projects.json"))
 	})
+	mux.HandleFunc("GET /api/v1/admin/projects/{project}/identity-failures", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		if r.PathValue("project") != "alpha" {
+			t.Errorf("identity failures project = %q", r.PathValue("project"))
+		}
+		if q := r.URL.Query(); q.Has("project") || q.Has("tenant") {
+			t.Errorf("unexpected scope selectors: %v", q)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(fixture(t, "identity_failures.json"))
+	})
 	mux.HandleFunc("POST /api/v1/admin/projects", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		body := readBody(t, r)

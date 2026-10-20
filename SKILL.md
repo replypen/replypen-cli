@@ -24,6 +24,12 @@ architecture.
 Nine offline roots (`status ask run project dev fleet admin auth self`), assembled with their help groups
 in [`internal/cli/surface.go`](internal/cli/surface.go).
 
+`rp admin project identity-failures <project>` reads the category-only failure ledger through
+`GET /api/v1/admin/projects/{project}/identity-failures`. Requires an all-projects human global-admin
+token. Project is positional; ambient `--project`/`--tenant` selectors are rejected. Live failures
+by default, `--simulation` for rehearsals; 50 rows per page, `--cursor` continues, `-o json` preserves
+the API response. No patient prose is returned.
+
 ## The ladder — index → one run → detail
 
 Progressive disclosure over runs, one endpoint per rung, so an agent verifies against real runs before
