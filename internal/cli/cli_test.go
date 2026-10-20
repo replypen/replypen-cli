@@ -1476,6 +1476,17 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 			_, _ = w.Write(fixture(t, "knowledge_article_apply_nochange.json"))
 		}
 	})
+	summaries := func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		var body client.KnowledgeSummariesRequest
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Patches) == 0 || body.Patches[0].BodyHash == "" {
+			t.Fatalf("knowledge summaries body: %+v (%v)", body, err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(fixture(t, "knowledge_summaries_apply.json"))
+	}
+	mux.HandleFunc("POST /api/v1/projects/{project}/knowledge/summaries", summaries)
+	mux.HandleFunc("POST /api/v1/projects/{project}/tenants/{slug}/knowledge/summaries", summaries)
 	mux.HandleFunc("GET /api/v1/projects/{project}/knowledge/articles/{provider}/{id}", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		w.Header().Set("Content-Type", "application/json")

@@ -602,6 +602,8 @@ help using `go test ./internal/cli -update`.
 | `rp project knowledge content list` | List KB collections without article bodies |
 | `rp project knowledge content search` | Search KB articles and write matched articles to local artifacts |
 | `rp project knowledge content` | List, search, and export knowledge articles |
+| `rp project knowledge summaries apply` | Check reviewed summaries against the synced KB and queue the sync that applies them |
+| `rp project knowledge summaries` | Replace synced KB article summaries with reviewed ones |
 | `rp project knowledge sync get` | Show current values (value / effective / default) |
 | `rp project knowledge sync set` | Change values (sparse, validate-then-apply server-side) |
 | `rp project knowledge sync` | Manage knowledge synchronization settings |

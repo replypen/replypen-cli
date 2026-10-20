@@ -228,6 +228,8 @@ func TestJSONPassthrough(t *testing.T) {
 		// nothing.
 		{"ThreadTraceJSONPassthrough", []string{"run", "thread", "thread-abc123"}, "thread_trace.json"},
 		{"KnowledgeArticleApplyJSONPassthrough", []string{"project", "knowledge", "article", "apply", "--from", "testdata/knowledge_article_block.md", "--dry-run"}, "knowledge_article_apply_dry.json"},
+		{"KnowledgeSummariesApplyJSONPassthrough", []string{"project", "knowledge", "summaries", "apply", "--from", "testdata/knowledge_summaries_patches.json", "--dry-run"}, "knowledge_summaries_apply.json"},
+		{"KnowledgeSummariesApplyTenantJSONPassthrough", []string{"--project", "alpha", "--tenant", "acme", "project", "knowledge", "summaries", "apply", "--from", "testdata/knowledge_summaries_patches.json", "--dry-run"}, "knowledge_summaries_apply.json"},
 		{"KnowledgeArticleGetJSONPassthrough", []string{"project", "knowledge", "article", "get", "--provider", "helpscout", "--id", "5f1a2b3c4d5e6f7a8b9c0d1e"}, "knowledge_article_get.json"},
 		{"SchemaJSONPassthrough", []string{"project", "settings", "schema"}, "meta_schema.json"},
 		{"AccessJSONPassthrough", []string{"auth", "access"}, "meta_capabilities.json"},
@@ -324,6 +326,7 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		{"KBSearchRejectsProviderTraversal", []string{"project", "knowledge", "content", "search", "--provider", "../agent_internal", "restore"}, "invalid --provider"},
 		// apply without a block has nothing to send; naming --from beats a server 400 on an empty body.
 		{"KnowledgeArticleApplyRequiresFrom", []string{"project", "knowledge", "article", "apply"}, "--from"},
+		{"KnowledgeSummariesApplyRequiresFrom", []string{"project", "knowledge", "summaries", "apply"}, "--from"},
 		// The get provider is a PATH segment: an unknown/traversing value never leaves the client.
 		{"KnowledgeArticleGetRejectsProvider", []string{"project", "knowledge", "article", "get", "--provider", "../agent_internal", "--id", "19"}, "invalid --provider"},
 		{"TenantSettingsGetMissingTenant", []string{"project", "tenant", "settings", "get"}, "arg"},
