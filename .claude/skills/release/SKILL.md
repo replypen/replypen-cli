@@ -28,7 +28,8 @@ published tag, or a HEAD that moved during the gates.
 ## Gotchas
 
 - **Lint is a blocking gate** (`golangci-lint run` with the repo `.golangci.yml`: standard linters plus the
-  depguard/forbidigo layer contracts). CI runs the same config, so a red lint means the commit was never
+  depguard/forbidigo layer contracts). The release waits for another local linter instead of failing on its shared process lock.
+  CI runs the same config, so a red lint means the commit was never
   green — fix it, don't bypass it.
 - **`@latest` lags `@vX.Y.Z`.** The proxy's `@latest`/version-list endpoints are cached for a few minutes
   after the explicit version already resolves. Normal — don't re-cut.

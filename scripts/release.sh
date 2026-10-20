@@ -139,7 +139,7 @@ shellcheck scripts/cloud-setup.sh
 ok "cloud setup shellcheck"
 # Lint is blocking: .golangci.yml carries the repo's dependency/purity contracts (depguard/forbidigo) on top of
 # the standard linters, and CI runs the same config. golangci-lint is a declared precondition above.
-golangci-lint run
+golangci-lint run --allow-serial-runners
 ok "lint"
 bash scripts/lint-contracts.sh
 ok "layer contracts"
