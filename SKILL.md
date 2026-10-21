@@ -46,6 +46,17 @@ authoring a skill:
 | bundle | `rp run trace <id>` | `GET /api/v1/runs/{id}/trace` (JSONL in `-o json`) |
 | decompose | `rp run debug <id>` | `/trace` → local jq-able JSONL + thin markdown index |
 
+Phone-lab calls have a separate event store: `rp run list --phone-lab --project <project> --limit N`
+reads `/api/v1/projects/{project}/phone-lab/runs` (`items`, newest first, default 20, max 100).
+Only limit and tenant filtering apply; ordinary run filters are rejected. Requires project developer
+access; tenant-pinned credentials are denied by the host. `rp run debug <id> --phone-lab --project <project>`
+writes an anomaly-first index, transcript turns and complete timeline, original JSON, and event JSONL.
+JSONL envelopes: `type=phone_run,run={header without events}`, then `type=event,index,event`.
+Indices match the original event array even when timestamps are out of order. Unknown API fields survive;
+model rounds carry only host-projected safe metadata. Configured model labels retain the lab exception;
+routed provider, cost and token telemetry stay host-only. `internal/digest/phone_lab.go` owns heuristics;
+transcript gaps are never audio-silence measurements.
+
 `<id>` = full uuid or the 8-hex short id surfaces print (`96745381`, `#96745381`): the CLI strips `#`
 (`normalizeRunID`), the host resolves the prefix in scope (404 none, 409 `AMBIGUOUS_RUN` + candidates never guessed).
 

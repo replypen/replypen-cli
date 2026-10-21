@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -28,7 +29,36 @@ type PhoneLabRun struct {
 	Events       []PhoneLabEvent `json:"events"`
 }
 
+type PhoneLabList struct {
+	Items      []PhoneLabRun `json:"items"`
+	NextCursor string        `json:"next_cursor"`
+}
+
+func (c *Client) PhoneLabRuns(ctx context.Context, project, tenant string, limit int) (*PhoneLabList, json.RawMessage, error) {
+	q := url.Values{}
+	if tenant != "" {
+		q.Set("tenant", tenant)
+	}
+	if limit != 0 {
+		q.Set("limit", strconv.Itoa(limit))
+	}
+	path := "/api/v1/projects/" + url.PathEscape(project) + "/phone-lab/runs"
+	if len(q) > 0 {
+		path += "?" + q.Encode()
+	}
+	var raw json.RawMessage
+	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+		return nil, nil, err
+	}
+	var out PhoneLabList
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, nil, err
+	}
+	return &out, raw, nil
+}
+
 type PhoneLabEvent struct {
+	Seq        int64  `json:"seq"`
 	T          int64  `json:"t"`
 	Kind       string `json:"kind"`
 	Who        string `json:"who"`

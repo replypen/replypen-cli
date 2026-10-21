@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -64,11 +65,19 @@ func TestPhoneLabDebug(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, want := range []string{"turn transcript latency 7000 ms", "bash exit 1", "commentary stale", "voicemail done created", "turn 7000 ms", "tool done error", "tool started", "Caller lookup failed"} {
+		for _, want := range []string{"turn transcript latency 7000 ms", "bash exit 1", "commentary stale", "turn 7000 ms", "tool done error", "tool started", "Caller lookup failed"} {
 			if !strings.Contains(string(index), want) {
 				t.Errorf("index missing %q: %s", want, index)
 			}
 		}
+		events, err := os.ReadFile(filepath.Join(dir, "phone-"+id+".jsonl"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(events), `"future_audio":"kept"`) || !strings.Contains(string(events), `"index":6`) {
+			t.Fatalf("JSONL lost evidence: %s", events)
+		}
+
 		info, _ := os.Stat(filepath.Join(dir, "phone-"+id+".json"))
 		if info.Mode().Perm() != 0o600 {
 			t.Fatalf("mode %v", info.Mode())
@@ -90,5 +99,54 @@ func TestPhoneLabDebug(t *testing.T) {
 	}
 	if hits != 2 {
 		t.Fatal("rejected requests fetched run")
+	}
+}
+
+func TestPhoneLabList(t *testing.T) {
+	const body = `{"items":[{"run_id":"r","tenant_id":"tenant-uuid","status":"closed","created_at":"2026-10-21T11:00:00Z","future":"kept"}],"next_cursor":""}`
+	hits := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/projects", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"projects":[{"id":"a","name":"dentai-phone"}]}`))
+	})
+	mux.HandleFunc("GET /api/v1/projects/dentai-phone/phone-lab/runs", func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		if r.URL.Query().Get("limit") != "5" || r.URL.Query().Get("tenant") != "practice" {
+			t.Errorf("query: %s", r.URL.RawQuery)
+		}
+		_, _ = w.Write([]byte(body))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	for _, mode := range []string{"json", "table"} {
+		e, out, _ := newTestEnv(t, srv, mode)
+		if err := run(t, e, "run", "list", "--phone-lab", "--project", "dentai-phone", "--tenant", "practice", "--limit", "5"); err != nil {
+			t.Fatal(err)
+		}
+		if mode == "json" {
+			var want, got any
+			if err := json.Unmarshal([]byte(body), &want); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(want, got) {
+				t.Fatalf("raw list changed: %s", out.String())
+			}
+		}
+		if mode == "table" && !strings.Contains(out.String(), "tenant-uuid") {
+			t.Fatalf("table: %s", out.String())
+		}
+	}
+	for _, flags := range [][]string{{"--days", "1"}, {"--before", "r"}, {"--limit", "0"}, {"--limit", "101"}} {
+		e, _, _ := newTestEnv(t, srv, "json")
+		args := append([]string{"run", "list", "--phone-lab", "--project", "dentai-phone"}, flags...)
+		if err := run(t, e, args...); err == nil {
+			t.Fatalf("accepted %v", flags)
+		}
+	}
+	if hits != 2 {
+		t.Fatalf("unexpected requests: %d", hits)
 	}
 }

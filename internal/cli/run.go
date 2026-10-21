@@ -156,7 +156,7 @@ func newRunDebugCmd(e *env) *cobra.Command {
 		Use:   "debug <id|url>",
 		Short: "Decompose a run into local debug artifacts",
 		Long: "Write a run's trace to .replypen/debug/ as a jq-able JSONL plus a thin markdown index. " +
-			"Phone-lab URLs use your developer login and write a timeline index plus full JSON; bare phone ids need --phone-lab and --project. Accepts a run id (using your login) or a run link someone shared with you " +
+			"Phone-lab URLs use your developer login and write an anomaly/turn index, full JSON and event JSONL; bare phone ids need --phone-lab and --project. Accepts a run id (using your login) or a run link someone shared with you " +
 			"(https://app.replypen.com/runs/<id>?t=<token>) — a link needs no `rp auth login` and no profile.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {

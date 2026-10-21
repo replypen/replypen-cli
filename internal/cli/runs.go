@@ -32,11 +32,23 @@ type runsFlags struct {
 // and learning enums are checked locally; the server still owns range/kind/category/cursor validation.
 func newRunListCmd(e *env) *cobra.Command {
 	var f runsFlags
+	var phoneLab bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent runs (filterable)",
 		Args:  cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if phoneLab {
+				for _, name := range []string{"days", "kind", "category", "outcome", "learning", "reviewed", "before", "session", "from", "subject", "since", "until"} {
+					if cmd.Flags().Changed(name) {
+						return fmt.Errorf("--%s is not supported with --phone-lab", name)
+					}
+				}
+				if cmd.Flags().Changed("limit") && (f.limit < 1 || f.limit > 100) {
+					return fmt.Errorf("--limit must be 1..100")
+				}
+				return runPhoneLabList(e, f.limit)
+			}
 			if err := validateRunFilters(f.outcome, f.learning); err != nil {
 				return err
 			}
@@ -60,6 +72,7 @@ func newRunListCmd(e *env) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&phoneLab, "phone-lab", false, "list recent phone-lab calls (project developer login; default 20)")
 	cmd.Flags().IntVar(&f.limit, "limit", 0, "max runs to return (1..100, server default 50)")
 	cmd.Flags().IntVar(&f.days, "days", 0, "lookback window in days (server default 14, max 90)")
 	cmd.Flags().StringVar(&f.kind, "kind", "", "filter by kind: email|prompt|mcp|analysis|console|chat")

@@ -10,6 +10,7 @@ import (
 	"github.com/replypen/replypen-cli/internal/config"
 	"github.com/replypen/replypen-cli/internal/debugdump"
 	"github.com/replypen/replypen-cli/internal/outputspill"
+	"github.com/replypen/replypen-cli/internal/render"
 )
 
 type phoneLabTarget struct{ project, runID, origin, tenant string }
@@ -85,6 +86,14 @@ func runPhoneLabDebug(e *env, target phoneLabTarget, outDir string) error {
 	}
 	baseName := "phone-" + id
 	indexPath, rawPath := filepath.Join(outDir, baseName+".md"), filepath.Join(outDir, baseName+".json")
+	eventsPath := filepath.Join(outDir, baseName+".jsonl")
+	events, err := debugdump.PhoneLabJSONL(raw)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(eventsPath, events, 0o600); err != nil {
+		return err
+	}
 	if err := os.WriteFile(rawPath, raw, 0o600); err != nil {
 		return err
 	}
@@ -101,10 +110,40 @@ func runPhoneLabDebug(e *env, target phoneLabTarget, outDir string) error {
 		if err != nil {
 			return err
 		}
-		return outputspill.WriteManifest(e.out, outputspill.Manifest{Spilled: true, Artifacts: map[string]outputspill.Artifact{"index": index, "trace": trace}, Hints: []string{"cat " + outputspill.ShellQuote(index.Path), "jq '.events[0]' " + outputspill.ShellQuote(trace.Path)}, RawModeHint: "rerun with --raw-output to print paths"})
+		eventArtifact, err := outputspill.ArtifactForFile(cfg, eventsPath, "jsonl", false)
+		if err != nil {
+			return err
+		}
+		return outputspill.WriteManifest(e.out, outputspill.Manifest{Spilled: true, Artifacts: map[string]outputspill.Artifact{"index": index, "trace": trace, "events": eventArtifact}, Hints: []string{"cat " + outputspill.ShellQuote(index.Path), "jq 'select(.type==\"event\" and .event.kind==\"model\")' " + outputspill.ShellQuote(eventArtifact.Path)}, RawModeHint: "rerun with --raw-output to print paths"})
 	}
 	_, _ = fmt.Fprintln(e.out, indexPath)
 	_, _ = fmt.Fprintln(e.out, rawPath)
+	_, _ = fmt.Fprintln(e.out, eventsPath)
 	_, _ = fmt.Fprintf(e.err, "phone-lab %s · status=%s · %d events · read index, then jq .events[INDEX]\n", detail.Project, detail.Status, len(detail.Events))
+	return nil
+}
+
+func runPhoneLabList(e *env, limit int) error {
+	c, err := e.newClient()
+	if err != nil {
+		return err
+	}
+	project := e.scopeProject()
+	if project == "" {
+		return fmt.Errorf("phone-lab listing requires --project or a brain project")
+	}
+	// Explicit tenant is a filter under project developer authority, not a tenant-token route.
+	tenant := e.tenant
+	if e.scope == scopeSelectorTenant {
+		tenant = e.scopeTenant()
+	}
+	resp, raw, err := c.PhoneLabRuns(e.ctx(), project, tenant, limit)
+	if err != nil {
+		return err
+	}
+	if e.jsonOut() {
+		return e.renderJSONInline(raw)
+	}
+	render.PhoneLabRuns(e.out, resp, project)
 	return nil
 }

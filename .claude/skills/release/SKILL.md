@@ -10,7 +10,7 @@ scripts/release.sh patch          # fixes      (also: minor = additive, major = 
 scripts/release.sh patch --dry-run   # gates + plan, changes nothing
 ```
 
-Commit the change on local `main` first and **do not push it** — publishing and verifying `main` is part
+Commit the change on local `main` or a detached worktree descended from `origin/main` first and **do not push it** — publishing and verifying `main` is part
 of the release. Pick the bump by what changed in the *command surface*, not by code size.
 
 ## Why the script, never by hand
@@ -22,7 +22,7 @@ push and GitHub trails the published binary; skip the proxy warmup and every con
 
 [`scripts/release.sh`](../../../scripts/release.sh) performs and verifies all six; its header comment and
 `step` lines are the authoritative sequence, and `internal/releasetest` guards it. It refuses a dirty
-tree, a non-`main` branch, a checkout behind/diverged from origin, a version not newer than the highest
+tree, a feature branch (detached main-lineage worktrees are supported), a checkout behind/diverged from origin, a version not newer than the highest
 published tag, or a HEAD that moved during the gates.
 
 ## Gotchas

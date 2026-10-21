@@ -112,7 +112,9 @@ gh auth status >/dev/null 2>&1 || die "gh not authenticated (run: gh auth login)
 git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1 && die "tag $VERSION already exists"
 
 cur_branch="$(git rev-parse --abbrev-ref HEAD)"
-[ "$cur_branch" = "$MAIN_BRANCH" ] || die "not on $MAIN_BRANCH (on $cur_branch)"
+# Detached worktrees publish the same tested lineage without switching a shared checkout.
+[ "$cur_branch" = "$MAIN_BRANCH" ] || [ "$cur_branch" = HEAD ] \
+  || die "not on $MAIN_BRANCH or a detached worktree (on $cur_branch)"
 [ -z "$(git status --porcelain)" ] || die "working tree is dirty — commit or stash first"
 
 RELEASE_SHA="$(git rev-parse HEAD)"
@@ -120,7 +122,7 @@ ORIGIN_SHA="$(git rev-parse "origin/$MAIN_BRANCH")"
 git merge-base --is-ancestor "$ORIGIN_SHA" "$RELEASE_SHA" \
   || die "local $MAIN_BRANCH is behind or diverged from origin/$MAIN_BRANCH — reconcile first"
 ahead_count="$(git rev-list --count "$ORIGIN_SHA..$RELEASE_SHA")"
-ok "clean, on $MAIN_BRANCH, not behind origin ($ahead_count commit(s) to publish)"
+ok "clean, main lineage, not behind origin ($ahead_count commit(s) to publish)"
 
 # --- quality gates --------------------------------------------------------------------------------
 

@@ -12,6 +12,17 @@ import (
 // gh/go are replaced only at their external boundaries, so the test proves an unpushed local main is
 // accepted, published, remotely verified, and tagged at the same exact commit.
 func TestReleasePublishesMainBeforeTag(t *testing.T) {
+	for _, detached := range []bool{false, true} {
+		name := "main"
+		if detached {
+			name = "detached"
+		}
+		t.Run(name, func(t *testing.T) { testReleasePublishesMainBeforeTag(t, detached) })
+	}
+}
+
+func testReleasePublishesMainBeforeTag(t *testing.T, detached bool) {
+	t.Helper()
 	if testing.Short() { // ~6 s of git/curl subprocesses; release.sh runs the full suite itself
 		t.Skip("release script end-to-end run is skipped under -short")
 	}
@@ -69,6 +80,9 @@ func TestReleasePublishesMainBeforeTag(t *testing.T) {
 	run(t, checkout, "git", "add", "README.md")
 	run(t, checkout, "git", "commit", "-m", "release change")
 	wantSHA := strings.TrimSpace(run(t, checkout, "git", "rev-parse", "HEAD"))
+	if detached {
+		run(t, checkout, "git", "checkout", "--detach", wantSHA)
+	}
 	beforeSHA := strings.TrimSpace(run(t, tmp, "git", "--git-dir", origin, "rev-parse", "refs/heads/main"))
 	if beforeSHA == wantSHA {
 		t.Fatal("test setup failed: release commit is already on origin/main")

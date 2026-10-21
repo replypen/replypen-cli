@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/digest"
 )
 
 // PhoneLabIndex keeps event positions, since tool rows are replaced in place and timestamps need not ascend.
@@ -15,54 +16,29 @@ func PhoneLabIndex(r *client.PhoneLabRun) string {
 	if r.EndedAt != nil {
 		fmt.Fprintf(&b, " · duration: %s", r.EndedAt.Sub(r.CreatedAt).Round(1e6))
 	}
-	fmt.Fprintf(&b, "\n\nCaller lookup: %s %s\n\n## Signals\n\n", cell(r.Caller.Status, 80), cell(r.Caller.Reason, 120))
-	flags := 0
+	fmt.Fprintf(&b, "\n\nCaller lookup: %s %s\n\n## Anomalies (heuristics)\n\n", cell(r.Caller.Status, 80), cell(r.Caller.Reason, 120))
 	if r.Caller.Status == "lookup_failed" {
-		flags++
 		b.WriteString("- Caller lookup failed; inspect .caller.error in JSON.\n")
 	}
-	pendingCaller := false
-	for i, ev := range r.Events {
-		reasons := []string{}
-		if ev.Status == "stale" || ev.Status == "retired" || ev.Status == "failed" || ev.Status == "dropped" || ev.Status == "abandoned" {
-			reasons = append(reasons, ev.Kind+" "+ev.Status)
-		}
-		if ev.ExitCode != nil && *ev.ExitCode != 0 {
-			reasons = append(reasons, fmt.Sprintf("bash exit %d", *ev.ExitCode))
-		}
-		if ev.Kind == "voicemail" {
-			reasons = append(reasons, "voicemail "+ev.Status+" "+ev.Outcome)
-		}
-		if ev.Kind == "note" {
-			reasons = append(reasons, ev.Text)
-		}
-		if ev.Kind == "tool" && (ev.Outcome != "" && ev.Outcome != "ok" && ev.Outcome != "preflight_ok" && ev.Outcome != "would_execute" || ev.Status == "started") {
-			reasons = append(reasons, "tool "+ev.Status+" "+ev.Outcome)
-		}
-		if ev.Kind == "transcript" {
-			if ev.Who == "caller" {
-				pendingCaller = true
-			}
-			if ev.Who == "agent" {
-				pendingCaller = false
-				if ev.LatencyMS != nil && *ev.LatencyMS >= 5000 {
-					reasons = append(reasons, fmt.Sprintf("turn transcript latency %d ms (not measured audio silence)", *ev.LatencyMS))
-				}
-			}
-		}
-		if len(reasons) > 0 {
-			flags++
-			fmt.Fprintf(&b, "- [%d] +%.3fs: %s\n", i, float64(ev.T)/1000, cell(strings.Join(reasons, "; "), 200))
-		}
+	signals := digest.PhoneLabSignals(r)
+	for _, signal := range signals {
+		fmt.Fprintf(&b, "- [%d] +%.3fs: %s\n", signal.Index, float64(r.Events[signal.Index].T)/1000, cell(signal.Text, 200))
 	}
-	if pendingCaller && r.EndedAt != nil {
-		flags++
-		fmt.Fprintf(&b, "- Last caller transcript has no later agent transcript.\n")
-	}
-	if flags == 0 {
+	if len(signals) == 0 && r.Caller.Status != "lookup_failed" {
 		b.WriteString("- No automatic signals; inspect the transcript and final notes.\n")
 	}
-	b.WriteString("\n## Timeline\n\nTimes and latency refer to transcript events, not audible speech. Tool timestamps mark start. Full stdout/stderr/args/results remain in JSON.\n\n| JSON index | t (s) | kind / who / status | latency / exec | detail |\n|---|---:|---|---|---|\n")
+	b.WriteString("\n## Turns\n\nTranscript deltas, in stored order. Latency is host-reported transcript latency; gaps do not prove audible silence.\n\n| Event index | t (s) | who | latency (ms) | transcript |\n|---|---:|---|---:|---|\n")
+	for i, ev := range r.Events {
+		if ev.Kind != "transcript" {
+			continue
+		}
+		latency := ""
+		if ev.LatencyMS != nil {
+			latency = fmt.Sprint(*ev.LatencyMS)
+		}
+		fmt.Fprintf(&b, "| %d | %.3f | %s | %s | %s |\n", i, float64(ev.T)/1000, cell(ev.Who, 20), latency, cell(ev.Text, 500))
+	}
+	b.WriteString("\n## Timeline\n\nTimes and latency refer to transcript events, not audible speech. Tool timestamps mark start. Full stdout/stderr/args/results remain in JSON and event JSONL.\n\n| JSON index | t (s) | kind / who / status | latency / exec | detail |\n|---|---:|---|---|---|\n")
 	for i, ev := range r.Events {
 		timing := ""
 		if ev.LatencyMS != nil {
@@ -77,6 +53,9 @@ func PhoneLabIndex(r *client.PhoneLabRun) string {
 		}
 		if ev.Name != "" {
 			detail = ev.Name + " " + detail
+			if ev.Kind == "model" {
+				detail = fmt.Sprintf("seq=%d %s", ev.Seq, detail)
+			}
 		}
 		if ev.Delegation != "" {
 			detail = "delegation=" + ev.Delegation + " " + detail
@@ -89,7 +68,7 @@ func PhoneLabIndex(r *client.PhoneLabRun) string {
 		}
 		fmt.Fprintf(&b, "| %d | %.3f | %s | %s | %s |\n", i, float64(ev.T)/1000, cell(ev.Kind+" "+ev.Who+" "+ev.Status, 90), timing, cell(detail, 140))
 	}
-	b.WriteString("\nRead one full event: `jq '.events[INDEX]' <trace.json>`. End reasons are final note events; voicemail closure reasons are in `args`. Stored event/byte caps and tool-output truncation also apply to this dump.\n")
+	b.WriteString("\nJSONL: one `type=phone_run` header (`run` object), then `type=event` records with original `index` and full `event`. Filter: `jq 'select(.type==\"event\" and .event.kind==\"model\")' <trace.jsonl>`.\n\nRead one full event: `jq '.events[INDEX]' <trace.json>`. End reasons are final note events; voicemail closure reasons are in `args`. Stored event/byte caps and tool-output truncation also apply to this dump.\n")
 	if r.ConsoleRunID != "" {
 		fmt.Fprintf(&b, "\nWorkspace context: `rp run debug %s --project %s` (separate console run).\n", r.ConsoleRunID, r.Project)
 	}
