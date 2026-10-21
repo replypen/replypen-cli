@@ -120,3 +120,97 @@ func TestMirrorRefreshAcceptDescendantOutsideGitRepo(t *testing.T) {
 		t.Fatalf("err = %v hint = %q calls = %v", err, hintFor(err), calls)
 	}
 }
+
+// mirrorPublishFixture: a checkout whose origin has main at tip and stable at stableTip, and a server
+// where alpha mirrors "common" on main, beta on stable, gamma mirrors something else.
+func mirrorPublishFixture(t *testing.T, stableAtTip bool) (srv *httptest.Server, base, tip string, refreshed map[string]string) {
+	t.Helper()
+	dir := t.TempDir()
+	git := func(args ...string) string {
+		out, err := exec.Command("git", args...).CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	origin := dir + "/common.git"
+	git("init", "-q", "--bare", "-b", "main", origin)
+	t.Chdir(dir)
+	git("clone", "-q", origin, "work")
+	t.Chdir(dir + "/work")
+	commit := func(msg string) string {
+		git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", msg)
+		return git("rev-parse", "HEAD")
+	}
+	base = commit("base")
+	tip = commit("tip")
+	stable := base
+	if stableAtTip {
+		stable = tip
+	}
+	git("push", "-q", "origin", "main", stable+":refs/heads/stable")
+
+	refreshed = map[string]string{}
+	branches := map[string]string{"alpha": "main", "beta": "stable"}
+	originURL := git("remote", "get-url", "origin")
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/projects", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"projects":[{"id":"1","name":"alpha"},{"id":"2","name":"beta"},{"id":"3","name":"gamma"},{"id":"4","name":"delta"}]}`))
+	})
+	mux.HandleFunc("GET /api/v1/projects/{project}/repos", func(w http.ResponseWriter, r *http.Request) {
+		p := r.PathValue("project")
+		if b, ok := branches[p]; ok {
+			_, _ = fmt.Fprintf(w, `{"repos":[{"name":"common","default_branch":%q,"git_url":%q}]}`, b, originURL)
+			return
+		}
+		if p == "delta" { // same mirror name, different repository: must never be refreshed
+			_, _ = w.Write([]byte(`{"repos":[{"name":"common","default_branch":"main","git_url":"https://github.com/someone/common.git"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"repos":[{"name":"other","default_branch":"main"}]}`))
+	})
+	mux.HandleFunc("POST /api/v1/projects/{project}/mirrors/refresh", func(w http.ResponseWriter, r *http.Request) {
+		var body client.MirrorRefreshRequest
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		p := r.PathValue("project")
+		refreshed[p] = body.ExpectedSHA
+		_, _ = fmt.Fprintf(w, `{"project":%q,"repo":%q,"branch":%q,"expected_sha":%q,"actual_sha":%q,"verified":true}`, p, body.Repo, branches[p], body.ExpectedSHA, body.ExpectedSHA)
+	})
+	srv = httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv, base, tip, refreshed
+}
+
+func TestMirrorPublishRefreshesEveryConsumerAtItsBranchTip(t *testing.T) {
+	srv, base, _, refreshed := mirrorPublishFixture(t, false)
+	e, out, _ := newTestEnv(t, srv, "table")
+	// base is on main (ancestor of tip) and is stable's tip: each mirror verifies at its own branch tip.
+	if err := run(t, e, "dev", "mirror", "publish", "--sha", base); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	tip := refreshed["alpha"]
+	if refreshed["beta"] != base || tip == base || len(refreshed) != 2 {
+		t.Fatalf("refreshed = %v", refreshed)
+	}
+	if !strings.Contains(out.String(), "LIVE  beta") {
+		t.Fatalf("out = %q", out.String())
+	}
+}
+
+func TestMirrorPublishRefusesWhenATrackedBranchLacksTheSHA(t *testing.T) {
+	srv, _, tip, refreshed := mirrorPublishFixture(t, false)
+	e, _, _ := newTestEnv(t, srv, "table")
+	err := run(t, e, "dev", "mirror", "publish", "--sha", tip)
+	if err == nil || !strings.Contains(err.Error(), "stable") || len(refreshed) != 0 {
+		t.Fatalf("err = %v, refreshed = %v", err, refreshed)
+	}
+}
+
+func TestRepoIdentity(t *testing.T) {
+	want := "github.com/kampadmin/common"
+	for _, u := range []string{"https://github.com/kampadmin/common.git", "git@github.com:kampadmin/common.git", "ssh://git@github.com/kampadmin/common", "https://x-access@GitHub.com/kampadmin/common/"} {
+		if got := repoIdentity(u); got != want {
+			t.Errorf("repoIdentity(%q) = %q", u, got)
+		}
+	}
+}

@@ -63,7 +63,9 @@ func commandScope(path string) scopeSpec {
 	projectOnly := scopeSpec{Project: true}
 	// dev brain preflight is the promote gate's dry run over a SHARED channel, so it is project-only for
 	// exactly the reason promote is: an ambient --tenant would silently narrow a fleet-wide question.
-	if path == "dev brain promote" || path == "dev brain preflight" || path == "dev brain publish" {
+	// dev brain publish takes the tenant selector only for a tenant brain (no --channel); with --channel it
+	// refuses an explicit tenant selector itself.
+	if path == "dev brain promote" || path == "dev brain preflight" {
 		return projectOnly
 	}
 
@@ -108,6 +110,10 @@ func commandScope(path string) scopeSpec {
 	// the same selector: --tenant proves the tenant's own mirror, no selector the project's.
 	case path == "dev mirror refresh":
 		return projectTenant
+	// publish fans out over every visible project unless --project narrows it; tenant mirrors are
+	// refreshed one at a time with refresh --tenant.
+	case path == "dev mirror publish":
+		return projectOnly
 	case strings.HasPrefix(path, "dev console database "), strings.HasPrefix(path, "dev console bash "), strings.HasPrefix(path, "dev console file "), path == "dev console capabilities", path == "dev console paths":
 		return projectTenant
 	// Actions execute against a project's own prod, where the bound tenant IS the data scope: the server's

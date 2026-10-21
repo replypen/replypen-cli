@@ -3931,7 +3931,7 @@ Available Commands:
   render      Show a tenant's compiled brain projection
   preflight   Dry-run a channel promotion: which tenants would the candidate commit break?
   promote     Promote an exact tested commit to a project brain channel
-  publish     Sync, promote an exact tested commit, and verify one project brain channel
+  publish     Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain
   edit        Queue a brain edit from a plain-language instruction (or STDIN)
   consolidate Queue the consolidation cron on demand
   developer   Manage tenant brain developer access
@@ -4047,13 +4047,13 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp dev brain publish --help
-Sync, promote an exact tested commit, and verify one project brain channel
+Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain
 
 Usage:
-  rp dev brain publish --channel stable|edge --sha <commit> [flags]
+  rp dev brain publish [--channel stable|edge] --sha <commit> [flags]
 
 Flags:
-      --channel string   managed channel to publish (stable or edge)
+      --channel string   project brain channel to publish (stable or edge); omit for a tenant brain
       --sha string       exact full 40-character commit SHA (must be pushed to the brain origin)
 
 Global Flags:
@@ -4145,6 +4145,7 @@ Usage:
 
 Available Commands:
   refresh     Refresh mirrors and verify one repository at an exact commit (--tenant for a tenant's own mirror)
+  publish     Refresh every project mirroring this repository and verify each contains a pushed commit
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -4168,6 +4169,26 @@ Flags:
       --accept-descendant   also accept a newer tip that contains --expect-sha (ancestry checked with git in the current directory)
       --expect-sha string   exact full 40-character commit SHA expected after refresh
       --repo string         configured mirror name
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp dev mirror publish --help
+Refresh every project mirroring this repository and verify each contains a pushed commit
+
+Usage:
+  rp dev mirror publish --sha <commit> [--repo <name>] [flags]
+
+Flags:
+      --repo string   configured mirror name (default: this checkout's origin repository name)
+      --sha string    exact full 40-character commit SHA, already pushed to every tracked branch
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

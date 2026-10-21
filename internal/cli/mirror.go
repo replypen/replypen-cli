@@ -2,9 +2,13 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os/exec"
+	"path"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -15,7 +19,7 @@ import (
 
 func newMirrorCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "mirror", Short: "Refresh project or tenant source mirrors"}
-	cmd.AddCommand(mirrorRefreshCmd(e))
+	cmd.AddCommand(mirrorRefreshCmd(e), mirrorPublishCmd(e))
 	return cmd
 }
 
@@ -132,4 +136,185 @@ func short(sha string) string {
 		return sha[:12]
 	}
 	return sha
+}
+
+// mirrorConsumer is one project whose mirror named repo tracks branch; tip is origin/<branch> as
+// fetched in the current directory, the exact commit that mirror must reach.
+type mirrorConsumer struct {
+	Project string `json:"project"`
+	Branch  string `json:"branch"`
+	Tip     string `json:"expected_sha"`
+}
+
+type mirrorPublishResult struct {
+	Repo      string                          `json:"repo"`
+	SHA       string                          `json:"sha"`
+	Refreshed []*client.MirrorRefreshResponse `json:"refreshed"`
+	Failed    map[string]string               `json:"failed,omitempty"`
+}
+
+// mirrorPublishCmd is "publish" for a source repo that projects mirror: one command from its checkout
+// refreshes every mirror of it the login can see, each at the tip of the branch it tracks, and proves
+// that tip contains --sha. It never pushes: which branch a commit is promoted to is the repo's policy.
+func mirrorPublishCmd(e *env) *cobra.Command {
+	var repo, sha string
+	cmd := &cobra.Command{
+		Use:   "publish --sha <commit> [--repo <name>]",
+		Short: "Refresh every project mirroring this repository and verify each contains a pushed commit",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if !fullGitSHA.MatchString(sha) {
+				return fmt.Errorf("--sha must be an exact full 40-character commit SHA")
+			}
+			sha = strings.ToLower(sha)
+			origin, err := gitOutput(e.ctx(), "remote", "get-url", "origin")
+			if err != nil {
+				return withHint(err, "run from the source repository's checkout")
+			}
+			if repo = strings.TrimSpace(repo); repo == "" {
+				repo = strings.TrimSuffix(path.Base(strings.TrimSuffix(origin, "/")), ".git")
+			}
+			c, err := e.newClient()
+			if err != nil {
+				return err
+			}
+			projects := []string{e.project}
+			if e.project == "" {
+				resp, _, err := c.Projects(e.ctx())
+				if err != nil {
+					return err
+				}
+				projects = projects[:0]
+				for _, p := range resp.Projects {
+					projects = append(projects, p.Name)
+				}
+			}
+			consumers, err := mirrorConsumers(e, c, projects, repo, repoIdentity(origin))
+			if err != nil {
+				return err
+			}
+			if len(consumers) == 0 {
+				return fmt.Errorf("no visible project mirrors %q from %s (rp project repo ls); pass --repo with the configured mirror name", repo, origin)
+			}
+			var missing []string
+			tips := map[string]string{}
+			for i := range consumers {
+				b := consumers[i].Branch
+				if _, ok := tips[b]; !ok {
+					if _, err := gitOutput(e.ctx(), "fetch", "--quiet", "origin", "+refs/heads/"+b+":refs/remotes/origin/"+b); err != nil {
+						return err
+					}
+					tip, err := gitOutput(e.ctx(), "rev-parse", "refs/remotes/origin/"+b)
+					if err != nil {
+						return err
+					}
+					tips[b] = strings.ToLower(tip)
+					if tips[b] != sha && gitIsAncestor(e.ctx(), sha, tips[b]) != nil {
+						missing = append(missing, b)
+					}
+				}
+				consumers[i].Tip = tips[b]
+			}
+			if len(missing) > 0 {
+				sort.Strings(missing)
+				return withHint(fmt.Errorf("origin branch(es) %s do not contain %s; nothing refreshed", strings.Join(missing, ", "), short(sha)),
+					fmt.Sprintf("push it first, e.g. `git push origin %s:%s`", sha, missing[0]))
+			}
+			res := mirrorPublishResult{Repo: repo, SHA: sha, Failed: map[string]string{}}
+			for _, m := range consumers {
+				out, _, err := c.MirrorRefresh(e.ctx(), m.Project, "", client.MirrorRefreshRequest{Repo: repo, ExpectedSHA: m.Tip})
+				if actual, ok := mirrorMismatchActual(err); ok && gitIsAncestor(e.ctx(), m.Tip, actual) == nil {
+					out, _, err = c.MirrorRefresh(e.ctx(), m.Project, "", client.MirrorRefreshRequest{Repo: repo, ExpectedSHA: actual})
+				}
+				if err != nil {
+					res.Failed[m.Project] = err.Error()
+					continue
+				}
+				res.Refreshed = append(res.Refreshed, out)
+			}
+			if e.jsonOut() {
+				raw, err := json.Marshal(res)
+				if err != nil {
+					return err
+				}
+				if err := e.renderJSONInline(raw); err != nil {
+					return err
+				}
+			} else {
+				for _, r := range res.Refreshed {
+					_, _ = fmt.Fprintf(e.out, "LIVE  %-24s %-10s %s\n", r.Project, r.Branch, r.ActualSHA)
+				}
+			}
+			if len(res.Failed) > 0 {
+				names := make([]string, 0, len(res.Failed))
+				for p, msg := range res.Failed {
+					names = append(names, p+": "+msg)
+				}
+				sort.Strings(names)
+				return fmt.Errorf("mirror refresh failed for %d of %d project(s):\n  %s", len(res.Failed), len(consumers), strings.Join(names, "\n  "))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&sha, "sha", "", "exact full 40-character commit SHA, already pushed to every tracked branch")
+	cmd.Flags().StringVar(&repo, "repo", "", "configured mirror name (default: this checkout's origin repository name)")
+	_ = cmd.MarkFlagRequired("sha")
+	return cmd
+}
+
+// mirrorConsumers lists every (project, tracked branch) whose mirror is named repo AND clones this
+// checkout's origin: a same-named mirror of another repository must never be refreshed.
+func mirrorConsumers(e *env, c *client.Client, projects []string, repo, origin string) ([]mirrorConsumer, error) {
+	var out []mirrorConsumer
+	for _, p := range projects {
+		list, _, err := c.List(e.ctx(), "repos", p, "")
+		var apiErr *client.APIError
+		if errors.As(err, &apiErr) && apiErr.Status == http.StatusForbidden {
+			_, _ = fmt.Fprintf(e.err, "skipped %s: this login cannot read its mirrors\n", p)
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("%s: list mirrors: %w", p, err)
+		}
+		for _, item := range list.Items {
+			var name, branch, gitURL string
+			_ = json.Unmarshal(item["name"], &name)
+			_ = json.Unmarshal(item["default_branch"], &branch)
+			_ = json.Unmarshal(item["git_url"], &gitURL)
+			if name != repo || repoIdentity(gitURL) != origin {
+				continue
+			}
+			if branch == "" {
+				branch = "main"
+			}
+			out = append(out, mirrorConsumer{Project: p, Branch: branch})
+		}
+	}
+	return out, nil
+}
+
+func gitOutput(ctx context.Context, args ...string) (string, error) {
+	out, err := exec.CommandContext(ctx, "git", args...).Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			return "", fmt.Errorf("git %s: %s", args[0], strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return "", fmt.Errorf("git %s: %w", args[0], err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// repoIdentity normalizes a clone URL to host/owner/name so https, ssh and scp-style remotes of one
+// repository compare equal.
+func repoIdentity(raw string) string {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	for _, prefix := range []string{"https://", "http://", "ssh://", "git://"} {
+		s = strings.TrimPrefix(s, prefix)
+	}
+	if at := strings.Index(s, "@"); at >= 0 && at < strings.IndexAny(s+"/", "/:") {
+		s = s[at+1:]
+	}
+	s = strings.Replace(s, ":", "/", 1)
+	return strings.TrimSuffix(strings.TrimSuffix(s, "/"), ".git")
 }

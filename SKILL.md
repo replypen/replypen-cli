@@ -282,8 +282,9 @@ brains only gitignore the legacy `/.rootcause/`.
 - **`rp self update`** ([upgrade.go](internal/cli/upgrade.go)) is the one command that reaches outside
   `/api/v1` (GitHub Releases or `RC_RELEASE_MIRROR`, sha256-verified, Homebrew on macOS). Keep it the only
   one. `--migrate` fails closed on binaries it cannot identify as ours. One narrow exception:
-  `rp dev mirror refresh --accept-descendant` shells out to the cwd checkout's own `git` (`fetch` from its
-  origin, `merge-base --is-ancestor`) to prove ancestry (`gitIsAncestor`, [mirror.go](internal/cli/mirror.go)).
+  `rp dev mirror refresh --accept-descendant`, `rp dev mirror publish` and the tenant `rp dev brain publish`
+  shell out to the cwd checkout's own `git` (`fetch` from its origin, `merge-base --is-ancestor`) to prove
+  ancestry (`gitIsAncestor`, [mirror.go](internal/cli/mirror.go)). None of them ever pushes.
 
 ## Adding a command
 

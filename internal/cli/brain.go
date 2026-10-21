@@ -338,7 +338,8 @@ func brainPreflightCmd(e *env) *cobra.Command {
 // sync result and the resolved channel SHA carried through for logging.
 type brainPublishResult struct {
 	Project  string                 `json:"project"`
-	Channel  string                 `json:"channel"`
+	Tenant   string                 `json:"tenant,omitempty"`
+	Channel  string                 `json:"channel,omitempty"`
 	SHA      string                 `json:"sha"`
 	OldSHA   string                 `json:"old_sha"`
 	Sync     client.BrainSyncResult `json:"sync"`
@@ -347,22 +348,30 @@ type brainPublishResult struct {
 
 // brainPublishCmd chains sync → promote → status-verify with gating between them — the one rp command
 // that fans a single intent across three server calls, replacing the by-hand choreography operators ran
-// against `rp dev brain {sync,promote,status}`. Sync and status are forced to project scope (tenant="")
-// so an ambient tenant can never split them onto the overlay while promote moves the project channel.
+// against `rp dev brain {sync,promote,status}`. With --channel, sync and status are forced to project
+// scope (tenant="") so an ambient tenant can never split them onto the overlay while promote moves the
+// project channel. Without --channel the target is a tenant overlay, which serves its own main: publish
+// is then sync + proof that the served main contains the SHA (a push alone is never picked up).
 func brainPublishCmd(e *env) *cobra.Command {
 	var channel, sha string
 	cmd := &cobra.Command{
-		Use:   "publish --channel stable|edge --sha <commit>",
-		Short: "Sync, promote an exact tested commit, and verify one project brain channel",
+		Use:   "publish [--channel stable|edge] --sha <commit>",
+		Short: "Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if channel != "stable" && channel != "edge" {
-				return fmt.Errorf("--channel must be stable or edge")
-			}
 			if !fullGitSHA.MatchString(sha) {
 				return fmt.Errorf("--sha must be an exact full 40-character commit SHA")
 			}
 			sha = strings.ToLower(sha)
+			if channel == "" {
+				return publishTenantBrain(e, sha)
+			}
+			if channel != "stable" && channel != "edge" {
+				return fmt.Errorf("--channel must be stable or edge")
+			}
+			if e.tenant != "" || e.scope == scopeSelectorTenant {
+				return fmt.Errorf("--channel publishes the shared project channel; drop --tenant/--scope tenant, or drop --channel to publish the tenant brain")
+			}
 			c, err := e.newClient()
 			if err != nil {
 				return err
@@ -425,11 +434,56 @@ func brainPublishCmd(e *env) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&channel, "channel", "", "managed channel to publish (stable or edge)")
+	cmd.Flags().StringVar(&channel, "channel", "", "project brain channel to publish (stable or edge); omit for a tenant brain")
 	cmd.Flags().StringVar(&sha, "sha", "", "exact full 40-character commit SHA (must be pushed to the brain origin)")
-	_ = cmd.MarkFlagRequired("channel")
 	_ = cmd.MarkFlagRequired("sha")
 	return cmd
+}
+
+// publishTenantBrain fast-forwards the tenant overlay the box serves onto origin/main and proves that
+// served main contains sha. Contains, not equals: a host journal commit may land on top between the
+// push and the sync; that descendant is checked with git in the current directory.
+func publishTenantBrain(e *env, sha string) error {
+	if e.scope == scopeSelectorProject {
+		return fmt.Errorf("--channel is required to publish a project brain (stable or edge)")
+	}
+	c, err := e.newClient()
+	if err != nil {
+		return err
+	}
+	if err := e.resolvePinnedProject(c); err != nil {
+		return err
+	}
+	project, tenant := e.scopeProject(), e.scopeTenant()
+	if tenant == "" {
+		return fmt.Errorf("--channel is required to publish a project brain (stable or edge); a tenant brain publishes without one (--tenant or its checkout)")
+	}
+	resp, _, err := c.BrainSync(e.ctx(), project, tenant)
+	if err != nil {
+		return brainBootCheckError(err)
+	}
+	if resp.Sync.ManualReconcile {
+		return fmt.Errorf("tenant brain box clone is %q and needs manual reconcile — see `rp dev brain status --tenant %s`", resp.Sync.After.State, tenant)
+	}
+	served := strings.ToLower(resp.Sync.After.LocalSHA)
+	if served != sha {
+		if served == "" {
+			return fmt.Errorf("verify failed: tenant brain reports no served main after sync")
+		}
+		if aerr := gitIsAncestor(e.ctx(), sha, served); aerr != nil {
+			return withHint(fmt.Errorf("verify failed: tenant %s serves %s, which is not proven to contain %s (%v)", tenant, short(served), short(sha), aerr),
+				"did you `git push` this commit to the tenant brain's origin/main?")
+		}
+	}
+	if e.jsonOut() {
+		raw, err := json.Marshal(brainPublishResult{Project: resp.Project, Tenant: tenant, SHA: sha, OldSHA: resp.Sync.Before.LocalSHA, Sync: resp.Sync, Verified: true})
+		if err != nil {
+			return err
+		}
+		return e.renderJSONInline(raw)
+	}
+	render.BrainSync(e.out, resp)
+	return nil
 }
 
 func findBrainChannel(channels []client.BrainChannelStatus, name string) *client.BrainChannelStatus {

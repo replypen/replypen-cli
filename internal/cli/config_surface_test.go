@@ -446,8 +446,9 @@ func TestBrainPublishRejectsInvalidInputsAndTenantSelectors(t *testing.T) {
 	}{
 		{"channel", []string{"dev", "brain", "publish", "--channel", "main", "--sha", publishSHA}, "stable or edge"},
 		{"short sha", []string{"dev", "brain", "publish", "--channel", "stable", "--sha", "222222222222"}, "full 40-character"},
-		{"tenant flag", []string{"--tenant", "de-kies", "dev", "brain", "publish", "--channel", "stable", "--sha", publishSHA}, "--tenant is not supported"},
-		{"scope tenant", []string{"--scope", "tenant", "dev", "brain", "publish", "--channel", "stable", "--sha", publishSHA}, "--scope tenant is not supported"},
+		{"tenant flag", []string{"--tenant", "de-kies", "dev", "brain", "publish", "--channel", "stable", "--sha", publishSHA}, "drop --tenant"},
+		{"scope tenant", []string{"--scope", "tenant", "dev", "brain", "publish", "--channel", "stable", "--sha", publishSHA}, "drop --tenant"},
+		{"project without channel", []string{"--scope", "project", "dev", "brain", "publish", "--sha", publishSHA}, "--channel is required"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := &env{out: &strings.Builder{}, err: &strings.Builder{}, tokenSource: testTokenSource("test"), baseURLOvr: "http://127.0.0.1:1", output: "table"}
@@ -456,6 +457,61 @@ func TestBrainPublishRejectsInvalidInputsAndTenantSelectors(t *testing.T) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func tenantPublishStub(t *testing.T, syncBody string) (*httptest.Server, *bool) {
+	t.Helper()
+	synced := false
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/projects", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"projects":[{"id":"p1","name":"alpha"}]}`))
+	})
+	mux.HandleFunc("POST /api/v1/projects/alpha/tenants/lbv/brain/sync", func(w http.ResponseWriter, _ *http.Request) {
+		synced = true
+		_, _ = w.Write([]byte(syncBody))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv, &synced
+}
+
+// A tenant brain has no channel: publish without --channel syncs the overlay and proves the served main.
+func TestBrainPublishTenantSyncsAndVerifies(t *testing.T) {
+	body := `{"project":"alpha","sync":{"fetched":true,"fast_forwarded":true,"refreshed_workspaces":1,"before":{"local_sha":"3333333333333333333333333333333333333333","state":"behind"},"after":{"available":true,"state":"current","local_sha":"` + publishSHA + `"}}}`
+	srv, synced := tenantPublishStub(t, body)
+	e, out, _ := newTestEnv(t, srv, "json")
+	if err := run(t, e, "--project", "alpha", "--tenant", "lbv", "dev", "brain", "publish", "--sha", publishSHA); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	var env struct {
+		Tenant   string `json:"tenant"`
+		OldSHA   string `json:"old_sha"`
+		Verified bool   `json:"verified"`
+	}
+	_ = json.Unmarshal(out.Bytes(), &env)
+	if !*synced || env.Tenant != "lbv" || !env.Verified || env.OldSHA != "3333333333333333333333333333333333333333" {
+		t.Fatalf("synced=%t envelope=%s", *synced, out.String())
+	}
+}
+
+func TestBrainPublishTenantServedMainMissingSHAFails(t *testing.T) {
+	t.Chdir(t.TempDir()) // no git repo: ancestry cannot be proven
+	body := `{"project":"alpha","sync":{"fetched":true,"after":{"available":true,"state":"current","local_sha":"aaaa000000000000000000000000000000000000"}}}`
+	srv, _ := tenantPublishStub(t, body)
+	e, _, _ := newTestEnv(t, srv, "json")
+	err := run(t, e, "--project", "alpha", "--tenant", "lbv", "dev", "brain", "publish", "--sha", publishSHA)
+	if err == nil || !strings.Contains(err.Error(), "verify failed") {
+		t.Fatalf("error = %v, want verify failure", err)
+	}
+}
+
+func TestBrainPublishTenantManualReconcileFails(t *testing.T) {
+	srv, _ := tenantPublishStub(t, `{"project":"alpha","sync":{"manual_reconcile":true,"after":{"state":"diverged"}}}`)
+	e, _, _ := newTestEnv(t, srv, "json")
+	err := run(t, e, "--project", "alpha", "--tenant", "lbv", "dev", "brain", "publish", "--sha", publishSHA)
+	if err == nil || !strings.Contains(err.Error(), "diverged") {
+		t.Fatalf("error = %v, want manual reconcile", err)
 	}
 }
 

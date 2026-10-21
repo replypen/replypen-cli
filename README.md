@@ -334,9 +334,17 @@ only the named managed channel to that commit; it never promotes an ambient `mai
 dev brain status` and confirm the channel's **resolved** SHA. `rp dev brain publish --channel … --sha …`
 does the whole choreography in one gated command — sync, promote, then verify the channel resolved to
 that exact SHA — and exits non-zero on any mismatch (`-o json` carries the receipt). Tenant overlays always run from their own
-`main` and have no promotion route. A tenant-scoped login cannot move the shared project channel; sign
+`main` and have no promotion route; a push alone is not picked up, so publish one with `rp dev brain publish --sha
+<SHA>` (no `--channel`, from the tenant checkout or with `--tenant`): it syncs the overlay and proves the served
+`main` contains that commit. A tenant-scoped login cannot move the shared project channel; sign
 in with an authorized project-maintainer login instead. Explicitly narrowed tokens need the dedicated
 `brain:promote` OAuth scope in addition to that project-level admin authority.
+
+**Source mirrors** follow the same rule: a push is picked up by the hourly refresh at best. From the
+source repo's checkout, after pushing the commit to every branch a project tracks, `rp dev mirror publish
+--sha <SHA>` refreshes every mirror of that repo your login can see (`--project` narrows it), each at its
+tracked branch's tip, proves that tip contains the SHA, and refreshes warm console sessions. It refuses
+before refreshing anything when a tracked branch lacks the commit, and never pushes.
 
 **Read-only brain alias.** A project can run on another project's brain (its on-box `main`) while keeping
 its own secrets, databases, chat config and runs. Operator-only: `rp project settings runtime set
@@ -485,7 +493,7 @@ help using `go test ./internal/cli -update`.
 | `rp dev brain edit` | Queue a brain edit from a plain-language instruction (or STDIN) |
 | `rp dev brain preflight` | Dry-run a channel promotion: which tenants would the candidate commit break? |
 | `rp dev brain promote` | Promote an exact tested commit to a project brain channel |
-| `rp dev brain publish` | Sync, promote an exact tested commit, and verify one project brain channel |
+| `rp dev brain publish` | Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain |
 | `rp dev brain render` | Show a tenant's compiled brain projection |
 | `rp dev brain status` | Show deployed brain cache status |
 | `rp dev brain sync` | Fetch origin/main and refresh deployed brain cache |
@@ -510,6 +518,7 @@ help using `go test ./internal/cli -update`.
 | `rp dev context-export` | Render a project's full opening context offline (needs a ReplyPen host checkout) |
 | `rp dev learning evidence` | List feedback, sent-delta, shadow, and triage evidence |
 | `rp dev learning` | Inspect learning and consolidation inputs |
+| `rp dev mirror publish` | Refresh every project mirroring this repository and verify each contains a pushed commit |
 | `rp dev mirror refresh` | Refresh mirrors and verify one repository at an exact commit (--tenant for a tenant's own mirror) |
 | `rp dev mirror` | Refresh project or tenant source mirrors |
 | `rp dev onboarding goto` | Re-seed an onboarding world at a step and print the URL to open |
