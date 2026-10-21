@@ -96,8 +96,17 @@ homebrew_casks:
     ids: [rp]
     # `rc` stays a working command: a second link to the same binary. Raw Ruby, because goreleaser's
     # `binaries` list has no target form.
+    # The binary is unsigned, so Homebrew's download tags it with com.apple.quarantine and Gatekeeper
+    # would block the first run: strip the xattr on install. Declarative `postflight_steps` (Homebrew
+    # >= 5.1.14), not goreleaser's hooks.post.install, which renders the deprecated Ruby `postflight` block.
     custom_block: |
       binary "rp", target: "rc"
+
+      on_macos do
+        postflight_steps do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{staged_path}}" }}/rp"], must_succeed: false
+        end
+      end
     repository:
       owner: replypen
       name: homebrew-tap
@@ -109,11 +118,3 @@ homebrew_casks:
     # a tap_migrations.json ({"rc":"rc"}) added there so `brew upgrade` migrates formula→cask cleanly.
     # If a formula of the same name ever appears in the tap, bare `brew install …/rp` resolves to it (the broken PTY
     # path) instead of this cask. (homebrew_casks.conflicts is a no-op upstream and was removed.)
-    # The binary is unsigned, so Homebrew's download tags it with com.apple.quarantine and Gatekeeper
-    # would block the first run. Strip the xattr on install so `rp` just works.
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/rp"]
-          end

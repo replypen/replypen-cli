@@ -337,3 +337,16 @@ func TestDoctorScopeSelectorsStayLocal(t *testing.T) {
 		t.Fatalf("unresolved tenant scope = %q/%q", resolved.Tenant, resolved.TenantSource)
 	}
 }
+
+// TestRemediationHintSkipsAlias: the Homebrew rc alias is never PATH-selected (rp is), so it used to get
+// the "remove earlier stale PATH copies" fix although it is the same install under its old name.
+func TestRemediationHintSkipsAlias(t *testing.T) {
+	alias := binaryInfo{Path: "/opt/homebrew/bin/rc", ResolvedPath: "/opt/homebrew/Caskroom/rp/1.2.3/rp", Install: "homebrew", Alias: true}
+	if hint := remediationHint(alias); hint != "" {
+		t.Fatalf("rc alias hint = %q, want none", hint)
+	}
+	alias.Alias = false
+	if hint := remediationHint(alias); hint == "" {
+		t.Fatal("an inactive non-alias Homebrew copy must still get the stale-copy hint")
+	}
+}

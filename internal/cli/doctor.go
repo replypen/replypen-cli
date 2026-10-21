@@ -440,6 +440,9 @@ func comparableBinaryVersion(info binaryInfo) string {
 }
 
 func remediationHint(info binaryInfo) string {
+	if info.Alias {
+		return "" // the rc beside rp is that same install under its old name; nothing to remove
+	}
 	path := info.Path
 	if info.Dispatcher && info.ResolvedPath != "" {
 		path = info.ResolvedPath
