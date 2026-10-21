@@ -6,6 +6,8 @@ import (
 	"compress/gzip"
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -64,5 +66,48 @@ func TestExtractPlatformSkillsRejectsUnsafePaths(t *testing.T) {
 func TestOfflineWithoutCacheSaysHowToPull(t *testing.T) {
 	if _, err := cachedPlatformSkills(t.TempDir()); err == nil {
 		t.Fatal("empty cache returned a snapshot")
+	}
+}
+
+func TestExtractPlatformSkillsIsReadableByOthersUnderATightUmask(t *testing.T) {
+	old := syscall.Umask(0o077)
+	defer syscall.Umask(old)
+	root := t.TempDir()
+	digest, err := extractPlatformSkills(tarGz(t, map[string]string{"pdf/scripts/x.py": "x"}, nil), root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rel, want := range map[string]os.FileMode{"": 0o755, "pdf": 0o755, "pdf/scripts": 0o755, "pdf/scripts/x.py": 0o644} {
+		info, err := os.Stat(filepath.Join(root, digest, rel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != want {
+			t.Fatalf("%q mode %v, want %v", rel, info.Mode().Perm(), want)
+		}
+	}
+}
+
+func TestCurrentPointerIsAtomicAndValidated(t *testing.T) {
+	root := t.TempDir()
+	digest := strings.Repeat("a", 64)
+	if err := os.MkdirAll(filepath.Join(root, digest, "website"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "current"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cachedPlatformSkills(root); err == nil {
+		t.Fatal("empty pointer accepted")
+	}
+	if err := writeCurrent(root, digest); err != nil {
+		t.Fatal(err)
+	}
+	got, err := cachedPlatformSkills(root)
+	if err != nil || got.Digest != digest || len(got.Skills) != 1 || got.Skills[0] != "website" {
+		t.Fatalf("cached = %+v, %v", got, err)
+	}
+	if entries, _ := os.ReadDir(root); len(entries) != 2 {
+		t.Fatalf("temp pointer left behind: %v", entries)
 	}
 }

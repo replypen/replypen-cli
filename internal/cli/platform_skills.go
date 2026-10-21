@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -110,10 +111,32 @@ func pullPlatformSkills(e *env, root string) (*platformSkillsPull, error) {
 		dir, downloaded = filepath.Join(root, got), true
 	}
 	digest := filepath.Base(dir)
-	if err := os.WriteFile(filepath.Join(root, "current"), []byte(digest+"\n"), 0o644); err != nil {
+	if err := writeCurrent(root, digest); err != nil {
 		return nil, err
 	}
 	return &platformSkillsPull{Digest: digest, Dir: dir, Skills: skillNames(dir), Downloaded: downloaded, Verified: true}, nil
+}
+
+var digestRE = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// writeCurrent swaps the `current` pointer atomically, so a concurrent --offline read never sees it empty.
+func writeCurrent(root, digest string) error {
+	tmp, err := os.CreateTemp(root, ".current-")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	if _, err := tmp.WriteString(digest + "\n"); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), filepath.Join(root, "current"))
 }
 
 func cachedPlatformSkills(root string) (*platformSkillsPull, error) {
@@ -122,6 +145,9 @@ func cachedPlatformSkills(root string) (*platformSkillsPull, error) {
 		return nil, fmt.Errorf("no platform skills cached under %s: run `rp dev platform-skills pull` online first", root)
 	}
 	digest := strings.TrimSpace(string(raw))
+	if !digestRE.MatchString(digest) {
+		return nil, fmt.Errorf("corrupt platform skills cache pointer %s: run `rp dev platform-skills pull`", filepath.Join(root, "current"))
+	}
 	dir := filepath.Join(root, digest)
 	if _, err := os.Stat(dir); err != nil {
 		return nil, fmt.Errorf("cached platform skills %s missing: run `rp dev platform-skills pull`", dir)
@@ -183,6 +209,9 @@ func extractPlatformSkills(archive []byte, root, want string) (string, error) {
 		if err := os.WriteFile(dst, body, os.FileMode(mode)); err != nil {
 			return "", err
 		}
+		if err := os.Chmod(dst, os.FileMode(mode)); err != nil { // umask-proof: the container user reads it
+			return "", err
+		}
 		entries = append(entries, entry{rel: rel, mode: mode, sum: sha256.Sum256(body)})
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].rel < entries[j].rel })
@@ -194,6 +223,16 @@ func extractPlatformSkills(archive []byte, root, want string) (string, error) {
 	if want != "" && digest != want {
 		// The host redeployed between the two requests: keep the archive's own (newer) digest.
 		_, _ = fmt.Fprintf(os.Stderr, "note: platform skills changed mid-pull (%s → %s)\n", want[:12], digest[:12])
+	}
+	// MkdirTemp is 0700 and MkdirAll follows the umask: open every dir to 0755 so the workspace
+	// container's own user (not this uid on a plain Linux Docker) can read the mount.
+	if err := filepath.WalkDir(tmp, func(p string, d os.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			return err
+		}
+		return os.Chmod(p, 0o755)
+	}); err != nil {
+		return "", err
 	}
 	dst := filepath.Join(root, digest)
 	if _, err := os.Stat(dst); err == nil {
