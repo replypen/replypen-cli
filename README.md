@@ -523,6 +523,8 @@ help using `go test ./internal/cli -update`.
 | `rp dev mirror` | Refresh project or tenant source mirrors |
 | `rp dev onboarding goto` | Re-seed an onboarding world at a step and print the URL to open |
 | `rp dev onboarding` | Drive onboarding worlds on a local make dev server |
+| `rp dev platform-skills pull` | Cache the deployed platform skill library locally (a no-op when already current) |
+| `rp dev platform-skills` | Pull the platform skills runs mount at /skills |
 | `rp dev replies feedback` | Rate one proposed reply (score 1-5 and/or comment, saved independently) |
 | `rp dev replies list` | List a tenant's answered mails, newest first |
 | `rp dev replies` | Review a tenant's answered mails and rate the proposed replies |
