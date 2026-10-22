@@ -620,8 +620,9 @@ help using `go test ./internal/cli -update`.
 | `rp project knowledge summaries apply` | Check reviewed summaries against the synced KB and queue the sync that applies them |
 | `rp project knowledge summaries` | Replace synced KB article summaries with reviewed ones |
 | `rp project knowledge sync get` | Show current values (value / effective / default) |
+| `rp project knowledge sync run` | Sync the knowledge base now (e.g. after publishing a help article) |
 | `rp project knowledge sync set` | Change values (sparse, validate-then-apply server-side) |
-| `rp project knowledge sync` | Manage knowledge synchronization settings |
+| `rp project knowledge sync` | Run knowledge synchronization now or manage its settings |
 | `rp project knowledge` | Search knowledge content and configure synchronization |
 | `rp project list` | List the projects this token can see (the fleet, for an all-projects token) |
 | `rp project mailbox connect-imap` | Connect a generic IMAP/SMTP mailbox (live-probed before it's saved) |

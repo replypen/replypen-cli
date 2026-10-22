@@ -1506,6 +1506,31 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(fixture(t, "knowledge_summaries_apply.json"))
 	}
+	// Knowledge sync-now: the project route syncs cleanly; the tenant route completes with an unreadable source.
+	syncNow := func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		w.Header().Set("Content-Type", "application/json")
+		id := 7
+		if r.PathValue("slug") != "" {
+			id = 8
+		}
+		_, _ = fmt.Fprintf(w, `{"project":"alpha","job_id":%d,"state":"available","done":false,"kb_commit":"aaaaaaa","article_total":61}`, id)
+	}
+	mux.HandleFunc("POST /api/v1/projects/{project}/knowledge/sync", syncNow)
+	mux.HandleFunc("POST /api/v1/projects/{project}/tenants/{slug}/knowledge/sync", syncNow)
+	mux.HandleFunc("GET /api/v1/projects/{project}/knowledge/sync/{job}", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		if r.PathValue("job") != "7" || r.URL.Query().Get("since") != "aaaaaaa" {
+			t.Fatalf("sync status asked for job %s since %q", r.PathValue("job"), r.URL.Query().Get("since"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"project":"alpha","job_id":7,"state":"completed","done":true,"kb_commit":"bbbbbbb","health_state":"ok","article_total":61,"changed":["bundle/tips/track-form.md"]}`))
+	})
+	mux.HandleFunc("GET /api/v1/projects/{project}/tenants/{slug}/knowledge/sync/{job}", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"project":"alpha","tenant":"acme","job_id":8,"state":"completed","done":true,"health_state":"fetch_failed","article_total":0}`))
+	})
 	mux.HandleFunc("POST /api/v1/projects/{project}/knowledge/summaries", summaries)
 	mux.HandleFunc("POST /api/v1/projects/{project}/tenants/{slug}/knowledge/summaries", summaries)
 	mux.HandleFunc("GET /api/v1/projects/{project}/knowledge/articles/{provider}/{id}", func(w http.ResponseWriter, r *http.Request) {

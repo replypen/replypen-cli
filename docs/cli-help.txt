@@ -1945,7 +1945,7 @@ Available Commands:
   article     Write and read help-centre articles from a markdown block
   summaries   Replace synced KB article summaries with reviewed ones
   bundle      Check a site-published KB article bundle
-  sync        Manage knowledge synchronization settings
+  sync        Run knowledge synchronization now or manage its settings
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -2239,7 +2239,7 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp project knowledge sync --help
-Manage knowledge synchronization settings
+Run knowledge synchronization now or manage its settings
 
 Usage:
   rp project knowledge sync [flags]
@@ -2248,6 +2248,7 @@ Usage:
 Available Commands:
   get         Show current values (value / effective / default)
   set         Change values (sparse, validate-then-apply server-side)
+  run         Sync the knowledge base now (e.g. after publishing a help article)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -2282,6 +2283,33 @@ Change values (sparse, validate-then-apply server-side)
 
 Usage:
   rp project knowledge sync set k=v [k=v…] [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project knowledge sync run --help
+Queue a sync of this project's knowledge sources into /kb now, instead of waiting for the
+periodic sweep (daily; site-published bundles hourly). The project route syncs the project KB and
+every tenant's; --tenant syncs only that tenant's own KB. A sync already queued absorbs the request;
+one already running gets a single follow-up sync, so a change made just now is always picked up.
+
+--wait polls until the sync finishes and prints the article total and the article files that
+changed; it exits non-zero when the sync failed or the knowledge source could not be read.
+Needs the `knowledge:write` (or config:write) token scope.
+
+Usage:
+  rp project knowledge sync run [--wait] [flags]
+
+Flags:
+      --timeout duration   max time to wait under --wait (default 15m0s)
+      --wait               poll until the sync finishes and print what changed
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
