@@ -2296,9 +2296,9 @@ Global Flags:
 
 $ rp project knowledge sync run --help
 Queue a sync of this project's knowledge sources into /kb now, instead of waiting for the
-periodic sweep (daily; site-published bundles hourly). The project route syncs the project KB and
-every tenant's; --tenant syncs only that tenant's own KB. A sync already queued absorbs the request;
-one already running gets a single follow-up sync, so a change made just now is always picked up.
+periodic sweep (daily; site-published bundles hourly). Syncs the project's own KB; --tenant syncs
+that tenant's own KB instead. A sync already queued absorbs the request; one already running gets
+a follow-up sync, so a change made just now is always picked up.
 
 --wait polls until the sync finishes and prints the article total and the article files that
 changed; it exits non-zero when the sync failed or the knowledge source could not be read.

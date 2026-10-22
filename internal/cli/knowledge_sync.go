@@ -25,9 +25,9 @@ func newKnowledgeSyncRunCmd(e *env) *cobra.Command {
 		Use:   "run [--wait]",
 		Short: "Sync the knowledge base now (e.g. after publishing a help article)",
 		Long: "Queue a sync of this project's knowledge sources into /kb now, instead of waiting for the\n" +
-			"periodic sweep (daily; site-published bundles hourly). The project route syncs the project KB and\n" +
-			"every tenant's; --tenant syncs only that tenant's own KB. A sync already queued absorbs the request;\n" +
-			"one already running gets a single follow-up sync, so a change made just now is always picked up.\n\n" +
+			"periodic sweep (daily; site-published bundles hourly). Syncs the project's own KB; --tenant syncs\n" +
+			"that tenant's own KB instead. A sync already queued absorbs the request; one already running gets\n" +
+			"a follow-up sync, so a change made just now is always picked up.\n\n" +
 			"--wait polls until the sync finishes and prints the article total and the article files that\n" +
 			"changed; it exits non-zero when the sync failed or the knowledge source could not be read.\n" +
 			"Needs the `knowledge:write` (or config:write) token scope.",
