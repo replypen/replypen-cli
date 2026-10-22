@@ -66,7 +66,12 @@ func PhoneLabIndex(r *client.PhoneLabRun) string {
 		if ev.Outcome != "" {
 			detail += " outcome=" + ev.Outcome
 		}
-		fmt.Fprintf(&b, "| %d | %.3f | %s | %s | %s |\n", i, float64(ev.T)/1000, cell(ev.Kind+" "+ev.Who+" "+ev.Status, 90), timing, cell(detail, 140))
+		// A tool command keeps its flags: a 140-rune cap hid `book.py … --email` and read as a missing argument.
+		limit := 140
+		if ev.Cmd != "" {
+			limit = 1000
+		}
+		fmt.Fprintf(&b, "| %d | %.3f | %s | %s | %s |\n", i, float64(ev.T)/1000, cell(ev.Kind+" "+ev.Who+" "+ev.Status, 90), timing, cell(detail, limit))
 	}
 	b.WriteString("\nJSONL: one `type=phone_run` header (`run` object), then `type=event` records with original `index` and full `event`. Filter: `jq 'select(.type==\"event\" and .event.kind==\"model\")' <trace.jsonl>`.\n\nRead one full event: `jq '.events[INDEX]' <trace.json>`. End reasons are final note events; voicemail closure reasons are in `args`. Stored event/byte caps and tool-output truncation also apply to this dump.\n")
 	if r.ConsoleRunID != "" {
