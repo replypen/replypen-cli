@@ -611,6 +611,8 @@ help using `go test ./internal/cli -update`.
 | `rp project knowledge article apply` | Apply a help-centre article block to its provider |
 | `rp project knowledge article get` | Fetch one help-centre article as an applyable markdown block |
 | `rp project knowledge article` | Write and read help-centre articles from a markdown block |
+| `rp project knowledge bundle check` | Validate a KB bundle with the host's parser (non-zero exit on errors) |
+| `rp project knowledge bundle` | Check a site-published KB article bundle |
 | `rp project knowledge content export` | Export selected KB articles to a fresh local artifact directory |
 | `rp project knowledge content list` | List KB collections without article bodies |
 | `rp project knowledge content search` | Search KB articles and write matched articles to local artifacts |
