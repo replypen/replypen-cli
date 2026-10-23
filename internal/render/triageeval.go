@@ -29,7 +29,10 @@ func TriageEval(w io.Writer, rep client.TriageEvalReport, s digest.TriageEvalSco
 			_, _ = fmt.Fprintln(tw, "\nCLASS\tCASE\tEXPECTED\tDECIDED\tBY\tREASON")
 			failing = true
 		}
-		why := c.Case.Attempts[c.Evidence]
+		why := client.TriageEvalAttempt{Reason: "no attempts"}
+		if c.Evidence >= 0 {
+			why = c.Case.Attempts[c.Evidence]
+		}
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", c.Class, c.Case.ID, triageExpect(c.Case.Expect),
 			triageDecided(c), why.DecisionSource, truncate(oneLine(why.Reason), 90))
 	}

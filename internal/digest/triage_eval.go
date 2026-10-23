@@ -23,7 +23,7 @@ type TriageCaseScore struct {
 	Case      client.TriageEvalCaseResult
 	Class     string
 	Processed int // attempts that decided process (fail-open ones included)
-	Evidence  int // index of the attempt that explains Class: the first that disagrees with expect or failed open
+	Evidence  int // index of the attempt that explains Class: the first that disagrees with expect or failed open; -1 without attempts
 }
 
 // TriageEvalScore is the whole report's scorecard.
@@ -69,6 +69,8 @@ func ScoreTriageEval(rep client.TriageEvalReport) TriageEvalScore {
 			cs.Class = TriageExtraProcess
 		case firstFailed >= 0:
 			cs.Class, cs.Evidence = TriageFailedOpen, firstFailed
+		case len(r.Attempts) == 0: // no attempt is no judgment, never a pass (Evidence stays -1)
+			cs.Class = TriageFailedOpen
 		}
 		if cs.Evidence < 0 {
 			cs.Evidence = len(r.Attempts) - 1
