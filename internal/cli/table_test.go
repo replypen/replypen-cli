@@ -283,6 +283,10 @@ func TestTableLine(t *testing.T) {
 		{"BrandingLogoClear", []string{"project", "branding", "logo", "clear"}, "logo cleared\n"},
 		{"RepliesFeedbackTable", []string{"--project", "alpha", "--tenant", "de-kies", "dev", "replies", "feedback", "11111111-1111-1111-1111-111111111111", "--score", "5", "--comment", "te formeel"}, "Scope: alpha / de-kies\nfeedback recorded for run 11111111-1111-1111-1111-111111111111\n"},
 		{"RunFeedbackTable", []string{"run", "feedback", "11111111-1111-1111-1111-111111111111", "--score", "1", "--comment", "great draft"}, "feedback recorded for run 11111111-1111-1111-1111-111111111111\n"},
+		// RunFeedbackShortIDTable / RunRetryShortID: a run id as surfaces display it (`#96745381`) is
+		// normalized before it becomes a path segment (the stub rejects a decorated id).
+		{"RunFeedbackShortIDTable", []string{"run", "feedback", "#1111111A", "--score", "1", "--comment", "great draft"}, "feedback recorded for run 1111111a\n"},
+		{"RunRetryShortID", []string{"run", "retry", " #1111111A", "--tier", "pro"}, "99999999-9999-9999-9999-999999999999\n"},
 		// RunFeedbackProcessedTable: the operator plane rides a PATCH and prints its own terse line.
 		{"RunFeedbackProcessedTable", []string{"run", "feedback", "11111111-1111-1111-1111-111111111111", "--processed", "--resolution-note", "fixed the brain skill"}, "feedback marked processed with a resolution note for run 11111111-1111-1111-1111-111111111111\n"},
 		// RunRetryPrintsNewID: retry prints the NEW run id on stdout (the table path), capturable for chaining.

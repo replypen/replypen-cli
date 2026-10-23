@@ -151,6 +151,8 @@ type mirrorPublishResult struct {
 	SHA       string                          `json:"sha"`
 	Refreshed []*client.MirrorRefreshResponse `json:"refreshed"`
 	Failed    map[string]string               `json:"failed,omitempty"`
+	// Raw carries each refresh body verbatim as "refresh:<project>" (SKILL.md "Output" rule b).
+	Raw map[string]json.RawMessage `json:"raw"`
 }
 
 // mirrorPublishCmd is "publish" for a source repo that projects mirror: one command from its checkout
@@ -220,17 +222,18 @@ func mirrorPublishCmd(e *env) *cobra.Command {
 				return withHint(fmt.Errorf("origin branch(es) %s do not contain %s; nothing refreshed", strings.Join(missing, ", "), short(sha)),
 					fmt.Sprintf("push it first, e.g. `git push origin %s:%s`", sha, missing[0]))
 			}
-			res := mirrorPublishResult{Repo: repo, SHA: sha, Failed: map[string]string{}}
+			res := mirrorPublishResult{Repo: repo, SHA: sha, Failed: map[string]string{}, Raw: map[string]json.RawMessage{}}
 			for _, m := range consumers {
-				out, _, err := c.MirrorRefresh(e.ctx(), m.Project, "", client.MirrorRefreshRequest{Repo: repo, ExpectedSHA: m.Tip})
+				out, raw, err := c.MirrorRefresh(e.ctx(), m.Project, "", client.MirrorRefreshRequest{Repo: repo, ExpectedSHA: m.Tip})
 				if actual, ok := mirrorMismatchActual(err); ok && gitIsAncestor(e.ctx(), m.Tip, actual) == nil {
-					out, _, err = c.MirrorRefresh(e.ctx(), m.Project, "", client.MirrorRefreshRequest{Repo: repo, ExpectedSHA: actual})
+					out, raw, err = c.MirrorRefresh(e.ctx(), m.Project, "", client.MirrorRefreshRequest{Repo: repo, ExpectedSHA: actual})
 				}
 				if err != nil {
 					res.Failed[m.Project] = err.Error()
 					continue
 				}
 				res.Refreshed = append(res.Refreshed, out)
+				res.Raw["refresh:"+m.Project] = raw
 			}
 			if e.jsonOut() {
 				raw, err := json.Marshal(res)

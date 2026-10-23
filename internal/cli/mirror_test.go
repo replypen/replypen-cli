@@ -174,7 +174,7 @@ func mirrorPublishFixture(t *testing.T, stableAtTip bool) (srv *httptest.Server,
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		p := r.PathValue("project")
 		refreshed[p] = body.ExpectedSHA
-		_, _ = fmt.Fprintf(w, `{"project":%q,"repo":%q,"branch":%q,"expected_sha":%q,"actual_sha":%q,"verified":true}`, p, body.Repo, branches[p], body.ExpectedSHA, body.ExpectedSHA)
+		_, _ = fmt.Fprintf(w, `{"project":%q,"repo":%q,"branch":%q,"expected_sha":%q,"actual_sha":%q,"verified":true,"future_field":true}`, p, body.Repo, branches[p], body.ExpectedSHA, body.ExpectedSHA)
 	})
 	srv = httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -194,6 +194,20 @@ func TestMirrorPublishRefreshesEveryConsumerAtItsBranchTip(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "LIVE  beta") {
 		t.Fatalf("out = %q", out.String())
+	}
+}
+
+// TestMirrorPublishJSONCarriesRawRefreshBodies: -o json keeps each refresh body verbatim under
+// raw["refresh:<project>"], so a host field the client does not model is not lost.
+func TestMirrorPublishJSONCarriesRawRefreshBodies(t *testing.T) {
+	srv, base, _, _ := mirrorPublishFixture(t, false)
+	e, out, _ := newTestEnv(t, srv, "json")
+	if err := run(t, e, "dev", "mirror", "publish", "--sha", base); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	raw := rawSources(t, out.Bytes(), "refresh:alpha", "refresh:beta")
+	if raw["refresh:alpha"]["project"] != "alpha" || raw["refresh:beta"]["future_field"] != true {
+		t.Fatalf("raw = %v", raw)
 	}
 }
 

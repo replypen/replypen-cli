@@ -22,16 +22,21 @@ func TestScoreTriageEvalClasses(t *testing.T) {
 		{ID: "flaky", Expect: client.TriageEvalExpect{Process: &yes}, Attempts: att(true, false)},
 		{ID: "skip", Expect: client.TriageEvalExpect{Process: &yes}, Attempts: att(false)},
 		{ID: "error", Expect: client.TriageEvalExpect{Process: &yes}, Attempts: failOpen},
+		// One errored attempt must not hide the false skip its sibling decided.
+		{ID: "errskip", Expect: client.TriageEvalExpect{Process: &yes}, Attempts: append(failOpen, client.TriageEvalAttempt{Reason: "newsletter"})},
 	}}
 	s := ScoreTriageEval(rep)
-	want := []string{"skip:false_skip", "flaky:flaky", "error:failed_open", "extra:extra_process", "pass:pass"}
+	want := []string{"errskip:false_skip", "skip:false_skip", "flaky:flaky", "error:failed_open", "extra:extra_process", "pass:pass"}
 	for i, c := range s.Cases {
 		if got := c.Case.ID + ":" + c.Class; got != want[i] {
 			t.Fatalf("case %d = %s, want %s (worst first)", i, got, want[i])
 		}
 	}
-	if s.Pass != 1 || s.FalseSkip != 1 || s.Flaky != 1 || s.FailOpen != 1 || s.ExtraProcess != 1 || s.Proposed != 4 {
+	if s.Pass != 1 || s.FalseSkip != 2 || s.Flaky != 1 || s.FailOpen != 1 || s.ExtraProcess != 1 || s.Proposed != 5 {
 		t.Fatalf("counts = %+v", s)
+	}
+	if c := s.Cases[0]; c.Case.Attempts[c.Evidence].Reason != "newsletter" {
+		t.Fatalf("errskip evidence = attempt %d, want the judged skip", c.Evidence)
 	}
 	if ch := CompareTriageEval(s, s); len(ch) != 0 {
 		t.Fatalf("self-compare changes = %v", ch)

@@ -433,21 +433,26 @@ func TestAskRetriesLegacyPromptBodyOnMalformedSubmit(t *testing.T) {
 	}
 }
 
-func TestAskDoesNotDropBrainRefForLegacyFallback(t *testing.T) {
-	var attempts int
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempts++
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":{"code":"BAD_BODY","message":"malformed request body"}}`))
-	}))
-	defer srv.Close()
-	e, _, _ := newTestEnv(t, srv, "json")
-	err := run(t, e, "ask", "q", "--brain-ref", "dev/refund-rework", "--no-wait")
-	if err == nil {
-		t.Fatal("expected BAD_BODY error, got nil")
-	}
-	if attempts != 1 {
-		t.Fatalf("attempts = %d, want 1", attempts)
+// TestAskDoesNotDropFieldsForLegacyFallback: the bare {prompt,tenant} legacy re-post would silently drop
+// these, so a BAD_BODY surfaces instead (a dropped --credential-env runs without the integrator token).
+func TestAskDoesNotDropFieldsForLegacyFallback(t *testing.T) {
+	t.Setenv("RP_TEST_INTEGRATOR_TOKEN", "tok")
+	for _, flag := range [][]string{{"--brain-ref", "dev/refund-rework"}, {"--credential-env", "RP_TEST_INTEGRATOR_TOKEN"}} {
+		var attempts int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"code":"BAD_BODY","message":"malformed request body"}}`))
+		}))
+		e, _, _ := newTestEnv(t, srv, "json")
+		err := run(t, e, append([]string{"ask", "q", "--no-wait"}, flag...)...)
+		srv.Close()
+		if err == nil {
+			t.Fatalf("%s: expected BAD_BODY error, got nil", flag[0])
+		}
+		if attempts != 1 {
+			t.Fatalf("%s: attempts = %d, want 1", flag[0], attempts)
+		}
 	}
 }
 

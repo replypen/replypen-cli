@@ -153,7 +153,8 @@ map. The rules that make the layering real:
   documented default like `rp project token ls`'s active-only) may drop ROWS, never invent or drop fields
   (`replaceListItems`, [`token_ls.go`](internal/cli/token_ls.go)).
 - **(b) Computed reports** (`project chat doctor`, `dev action doctor`, `project knowledge content
-  search`, `dev console paths`, an explicitly passed fleet `--format` digest — `rawRowsJSON`,
+  search`, `dev console paths`, `dev brain publish`, `dev mirror publish`, an explicitly passed fleet
+  `--format` digest — `rawRowsJSON`,
   [`observability.go`](internal/cli/observability.go)) own a documented CLI shape. When the report derives
   from server bodies it does not carry verbatim, `-o json` adds a top-level `raw` object
   `{"<source>": <verbatim body>}` — the `json.RawMessage` the client returned, never re-marshalled typed

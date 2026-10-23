@@ -45,7 +45,8 @@ func TestPhoneLabDebug(t *testing.T) {
 		dir := t.TempDir()
 		args := []string{"run", "debug", srv.URL + "/projects/dentai-phone/phone-lab/runs/" + id, "--out-dir", dir}
 		if bare {
-			args = []string{"run", "debug", id, "--phone-lab", "--project", "dentai-phone", "--out-dir", dir}
+			// A bare id may carry its display decoration (`#`, upper case) like every other run id.
+			args = []string{"run", "debug", "#" + strings.ToUpper(id), "--phone-lab", "--project", "dentai-phone", "--out-dir", dir}
 		}
 		if err := run(t, e, args...); err != nil {
 			t.Fatal(err)

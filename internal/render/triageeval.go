@@ -29,9 +29,9 @@ func TriageEval(w io.Writer, rep client.TriageEvalReport, s digest.TriageEvalSco
 			_, _ = fmt.Fprintln(tw, "\nCLASS\tCASE\tEXPECTED\tDECIDED\tBY\tREASON")
 			failing = true
 		}
-		last := c.Case.Attempts[len(c.Case.Attempts)-1]
+		why := c.Case.Attempts[c.Evidence]
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", c.Class, c.Case.ID, triageExpect(c.Case.Expect),
-			triageDecided(c), last.DecisionSource, truncate(oneLine(last.Reason), 90))
+			triageDecided(c), why.DecisionSource, truncate(oneLine(why.Reason), 90))
 	}
 	_ = tw.Flush()
 	if len(passed) > 0 {

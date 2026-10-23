@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,11 +37,11 @@ func TestExtractPlatformSkillsNamesTheDirByItsContentAndKeepsExecBit(t *testing.
 	root := t.TempDir()
 	archive := tarGz(t, map[string]string{"website/SKILL.md": "x", "website/scripts/sitegen.py": "X = 1\n"},
 		map[string]int64{"website/scripts/sitegen.py": 0o755})
-	digest, err := extractPlatformSkills(archive, root, "")
+	digest, err := extractPlatformSkills(archive, root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := extractPlatformSkills(archive, root, digest)
+	again, err := extractPlatformSkills(archive, root)
 	if err != nil || again != digest {
 		t.Fatalf("re-extract = %q, %v; want %q", again, err, digest)
 	}
@@ -57,9 +59,69 @@ func TestExtractPlatformSkillsNamesTheDirByItsContentAndKeepsExecBit(t *testing.
 
 func TestExtractPlatformSkillsRejectsUnsafePaths(t *testing.T) {
 	for _, name := range []string{"../evil.py", "/etc/evil"} {
-		if _, err := extractPlatformSkills(tarGz(t, map[string]string{name: "x"}, nil), t.TempDir(), ""); err == nil {
+		if _, err := extractPlatformSkills(tarGz(t, map[string]string{name: "x"}, nil), t.TempDir()); err == nil {
 			t.Fatalf("%s accepted", name)
 		}
+	}
+}
+
+// TestExtractPlatformSkillsRejectsCorruptTrailer: the gzip CRC sits after tar's end-of-archive blocks, so a
+// corrupt download must not be installed under a digest name (same rule as TestExtractTarGzRejectsCorruptTrailer).
+func TestExtractPlatformSkillsRejectsCorruptTrailer(t *testing.T) {
+	archive := tarGz(t, map[string]string{"website/SKILL.md": "x"}, nil)
+	if _, err := extractPlatformSkills(archive, t.TempDir()); err != nil {
+		t.Fatalf("valid archive: %v", err)
+	}
+	corrupt := bytes.Clone(archive)
+	corrupt[len(corrupt)-8] ^= 0xff // first CRC-32 byte of the gzip trailer
+	root := t.TempDir()
+	if _, err := extractPlatformSkills(corrupt, root); err == nil {
+		t.Fatal("corrupt gzip trailer extracted without error")
+	}
+	if entries, _ := os.ReadDir(root); len(entries) != 0 {
+		t.Fatalf("corrupt archive left %v behind", entries)
+	}
+}
+
+// TestPlatformSkillsPullRejectsInvalidManifestDigest: the manifest digest becomes a cache path, so a
+// malformed one (empty = the cache root itself, short = a slicing panic) fails before any download.
+func TestPlatformSkillsPullRejectsInvalidManifestDigest(t *testing.T) {
+	for _, digest := range []string{"", "abc", "../" + strings.Repeat("a", 61)} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v1/platform-skills" {
+				t.Errorf("unexpected request %s", r.URL.Path)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"digest":"` + digest + `","skills":[]}`))
+		}))
+		e, _, _ := newTestEnv(t, srv, "json")
+		err := run(t, e, "dev", "platform-skills", "pull", "--cache-dir", t.TempDir())
+		srv.Close()
+		if err == nil || !strings.Contains(err.Error(), "invalid platform skills digest") {
+			t.Fatalf("digest %q: err = %v", digest, err)
+		}
+	}
+}
+
+// TestPlatformSkillsPullNotesMidPullDeployOnStderr: a manifest/archive digest mismatch keeps the archive's
+// digest and notes it on the env's stderr, never on the process's.
+func TestPlatformSkillsPullNotesMidPullDeployOnStderr(t *testing.T) {
+	archive := tarGz(t, map[string]string{"website/SKILL.md": "x"}, nil)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/platform-skills/archive" {
+			_, _ = w.Write(archive)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"digest":"` + strings.Repeat("a", 64) + `","skills":[]}`))
+	}))
+	defer srv.Close()
+	e, out, errb := newTestEnv(t, srv, "json")
+	if err := run(t, e, "dev", "platform-skills", "pull", "--cache-dir", t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errb.String(), "changed mid-pull (aaaaaaaaaaaa → ") || !strings.Contains(out.String(), `"downloaded": true`) {
+		t.Fatalf("stdout %s\nstderr %s", out.String(), errb.String())
 	}
 }
 
@@ -73,7 +135,7 @@ func TestExtractPlatformSkillsIsReadableByOthersUnderATightUmask(t *testing.T) {
 	old := syscall.Umask(0o077)
 	defer syscall.Umask(old)
 	root := t.TempDir()
-	digest, err := extractPlatformSkills(tarGz(t, map[string]string{"pdf/scripts/x.py": "x"}, nil), root, "")
+	digest, err := extractPlatformSkills(tarGz(t, map[string]string{"pdf/scripts/x.py": "x"}, nil), root)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -344,6 +344,8 @@ type brainPublishResult struct {
 	OldSHA   string                 `json:"old_sha"`
 	Sync     client.BrainSyncResult `json:"sync"`
 	Verified bool                   `json:"verified"`
+	// Raw carries the server bodies verbatim, keyed by call (SKILL.md "Output" rule b).
+	Raw map[string]json.RawMessage `json:"raw"`
 }
 
 // brainPublishCmd chains sync → promote → status-verify with gating between them — the one rp command
@@ -391,7 +393,7 @@ func brainPublishCmd(e *env) *cobra.Command {
 					Message: "brain publish refused: this project runs on a read-only brain alias"}, project, src.Project)
 			}
 
-			syncResp, _, err := c.BrainSync(e.ctx(), project, "")
+			syncResp, syncRaw, err := c.BrainSync(e.ctx(), project, "")
 			if err != nil {
 				return brainAliasError(brainBootCheckError(err), project, "")
 			}
@@ -399,12 +401,12 @@ func brainPublishCmd(e *env) *cobra.Command {
 				return fmt.Errorf("brain box clone is %q and needs manual reconcile — reconcile the box clone, see `rp dev brain status`", syncResp.Sync.After.State)
 			}
 
-			promoteResp, _, err := c.BrainPromote(e.ctx(), project, client.BrainPromoteRequest{Channel: channel, SHA: sha})
+			promoteResp, promoteRaw, err := c.BrainPromote(e.ctx(), project, client.BrainPromoteRequest{Channel: channel, SHA: sha})
 			if err != nil {
 				return brainAliasError(err, project, "")
 			}
 
-			statusResp, _, err := c.BrainStatus(e.ctx(), project, "")
+			statusResp, statusRaw, err := c.BrainStatus(e.ctx(), project, "")
 			if err != nil {
 				return err
 			}
@@ -424,6 +426,7 @@ func brainPublishCmd(e *env) *cobra.Command {
 					OldSHA:   promoteResp.OldSHA,
 					Sync:     syncResp.Sync,
 					Verified: true,
+					Raw:      map[string]json.RawMessage{"sync": syncRaw, "promote": promoteRaw, "status": statusRaw},
 				})
 				if err != nil {
 					return err
@@ -458,7 +461,7 @@ func publishTenantBrain(e *env, sha string) error {
 	if tenant == "" {
 		return fmt.Errorf("--channel is required to publish a project brain (stable or edge); a tenant brain publishes without one (--tenant or its checkout)")
 	}
-	resp, _, err := c.BrainSync(e.ctx(), project, tenant)
+	resp, syncRaw, err := c.BrainSync(e.ctx(), project, tenant)
 	if err != nil {
 		return brainBootCheckError(err)
 	}
@@ -476,7 +479,8 @@ func publishTenantBrain(e *env, sha string) error {
 		}
 	}
 	if e.jsonOut() {
-		raw, err := json.Marshal(brainPublishResult{Project: resp.Project, Tenant: tenant, SHA: sha, OldSHA: resp.Sync.Before.LocalSHA, Sync: resp.Sync, Verified: true})
+		raw, err := json.Marshal(brainPublishResult{Project: resp.Project, Tenant: tenant, SHA: sha, OldSHA: resp.Sync.Before.LocalSHA, Sync: resp.Sync, Verified: true,
+			Raw: map[string]json.RawMessage{"sync": syncRaw}})
 		if err != nil {
 			return err
 		}

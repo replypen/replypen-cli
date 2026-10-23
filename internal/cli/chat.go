@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -434,17 +435,17 @@ func (t *chatCardTarget) fetch(e *env,
 	return raw, err
 }
 
-// cardIDArg accepts a memory or brain-change card as `send` prints its frame id (`bc_<uuid>`,
-// `mem_<uuid>`); the card routes take the bare uuid.
+// cardIDArg accepts a card as `send` prints its frame id (`bc_<uuid>`, `mem_<uuid>`, `ac_<uuid>`,
+// `sch_<uuid>`, `ob_<uuid>`, …); the card routes take the bare uuid.
 func cardIDArg(arg string) string {
 	id := strings.TrimSpace(arg)
-	for _, prefix := range []string{"bc_", "mem_"} {
-		if rest, ok := strings.CutPrefix(id, prefix); ok && len(rest) == 36 {
-			return rest
-		}
+	if m := cardFrameIDRE.FindStringSubmatch(id); m != nil {
+		return m[1]
 	}
 	return id
 }
+
+var cardFrameIDRE = regexp.MustCompile(`^[a-z]+_([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`)
 
 // chatCardDecideCmd settles a chat card the way its widget button does (e.g. publish a website change).
 func chatCardDecideCmd(e *env) *cobra.Command {

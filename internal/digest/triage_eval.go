@@ -22,7 +22,8 @@ var triageClassRank = map[string]int{TriageFalseSkip: 0, TriageFlaky: 1, TriageF
 type TriageCaseScore struct {
 	Case      client.TriageEvalCaseResult
 	Class     string
-	Processed int // attempts that decided process
+	Processed int // attempts that decided process (fail-open ones included)
+	Evidence  int // index of the attempt that explains Class: the first that disagrees with expect or failed open
 }
 
 // TriageEvalScore is the whole report's scorecard.
@@ -32,28 +33,45 @@ type TriageEvalScore struct {
 	Proposed                                       int // cases whose labels the owner has not approved yet
 }
 
-// ScoreTriageEval classifies every case: all attempts must agree with expect.process to pass.
+// ScoreTriageEval classifies every case: all attempts must agree with expect.process to pass. A
+// fail-open attempt is no judgment, so the class comes from the judged attempts; failed_open only when
+// those agree (or none exist) — one errored attempt must not hide a false skip in its sibling.
 func ScoreTriageEval(rep client.TriageEvalReport) TriageEvalScore {
 	var s TriageEvalScore
 	for _, r := range rep.Results {
-		cs := TriageCaseScore{Case: r, Class: TriagePass}
-		failed := false
-		for _, a := range r.Attempts {
+		cs := TriageCaseScore{Case: r, Class: TriagePass, Evidence: -1}
+		want := r.Expect.Process != nil && *r.Expect.Process
+		judged, judgedProcess, firstFailed := 0, 0, -1
+		for i, a := range r.Attempts {
 			if a.ShouldProcess {
 				cs.Processed++
 			}
-			failed = failed || a.FailedOpen
+			if a.FailedOpen {
+				if firstFailed < 0 {
+					firstFailed = i
+				}
+				continue
+			}
+			judged++
+			if a.ShouldProcess {
+				judgedProcess++
+			}
+			if a.ShouldProcess != want && cs.Evidence < 0 {
+				cs.Evidence = i
+			}
 		}
-		want := r.Expect.Process != nil && *r.Expect.Process
 		switch {
-		case failed:
-			cs.Class = TriageFailedOpen
-		case cs.Processed > 0 && cs.Processed < len(r.Attempts):
+		case judgedProcess > 0 && judgedProcess < judged:
 			cs.Class = TriageFlaky
-		case want && cs.Processed == 0:
+		case judged > 0 && want && judgedProcess == 0:
 			cs.Class = TriageFalseSkip
-		case !want && cs.Processed > 0:
+		case judged > 0 && !want && judgedProcess > 0:
 			cs.Class = TriageExtraProcess
+		case firstFailed >= 0:
+			cs.Class, cs.Evidence = TriageFailedOpen, firstFailed
+		}
+		if cs.Evidence < 0 {
+			cs.Evidence = len(r.Attempts) - 1
 		}
 		switch cs.Class {
 		case TriagePass:

@@ -1627,6 +1627,7 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 	})
 	mux.HandleFunc("POST /api/v1/runs/{id}/feedback", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
+		requireBareRunID(t, r)
 		body := readBody(t, r)
 		var got map[string]any
 		if err := json.Unmarshal([]byte(body), &got); err != nil {
@@ -1640,6 +1641,7 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 	})
 	mux.HandleFunc("PATCH /api/v1/runs/{id}/feedback", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
+		requireBareRunID(t, r)
 		body := readBody(t, r)
 		var got map[string]any
 		if err := json.Unmarshal([]byte(body), &got); err != nil {
@@ -1657,6 +1659,7 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 	})
 	mux.HandleFunc("POST /api/v1/runs/{id}/retry", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
+		requireBareRunID(t, r)
 		body := readBody(t, r)
 		var got map[string]any
 		if err := json.Unmarshal([]byte(body), &got); err != nil {
@@ -1778,6 +1781,14 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 // scope header, project validation, selector enforcement and tenant resolution run as they do in prod.
 func testTokenSource(tok string) tokenSourceFactory {
 	return func(*config.Resolved, string) (client.TokenSource, error) { return client.StaticToken(tok), nil }
+}
+
+// requireBareRunID fails a stub hit whose {id} still carries display decoration (`#`, space, upper case).
+func requireBareRunID(t *testing.T, r *http.Request) {
+	t.Helper()
+	if id := r.PathValue("id"); id != normalizeRunID(id) {
+		t.Errorf("%s %s: run id %q reached the server still decorated", r.Method, r.URL.Path, id)
+	}
 }
 
 func newTestEnv(t *testing.T, srv *httptest.Server, output string) (*env, *bytes.Buffer, *bytes.Buffer) {

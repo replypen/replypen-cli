@@ -353,6 +353,30 @@ func TestBrainPublishHappyPathJSONEnvelope(t *testing.T) {
 	if env.Project != "alpha" || env.Channel != "stable" || env.SHA != publishSHA || env.OldSHA == "" || !env.Verified || !env.Sync.FastForwarded {
 		t.Fatalf("envelope = %+v", env)
 	}
+	raw := rawSources(t, out.Bytes(), "sync", "promote", "status")
+	if raw["promote"]["idempotent"] != false || raw["status"]["status"] == nil || raw["sync"]["sync"] == nil {
+		t.Fatalf("raw = %v", raw)
+	}
+}
+
+// rawSources decodes the rule-(b) `raw` object (SKILL.md "Output"), failing unless its keys are exactly keys.
+func rawSources(t *testing.T, out []byte, keys ...string) map[string]map[string]any {
+	t.Helper()
+	var env struct {
+		Raw map[string]map[string]any `json:"raw"`
+	}
+	if err := json.Unmarshal(out, &env); err != nil {
+		t.Fatalf("decode: %v\n%s", err, out)
+	}
+	for _, key := range keys {
+		if env.Raw[key] == nil {
+			t.Fatalf("raw has no %q source: %s", key, out)
+		}
+	}
+	if len(env.Raw) != len(keys) {
+		t.Fatalf("raw keys = %v, want %v", env.Raw, keys)
+	}
+	return env.Raw
 }
 
 func TestBrainPublishManualReconcileStopsBeforePromote(t *testing.T) {
@@ -478,7 +502,7 @@ func tenantPublishStub(t *testing.T, syncBody string) (*httptest.Server, *bool) 
 
 // A tenant brain has no channel: publish without --channel syncs the overlay and proves the served main.
 func TestBrainPublishTenantSyncsAndVerifies(t *testing.T) {
-	body := `{"project":"alpha","sync":{"fetched":true,"fast_forwarded":true,"refreshed_workspaces":1,"before":{"local_sha":"3333333333333333333333333333333333333333","state":"behind"},"after":{"available":true,"state":"current","local_sha":"` + publishSHA + `"}}}`
+	body := `{"project":"alpha","sync":{"fetched":true,"fast_forwarded":true,"refreshed_workspaces":1,"before":{"local_sha":"3333333333333333333333333333333333333333","state":"behind"},"after":{"available":true,"state":"current","local_sha":"` + publishSHA + `"}},"future_field":{"kept":true}}`
 	srv, synced := tenantPublishStub(t, body)
 	e, out, _ := newTestEnv(t, srv, "json")
 	if err := run(t, e, "--project", "alpha", "--tenant", "lbv", "dev", "brain", "publish", "--sha", publishSHA); err != nil {
@@ -492,6 +516,9 @@ func TestBrainPublishTenantSyncsAndVerifies(t *testing.T) {
 	_ = json.Unmarshal(out.Bytes(), &env)
 	if !*synced || env.Tenant != "lbv" || !env.Verified || env.OldSHA != "3333333333333333333333333333333333333333" {
 		t.Fatalf("synced=%t envelope=%s", *synced, out.String())
+	}
+	if raw := rawSources(t, out.Bytes(), "sync"); raw["sync"]["future_field"] == nil { // an unmodelled server field survives
+		t.Fatalf("raw sync = %v", raw["sync"])
 	}
 }
 

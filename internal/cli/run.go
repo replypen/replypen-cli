@@ -169,7 +169,7 @@ func newRunDebugCmd(e *env) *cobra.Command {
 					return fmt.Errorf("phone-lab runs require your developer login, not --share-token")
 				}
 				if !isPhone {
-					phone.runID = args[0]
+					phone.runID = normalizeRunID(args[0])
 				}
 				return runPhoneLabDebug(e, phone, e.outDir)
 			}
@@ -355,21 +355,22 @@ func runFeedbackCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			runID := normalizeRunID(args[0])
 			var raw json.RawMessage
 			if len(record) > 0 {
-				if raw, err = c.RunFeedback(e.ctx(), args[0], record, e.scopeProject(), e.scopeTenant()); err != nil {
+				if raw, err = c.RunFeedback(e.ctx(), runID, record, e.scopeProject(), e.scopeTenant()); err != nil {
 					return err
 				}
 				if !e.jsonOut() {
-					_, _ = fmt.Fprintf(e.out, "feedback recorded for run %s\n", args[0])
+					_, _ = fmt.Fprintf(e.out, "feedback recorded for run %s\n", runID)
 				}
 			}
 			if len(patch) > 0 {
-				if raw, err = c.SetRunFeedback(e.ctx(), args[0], patch, e.scopeProject(), e.scopeTenant()); err != nil {
+				if raw, err = c.SetRunFeedback(e.ctx(), runID, patch, e.scopeProject(), e.scopeTenant()); err != nil {
 					return err
 				}
 				if !e.jsonOut() {
-					_, _ = fmt.Fprintf(e.out, "feedback %s for run %s\n", feedbackPatchSummary(processed, unprocessed, noteSet), args[0])
+					_, _ = fmt.Fprintf(e.out, "feedback %s for run %s\n", feedbackPatchSummary(processed, unprocessed, noteSet), runID)
 				}
 			}
 			if e.jsonOut() {
@@ -438,7 +439,7 @@ func runRetryCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			raw, err := c.RunRetry(e.ctx(), args[0], body, e.scopeProject(), e.scopeTenant())
+			raw, err := c.RunRetry(e.ctx(), normalizeRunID(args[0]), body, e.scopeProject(), e.scopeTenant())
 			if err != nil {
 				return err
 			}

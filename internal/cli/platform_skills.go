@@ -97,6 +97,9 @@ func pullPlatformSkills(e *env, root string) (*platformSkillsPull, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !digestRE.MatchString(manifest.Digest) {
+		return nil, fmt.Errorf("host returned an invalid platform skills digest %q", manifest.Digest)
+	}
 	dir := filepath.Join(root, manifest.Digest)
 	downloaded := false
 	if _, statErr := os.Stat(dir); statErr != nil {
@@ -104,9 +107,13 @@ func pullPlatformSkills(e *env, root string) (*platformSkillsPull, error) {
 		if err := c.PlatformSkillsArchive(e.ctx(), &archive); err != nil {
 			return nil, err
 		}
-		got, err := extractPlatformSkills(archive.Bytes(), root, manifest.Digest)
+		got, err := extractPlatformSkills(archive.Bytes(), root)
 		if err != nil {
 			return nil, err
+		}
+		if got != manifest.Digest {
+			// The host redeployed between the two requests: keep the archive's own (newer) digest.
+			_, _ = fmt.Fprintf(e.err, "note: platform skills changed mid-pull (%s → %s)\n", manifest.Digest[:12], got[:12])
 		}
 		dir, downloaded = filepath.Join(root, got), true
 	}
@@ -159,7 +166,7 @@ func cachedPlatformSkills(root string) (*platformSkillsPull, error) {
 // files exactly as the host computes it (skillcatalog.TakeSnapshot) — so the directory name proves its
 // content. A deploy between manifest and archive just yields the newer digest. Atomic: a temp dir is
 // renamed into place, so a crashed pull never leaves a half snapshot under a digest name.
-func extractPlatformSkills(archive []byte, root, want string) (string, error) {
+func extractPlatformSkills(archive []byte, root string) (string, error) {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return "", err
 	}
@@ -182,6 +189,10 @@ func extractPlatformSkills(archive []byte, root, want string) (string, error) {
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
+			// The gzip CRC/size trailer follows tar's end-of-archive blocks and is only checked at gzip EOF.
+			if _, err := io.Copy(io.Discard, gz); err != nil {
+				return "", fmt.Errorf("platform skills archive: %w", err)
+			}
 			break
 		}
 		if err != nil {
@@ -220,10 +231,6 @@ func extractPlatformSkills(archive []byte, root, want string) (string, error) {
 		_, _ = fmt.Fprintf(sum, "%s\x00%o\x00%x\n", en.rel, en.mode, en.sum)
 	}
 	digest := hex.EncodeToString(sum.Sum(nil))
-	if want != "" && digest != want {
-		// The host redeployed between the two requests: keep the archive's own (newer) digest.
-		_, _ = fmt.Fprintf(os.Stderr, "note: platform skills changed mid-pull (%s → %s)\n", want[:12], digest[:12])
-	}
 	// MkdirTemp is 0700 and MkdirAll follows the umask: open every dir to 0755 so the workspace
 	// container's own user (not this uid on a plain Linux Docker) can read the mount.
 	if err := filepath.WalkDir(tmp, func(p string, d os.DirEntry, err error) error {
@@ -234,12 +241,13 @@ func extractPlatformSkills(archive []byte, root, want string) (string, error) {
 	}); err != nil {
 		return "", err
 	}
+	// Content-addressed: a dst that already exists (cached, or a concurrent pull won the rename) is
+	// this same snapshot, so a failed rename onto it is success.
 	dst := filepath.Join(root, digest)
-	if _, err := os.Stat(dst); err == nil {
-		return digest, nil
-	}
 	if err := os.Rename(tmp, dst); err != nil {
-		return "", err
+		if _, statErr := os.Stat(dst); statErr != nil {
+			return "", err
+		}
 	}
 	return digest, nil
 }
