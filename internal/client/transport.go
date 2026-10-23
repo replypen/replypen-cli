@@ -93,6 +93,9 @@ func (c *Client) openStream(ctx context.Context, spec sendSpec) (*http.Response,
 			}
 			return nil, decodeAPIError(resp.StatusCode, spec.method, spec.path, c.baseURL, data)
 		}
+		if notice := resp.Header.Get("X-Replypen-Notice"); notice != "" && c.OnNotice != nil {
+			c.OnNotice(notice)
+		}
 		return resp, nil
 	}
 }

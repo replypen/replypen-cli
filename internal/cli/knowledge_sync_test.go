@@ -37,3 +37,16 @@ func fastKnowledgeSyncPoll(t *testing.T) {
 	knowledgeSyncPollInterval = 0
 	t.Cleanup(func() { knowledgeSyncPollInterval = orig })
 }
+
+// A KB source change queues a sync server-side; its X-Replypen-Notice reaches stderr, stdout stays the bag.
+func TestKnowledgeSyncSetPrintsServerNotice(t *testing.T) {
+	srv := stubServer(t)
+	defer srv.Close()
+	e, _, errb := newTestEnv(t, srv, "table")
+	if err := run(t, e, "project", "knowledge", "sync", "set", "provider=intercom", "base_url=https://acme.intercom.io"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errb.String(), "kb sync job 9 queued") {
+		t.Fatalf("stderr = %q, want the server notice", errb.String())
+	}
+}

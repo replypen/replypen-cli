@@ -220,6 +220,7 @@ func (e *env) newClient() (*client.Client, error) {
 	e.resolved = res // the factory may re-point the profile (brain → default fallback)
 
 	c := client.New(baseURL, src)
+	c.OnNotice = func(notice string) { _, _ = fmt.Fprintln(e.err, notice) }
 	if machineTokenEnvActive(res) {
 		scope, scopeErr := c.Whoami(e.ctx())
 		if scopeErr != nil {

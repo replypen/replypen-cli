@@ -26,6 +26,9 @@ type Client struct {
 	baseURL string
 	tokens  TokenSource
 	http    *http.Client
+	// OnNotice receives a successful response's X-Replypen-Notice line: a side effect the server started
+	// for the caller (e.g. a KB sync queued by a config change). nil drops it.
+	OnNotice func(string)
 }
 
 // pathOnly strips the query string from a request path for error display (the query is noise when the

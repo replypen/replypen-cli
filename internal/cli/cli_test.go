@@ -547,6 +547,7 @@ func stubServer(t *testing.T) *httptest.Server {
 	})
 	mux.HandleFunc("PATCH /api/v1/kb", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
+		w.Header().Set("X-Replypen-Notice", "kb sync job 9 queued; watch it: rp project knowledge sync run --wait")
 		_ = readBody(t, r)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(fixture(t, "kb.json"))
