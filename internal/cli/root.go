@@ -484,7 +484,9 @@ func printErrorBody(w io.Writer, err error) {
 			_, _ = fmt.Fprintf(w, "  %s: %s\n", f.Key, f.Message)
 		}
 		// A rejected --brain-ref usually means the ref isn't on the project's brain origin yet.
-		if apiErr.Code == "BAD_BRAIN_REF" {
+		if apiErr.Code == "BAD_BRAIN_REF" && strings.Contains(apiErr.Message, "tenant_brain_ref") {
+			_, _ = fmt.Fprintln(w, "  --tenant-brain-ref needs a tenant-scoped run: --tenant <slug>, a tenant checkout, or a replayed tenant chat turn")
+		} else if apiErr.Code == "BAD_BRAIN_REF" {
 			_, _ = fmt.Fprintln(w, "  push the ref to your project's brain first: git push origin <ref>")
 		}
 		// A rejected --mirror-ref names an unconfigured mirror or a malformed ref.

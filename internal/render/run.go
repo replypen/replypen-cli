@@ -159,6 +159,12 @@ func Full(w io.Writer, f *client.FullResponse) {
 	if r.BrainResolved != "" {
 		_, _ = fmt.Fprintf(tw, "Brain resolved:\t%s\n", r.BrainResolved)
 	}
+	if r.TenantBrainRef != "" {
+		_, _ = fmt.Fprintf(tw, "Tenant brain ref:\t%s\n", r.TenantBrainRef)
+	}
+	if r.TenantBrainResolved != "" {
+		_, _ = fmt.Fprintf(tw, "Tenant brain resolved:\t%s\n", r.TenantBrainResolved)
+	}
 	if r.Tenant != "" {
 		_, _ = fmt.Fprintf(tw, "Tenant:\t%s\n", r.Tenant)
 	}

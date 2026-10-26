@@ -20,26 +20,27 @@ import (
 // askFlags holds `rp ask`'s flags, bound per-command so each invocation is isolated. Tenant scope is
 // normally login-bound; the persistent --tenant remains an explicit override.
 type askFlags struct {
-	brainRef      string
-	mirrorRefs    []string
-	effort        string
-	scenario      string
-	from          string
-	subject       string
-	session       string
-	principalKind string
-	principalID   string
-	assertedBy    string
-	assurance     string
-	filePaths     []string
-	attachPaths   []string // deprecated --attach alias, merged after --file
-	noWait        bool
-	simulation    bool
-	mailbox       string
-	dryScope      bool
-	replayChatRun string
-	credentialEnv []string
-	timeout       time.Duration
+	brainRef       string
+	tenantBrainRef string
+	mirrorRefs     []string
+	effort         string
+	scenario       string
+	from           string
+	subject        string
+	session        string
+	principalKind  string
+	principalID    string
+	assertedBy     string
+	assurance      string
+	filePaths      []string
+	attachPaths    []string // deprecated --attach alias, merged after --file
+	noWait         bool
+	simulation     bool
+	mailbox        string
+	dryScope       bool
+	replayChatRun  string
+	credentialEnv  []string
+	timeout        time.Duration
 }
 
 const defaultAskFrom = "rp-ask@example.test"
@@ -47,7 +48,8 @@ const defaultAskFrom = "rp-ask@example.test"
 // newAskCmd builds `rp ask "<question>"` — the trigger verb. It POSTs the prompt to /api/v1/runs
 // (OAuth-authed, optionally ?project=-scoped), then by DEFAULT waits, polling /runs/{id} until the run
 // reaches a terminal status, and prints the same summary as `rp run show <id>`. --no-wait returns the run_id
-// immediately. --brain-ref runs the question against a non-main brain ref (a dev/* branch) and --mirror-ref
+// immediately. --brain-ref runs the question against a non-main brain ref (a dev/* branch), --tenant-brain-ref
+// does the same for the bound tenant's own brain at /tenant, and --mirror-ref
 // mounts another ref of a source mirror for this run only — the project dev's "test without pushing main"
 // loop. The CLI stays thin: it triggers + polls + renders; all run
 // logic lives server-side.
@@ -60,7 +62,7 @@ func newAskCmd(e *env) *cobra.Command {
 			"--replay-chat-run <run id|run link> replays one stored in-app chat turn with its real chat framing, " +
 			"prior turns and principal as a test run (a simulation: no action executes, nothing is placed or " +
 			"committed); the original conversation is untouched. The question becomes optional: given, it replaces " +
-			"that turn's message. Combine with --brain-ref / --mirror-ref to test a fix. Needs the developer grant " +
+			"that turn's message. Combine with --brain-ref / --tenant-brain-ref / --mirror-ref to test a fix. Needs the developer grant " +
 			"that `rp run debug` needs on that run. Refuses --principal-*, --file, --scenario, --from, --subject " +
 			"and --session (the replay keeps the turn's own).",
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -145,6 +147,7 @@ func newAskCmd(e *env) *cobra.Command {
 				SessionID:       f.session,
 				Tenant:          e.scopeTenant(),
 				BrainRef:        f.brainRef,
+				TenantBrainRef:  f.tenantBrainRef,
 				MirrorRefs:      mirrorRefs,
 				Simulation:      f.simulation,
 				Mailbox:         f.mailbox,
@@ -199,7 +202,8 @@ func newAskCmd(e *env) *cobra.Command {
 	cmd.Flags().StringVar(&f.from, "from", defaultAskFrom, "sender address for --scenario email")
 	cmd.Flags().StringVar(&f.subject, "subject", "", "subject for --scenario email (default: compact prompt first line)")
 	cmd.Flags().StringVar(&f.effort, "effort", "", "reasoning effort override: default, pro, or max")
-	cmd.Flags().StringVar(&f.brainRef, "brain-ref", "", "run against a non-main brain ref (e.g. dev/refund-rework) — a test run")
+	cmd.Flags().StringVar(&f.brainRef, "brain-ref", "", "run against a non-main PROJECT brain ref (e.g. dev/refund-rework) — a test run")
+	cmd.Flags().StringVar(&f.tenantBrainRef, "tenant-brain-ref", "", "mount a non-main ref of the run's TENANT brain at /tenant (e.g. dev/heyo-kampjaar) — a test run; tenant-scoped runs only")
 	cmd.Flags().StringArrayVar(&f.mirrorRefs, "mirror-ref", nil, "mount <repo>=<ref> (dev/* branch or SHA) of a source mirror for this run only — a test run; repeatable")
 	cmd.Flags().StringVar(&f.session, "session", "", "session id to thread the run onto")
 	cmd.Flags().StringVar(&f.principalKind, "principal-kind", "", "principal kind to scope the run's data (e.g. kampadmin_person); requires --principal-id")
@@ -260,6 +264,7 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 		ReplayChatRun:   target.runID,
 		Tenant:          e.scopeTenant(),
 		BrainRef:        f.brainRef,
+		TenantBrainRef:  f.tenantBrainRef,
 		MirrorRefs:      mirrorRefs,
 		Simulation:      true,
 		ReasoningEffort: effort,

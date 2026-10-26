@@ -125,6 +125,12 @@ func TestAskBrainRefForwarded(t *testing.T) {
 	if !strings.Contains(gotBody, `"brain_ref":"dev/refund-rework"`) {
 		t.Errorf("brain_ref not forwarded; body=%s", gotBody)
 	}
+	if err := run(t, e, "ask", "q", "--tenant-brain-ref", "dev/heyo-kampjaar", "--no-wait"); err != nil {
+		t.Fatalf("ask --tenant-brain-ref: %v", err)
+	}
+	if !strings.Contains(gotBody, `"tenant_brain_ref":"dev/heyo-kampjaar"`) || strings.Contains(gotBody, `"brain_ref"`) {
+		t.Errorf("tenant_brain_ref not forwarded alone; body=%s", gotBody)
+	}
 }
 
 // TestAskMirrorRefsForwarded asserts repeated --mirror-ref pairs ride as one mirror_refs map.
@@ -753,11 +759,11 @@ func TestAskReplayChatRun(t *testing.T) {
 	defer srv.Close()
 
 	e, out, _ := newTestEnv(t, srv, "table")
-	if err := run(t, e, "ask", "--replay-chat-run", "https://app.replypen.com/runs/"+orig+"?t=share-tok", "--brain-ref", "dev/fix"); err != nil {
+	if err := run(t, e, "ask", "--replay-chat-run", "https://app.replypen.com/runs/"+orig+"?t=share-tok", "--brain-ref", "dev/fix", "--tenant-brain-ref", "dev/heyo-kampjaar"); err != nil {
 		t.Fatalf("ask --replay-chat-run: %v", err)
 	}
 	got := bodies[0]
-	if got["replay_chat_run"] != orig || got["simulation"] != true || got["brain_ref"] != "dev/fix" {
+	if got["replay_chat_run"] != orig || got["simulation"] != true || got["brain_ref"] != "dev/fix" || got["tenant_brain_ref"] != "dev/heyo-kampjaar" {
 		t.Errorf("replay body = %v", got)
 	}
 	for _, key := range []string{"scenario", "sender", "subject", "session_id", "principal", "attachments"} {

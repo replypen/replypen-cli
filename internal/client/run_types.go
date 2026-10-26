@@ -308,6 +308,9 @@ type SubmitRequest struct {
 	SessionID string `json:"session_id,omitempty"`
 	Tenant    string `json:"tenant,omitempty"`
 	BrainRef  string `json:"brain_ref,omitempty"`
+	// TenantBrainRef is BrainRef for the bound tenant's OWN brain (/tenant): a dev/* branch, tag or SHA on
+	// the tenant brain's origin. Tenant-scoped runs only (the server 400s BAD_BRAIN_REF otherwise).
+	TenantBrainRef string `json:"tenant_brain_ref,omitempty"`
 	// MirrorRefs overrides the ref mounted for named source mirrors on this run only (repo -> branch or
 	// SHA). Like BrainRef it makes the run a test run; the server 400s BAD_MIRROR_REF on an unknown repo.
 	MirrorRefs map[string]string `json:"mirror_refs,omitempty"`
@@ -511,6 +514,9 @@ type RunHeader struct {
 	Trigger       string `json:"trigger,omitempty"`
 	BrainRef      string `json:"brain_ref,omitempty"`
 	BrainResolved string `json:"brain_resolved,omitempty"`
+	// TenantBrainRef / TenantBrainResolved: the requested /tenant ref and what /tenant actually mounted.
+	TenantBrainRef      string `json:"tenant_brain_ref,omitempty"`
+	TenantBrainResolved string `json:"tenant_brain_resolved,omitempty"`
 	// MirrorRefs is the run's requested per-mirror overrides (repo -> ref), as submitted. Unlike the
 	// grounding_sources mirror rows it survives a run that failed before provenance was recorded.
 	MirrorRefs            map[string]string `json:"mirror_refs,omitempty"`

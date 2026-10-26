@@ -54,9 +54,12 @@ func RenderIndex(full *client.FullResponse) string {
 	if r.ReplayOfRunID != "" {
 		add(fmt.Sprintf("- **Replay of:** `%s` (chat turn replayed by `rp ask --replay-chat-run`)", r.ReplayOfRunID))
 	}
-	if r.BrainRef != "" || r.Trigger == "test" {
-		add(fmt.Sprintf("- **Test run** · brain_ref `%s` · trigger `%s` — side-effect-free",
-			orMain(r.BrainRef), orQ(r.Trigger)))
+	if r.BrainRef != "" || r.TenantBrainRef != "" || r.Trigger == "test" {
+		line := fmt.Sprintf("- **Test run** · brain_ref `%s`", orMain(r.BrainRef))
+		if r.TenantBrainRef != "" {
+			line += fmt.Sprintf(" · tenant_brain_ref `%s`", backtickSafe(r.TenantBrainRef))
+		}
+		add(line + fmt.Sprintf(" · trigger `%s` — side-effect-free", orQ(r.Trigger)))
 	}
 	if u := traceURL(r.Metadata); u != "" {
 		add(fmt.Sprintf("- **Run page (human view):** %s", u))
@@ -263,13 +266,16 @@ func anyScrubbed(events []decEvent) bool {
 
 func renderProjectionInputs(r client.RunHeader) []string {
 	mirrors := mirrorInputs(r.GroundingSources, r.MirrorRefs)
-	if r.BrainResolved == "" && r.Tenant == "" && r.TenantSettings == "" && r.TenantSettingsCurrent == "" && len(mirrors) == 0 {
+	if r.BrainResolved == "" && r.TenantBrainResolved == "" && r.Tenant == "" && r.TenantSettings == "" && r.TenantSettingsCurrent == "" && len(mirrors) == 0 {
 		return nil
 	}
 	var out []string
 	out = append(out, "## Projection inputs", "")
 	if r.BrainResolved != "" {
 		out = append(out, fmt.Sprintf("- **Brain resolved:** `%s`", backtickSafe(r.BrainResolved)))
+	}
+	if r.TenantBrainResolved != "" {
+		out = append(out, fmt.Sprintf("- **Tenant brain resolved (/tenant):** `%s`", backtickSafe(r.TenantBrainResolved)))
 	}
 	out = append(out, mirrors...)
 	if r.Tenant != "" {
