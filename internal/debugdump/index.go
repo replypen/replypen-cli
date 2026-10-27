@@ -52,7 +52,7 @@ func RenderIndex(full *client.FullResponse) string {
 	}
 	add(fmt.Sprintf("- **Run ID:** `%s`", r.RunID))
 	if r.ReplayOfRunID != "" {
-		add(fmt.Sprintf("- **Replay of:** `%s` (chat turn replayed by `rp ask --replay-chat-run`)", r.ReplayOfRunID))
+		add(fmt.Sprintf("- **Replay of:** `%s` (replayed by `rp ask --replay-run`)", r.ReplayOfRunID))
 	}
 	if r.BrainRef != "" || r.TenantBrainRef != "" || r.Trigger == "test" {
 		line := fmt.Sprintf("- **Test run** · brain_ref `%s`", orMain(r.BrainRef))
