@@ -244,7 +244,7 @@ type RunDetail struct {
 	Attachments   []RunFile      `json:"attachments"`
 	Error         string         `json:"error,omitempty"`
 	Metadata      map[string]any `json:"metadata,omitempty"`
-	// ReplayOfRunID is the chat run this run replays (rp ask --replay-chat-run); "" otherwise.
+	// ReplayOfRunID is the run this run replays (rp ask --replay-run, chat or email); "" otherwise.
 	ReplayOfRunID string `json:"replay_of_run_id,omitempty"`
 }
 
@@ -337,7 +337,10 @@ type SubmitRequest struct {
 	// a simulation; Prompt, when set, replaces that turn's message. Scenario/session/sender/subject,
 	// principal and attachments must stay empty (the server 400s).
 	ReplayChatRun string `json:"replay_chat_run,omitempty"`
-	Project       string `json:"-"`
+	// ReplayRun re-runs one stored run of any replayable kind (inbound email or chat turn) as a
+	// simulation; the server dispatches on the run's kind. An email replay takes no Prompt.
+	ReplayRun string `json:"replay_run,omitempty"`
+	Project   string `json:"-"`
 }
 
 // ScopePreview is the 200 body of a POST /api/v1/runs {dry_scope:true} request: the resolved principal
@@ -527,7 +530,7 @@ type RunHeader struct {
 	SessionID             string            `json:"session_id,omitempty"`
 	Topic                 string            `json:"topic,omitempty"`
 	Question              string            `json:"question,omitempty"`
-	// ReplayOfRunID is the chat run this run replays (rp ask --replay-chat-run); "" otherwise.
+	// ReplayOfRunID is the run this run replays (rp ask --replay-run, chat or email); "" otherwise.
 	ReplayOfRunID string `json:"replay_of_run_id,omitempty"`
 	// Inspiration is the gallery example a chat turn was sent from (id, title, category, the brain
 	// notes/skills the host rendered inside the user turn), raw so the shape stays the server's. Absent

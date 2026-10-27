@@ -39,6 +39,7 @@ type askFlags struct {
 	mailbox        string
 	dryScope       bool
 	replayChatRun  string
+	replayRun      string
 	credentialEnv  []string
 	timeout        time.Duration
 }
@@ -59,21 +60,30 @@ func newAskCmd(e *env) *cobra.Command {
 		Use:   "ask [question]",
 		Short: "Trigger a run from a question and wait for the answer",
 		Long: "Trigger a run from a question and wait for the answer (--no-wait returns the run id).\n\n" +
-			"--replay-chat-run <run id|run link> replays one stored in-app chat turn with its real chat framing, " +
-			"prior turns and principal as a test run (a simulation: no action executes, nothing is placed or " +
-			"committed); the original conversation is untouched. The question becomes optional: given, it replaces " +
-			"that turn's message. Combine with --brain-ref / --tenant-brain-ref / --mirror-ref to test a fix. Needs the developer grant " +
-			"that `rp run debug` needs on that run. Refuses --principal-*, --file, --scenario, --from, --subject " +
-			"and --session (the replay keeps the turn's own).",
+			"Which test run?\n" +
+			"  --replay-run <run id|run link>  rerun one REAL stored run (inbound email or in-app chat turn) exactly as it " +
+			"came in: same tenant, mailbox contract (notes on/off, persona), thread history, triage, principal and PII " +
+			"seed, so identity resolves as it did. A simulation: no action executes (auto actions become test proposals), " +
+			"nothing is placed, journaled or called back; the original run and thread are untouched. Grounding reads " +
+			"LIVE data, so state changed since (an appointment already cancelled) shows as changed. Prints the draft, " +
+			"notes and proposed actions, then a short diff against the original. The proof for a brain fix: " +
+			"rp ask --replay-run <run> --brain-ref dev/<branch>\n" +
+			"  --simulation                    a hand-written question (no stored run to replay); PII in it is prepared fresh.\n" +
+			"  rp run retry                    NOT a test: a real production rerun that places a draft and runs auto actions.\n\n" +
+			"A replay needs the grant `rp run debug` needs on that run, and the run's PII seed must still be within " +
+			"the project's vault TTL. A chat replay takes an optional question that replaces the turn's message; an " +
+			"email replay takes none. Combine with --brain-ref / --tenant-brain-ref / --mirror-ref / --effort. Refuses " +
+			"--principal-*, --file, --scenario, --from, --subject, --mailbox and --session (the replay keeps the run's " +
+			"own). --replay-chat-run is the older chat-only spelling.",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if strings.TrimSpace(f.replayChatRun) != "" {
+			if f.replaying() {
 				return cobra.MaximumNArgs(1)(cmd, args)
 			}
 			return cobra.ExactArgs(1)(cmd, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode := render.IsJSON(e.mode(), e.out)
-			if strings.TrimSpace(f.replayChatRun) != "" {
+			if f.replaying() {
 				return runAskReplay(e, cmd, &f, args, jsonMode)
 			}
 
@@ -218,26 +228,38 @@ func newAskCmd(e *env) *cobra.Command {
 	cmd.Flags().BoolVar(&f.noWait, "no-wait", false, "submit and print the run_id immediately, without waiting")
 	cmd.Flags().StringArrayVar(&f.credentialEnv, "credential-env", nil, "send the local env var NAME as run credential NAME (the value never touches argv); repeatable")
 	cmd.Flags().BoolVar(&f.dryScope, "dry-scope", false, "resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)")
-	cmd.Flags().StringVar(&f.replayChatRun, "replay-chat-run", "", "replay one stored in-app chat turn (run id or run link) as a side-effect-free test run; the question becomes an optional override")
+	cmd.Flags().StringVar(&f.replayRun, "replay-run", "", "rerun one stored email run or chat turn (run id or run link) as a side-effect-free test run on live data; see the help above")
+	cmd.Flags().StringVar(&f.replayChatRun, "replay-chat-run", "", "older chat-only spelling of --replay-run")
 	cmd.Flags().DurationVar(&f.timeout, "timeout", 5*time.Minute, "max time to wait for a terminal status")
 	return cmd
 }
 
-// askReplayConflicts are the flags a chat replay refuses: the turn's identity, framing and session are
+func (f *askFlags) replaying() bool {
+	return strings.TrimSpace(f.replayRun) != "" || strings.TrimSpace(f.replayChatRun) != ""
+}
+
+// askReplayConflicts are the flags a replay refuses: the turn's identity, framing and session are
 // the stored ones, so each would silently mean something else.
 var askReplayConflicts = []string{"mailbox", "principal-kind", "principal-id", "asserted-by", "assurance", "file", "attach", "scenario", "from", "subject", "session"}
 
 // runAskReplay is `rp ask --replay-chat-run`: replay a stored chat turn as a simulation, then wait and
 // print the chat answer like a raw ask. --simulation is implied (accepted, never needed).
 func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMode bool) error {
+	flag, value := "replay-run", f.replayRun
+	if strings.TrimSpace(f.replayChatRun) != "" {
+		if strings.TrimSpace(f.replayRun) != "" {
+			return fmt.Errorf("--replay-run and --replay-chat-run cannot be combined")
+		}
+		flag, value = "replay-chat-run", f.replayChatRun
+	}
 	for _, name := range askReplayConflicts {
 		if cmd.Flags().Changed(name) {
-			return fmt.Errorf("--%s cannot be combined with --replay-chat-run: the replay keeps the original turn's principal, framing and conversation", name)
+			return fmt.Errorf("--%s cannot be combined with --%s: the replay keeps the original run's principal, framing and conversation", name, flag)
 		}
 	}
-	target, err := parseRunTarget(f.replayChatRun, "")
+	target, err := parseRunTarget(value, "")
 	if err != nil {
-		return fmt.Errorf("--replay-chat-run: %w", err)
+		return fmt.Errorf("--%s: %w", flag, err)
 	}
 	effort, err := normalizeAskEffort(f.effort, cmd.Flags().Changed("effort"))
 	if err != nil {
@@ -259,9 +281,17 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 	if err != nil {
 		return err
 	}
+	// The original is read first: it resolves a short id, fails fast on a run the caller cannot see, and is
+	// the baseline of the comparison printed after the replay.
+	var orig *client.RunDetail
+	if !f.dryScope {
+		if orig, err = c.Run(e.ctx(), target.runID, e.scopeProject(), e.scopeTenant()); err != nil {
+			return err
+		}
+		target.runID = orig.RunID
+	}
 	req := client.SubmitRequest{
 		Prompt:          override,
-		ReplayChatRun:   target.runID,
 		Tenant:          e.scopeTenant(),
 		BrainRef:        f.brainRef,
 		TenantBrainRef:  f.tenantBrainRef,
@@ -270,6 +300,11 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 		ReasoningEffort: effort,
 		Credentials:     credentials,
 		Project:         e.scopeProject(),
+	}
+	if flag == "replay-chat-run" {
+		req.ReplayChatRun = target.runID
+	} else {
+		req.ReplayRun = target.runID
 	}
 	if f.dryScope {
 		preview, raw, err := c.DryScope(e.ctx(), req)
@@ -305,7 +340,13 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 		}
 		return e.renderJSONInline(raw)
 	}
-	render.AskRaw(e.out, detail)
+	if detail.Scenario == "email" {
+		full, _ := c.Full(e.ctx(), detail.RunID, e.scopeProject(), e.scopeTenant())
+		render.AskEmail(e.out, detail, full)
+	} else {
+		render.AskRaw(e.out, detail)
+	}
+	render.ReplayCompare(e.out, orig, detail)
 	return nil
 }
 

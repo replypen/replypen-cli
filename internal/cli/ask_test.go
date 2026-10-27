@@ -754,6 +754,10 @@ func TestAskReplayChatRun(t *testing.T) {
 			_, _ = w.Write([]byte(`{"run_id":"r1","status":"running","status_url":"/api/v1/runs/r1","poll_after_ms":1}`))
 			return
 		}
+		if strings.HasSuffix(r.URL.Path, "/"+orig) {
+			_, _ = w.Write([]byte(`{"run_id":"` + orig + `","status":"done","kind":"chat","scenario":"chat","answer_markdown":"You have 8 paid members.","attachments":[]}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{"run_id":"r1","status":"done","kind":"prompt","scenario":"chat","category":"answered","replay_of_run_id":"` + orig + `","answer_markdown":"You have 9 paid members.","attachments":[]}`))
 	}))
 	defer srv.Close()
@@ -784,6 +788,47 @@ func TestAskReplayChatRun(t *testing.T) {
 	}
 	if bodies[1]["prompt"] != "What if I ask it like this?" {
 		t.Errorf("override prompt = %v", bodies[1]["prompt"])
+	}
+}
+
+// TestAskReplayRunEmail: --replay-run resolves a short id through the original's detail, sends replay_run
+// (never a prompt), renders the email outcome and ends with a diff against the original draft and actions.
+func TestAskReplayRunEmail(t *testing.T) {
+	const orig = "33333333-3333-3333-3333-333333333333"
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost:
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode request: %v", err)
+			}
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write([]byte(`{"run_id":"r2","status":"running","status_url":"/api/v1/runs/r2","poll_after_ms":1}`))
+		case strings.HasSuffix(r.URL.Path, "/33333333"):
+			_, _ = w.Write([]byte(`{"run_id":"` + orig + `","status":"done","kind":"email","scenario":"email","run_url":"https://app.replypen.com/runs/` + orig + `","draft_markdown":"[[✏️ Click first]]\n\nDear patient,\nCancelled.","proposed_actions":[{"id":"a1","slug":"delete_appointment"}]}`))
+		case strings.HasSuffix(r.URL.Path, "/r2"):
+			_, _ = w.Write([]byte(`{"run_id":"r2","status":"done","kind":"prompt","scenario":"email","simulation":true,"replay_of_run_id":"` + orig + `","draft_markdown":"Dear patient,\nCancelled.","proposed_actions":[{"id":"a2","slug":"delete_appointment"}],"attachments":[]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	e, out, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, "ask", "--replay-run", "33333333", "--brain-ref", "dev/fix"); err != nil {
+		t.Fatalf("ask --replay-run: %v", err)
+	}
+	if body["replay_run"] != orig || body["simulation"] != true || body["brain_ref"] != "dev/fix" || body["replay_chat_run"] != nil || (body["prompt"] != nil && body["prompt"] != "") {
+		t.Errorf("replay body = %v", body)
+	}
+	s := out.String()
+	for _, want := range []string{"Draft:\nDear patient,", "Compared with the original run https://app.replypen.com/runs/" + orig, "- [[✏️ Click first]]", "Proposed actions: identical (delete_appointment)"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("output missing %q:\n%s", want, s)
+		}
+	}
+	if strings.Contains(s, "+ Dear patient,") {
+		t.Errorf("unchanged lines must not be printed as changed:\n%s", s)
 	}
 }
 

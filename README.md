@@ -765,6 +765,25 @@ show a customer how their configuration would answer. Attachments are refused on
 a thread on the tenant's live mailbox). The API echoes `simulation` on `GET /api/v1/runs/{id}` and on
 each run of `GET /api/v1/runs`, which also accepts `?simulation=true|false`.
 
+`rp ask --replay-run <run id|run link> --brain-ref dev/<branch>` is **the** way to prove a brain fix on
+the real failing case. It reruns one stored run, an **inbound email** or an in-app chat turn, exactly as
+it came in (same tenant, mailbox contract incl. notes on/off, thread history, triage, principal and the
+original PII seed, so identity resolves as it did), as a simulation: no action executes (auto actions
+become test proposals), nothing is placed, journaled or called back, the original run is untouched.
+Grounding reads **live** data, so state that changed since (an appointment already cancelled) shows as
+changed. Output: the draft, notes and proposed actions, then `Compared with the original run <link>`
+with a line diff of the draft and the proposed action slugs. An email replay takes no question. Pick:
+
+| need | command |
+|---|---|
+| rerun a real case on a dev brain, no side effects | `rp ask --replay-run <run> --brain-ref dev/x` |
+| a hand-written question, no stored run | `rp ask --simulation "…"` (its PII is prepared fresh) |
+| a real production rerun (places a draft, runs auto actions) | `rp run retry <run>` |
+
+Same grant as `rp run debug`; the PII seed must be within the project's vault TTL (else the run fails).
+Errors as for the chat replay below; 409 `NOT_REPLAYABLE` also covers a mailbox no longer in the run's scope.
+
+`--replay-chat-run` is the older chat-only spelling of the chat case:
 `rp ask --replay-chat-run <run id|run link> [question]` replays one stored **in-app chat turn** (a
 `kind=chat` run) with its real chat framing, prior turns, hidden context and verified principal, as a
 simulation; the original conversation is untouched (no transcript write, no hot container, no cards).
@@ -798,7 +817,7 @@ provider effort values; use it when you explicitly want a stronger retry. Omit i
 `rp ask --credential-env NAME` (repeatable) sends the local env var `NAME` as a run **credential** —
 an integrator-minted, user-scoped token the host seals for this run only and injects into the
 workspace as `NAME` (the Prompt API `credentials` member, same rules as the chat embed claim). The
-value is read from your environment, never argv. On `--simulation` / `--replay-chat-run` the host only
+value is read from your environment, never argv. On `--simulation` / `--replay-run` the host only
 accepts names the project lists in `behavior.simulation_credentials`.
 
 `rp ask --principal-kind <K> --principal-id <ID>` asserts a **principal** on the run — a structured
