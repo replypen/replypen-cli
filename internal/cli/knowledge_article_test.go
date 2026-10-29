@@ -56,3 +56,21 @@ func TestKnowledgeArticleGetWritesFile(t *testing.T) {
 		t.Errorf("written block missing the marker:\n%s", written)
 	}
 }
+
+// TestKnowledgeArticleGetWritesFileInJSONMode: agents run without a TTY (JSON output), and --out
+// must still land the block on disk instead of being ignored for the inline JSON.
+func TestKnowledgeArticleGetWritesFileInJSONMode(t *testing.T) {
+	srv := stubServer(t)
+	defer srv.Close()
+	e, out, _ := newTestEnv(t, srv, "json")
+	path := t.TempDir() + "/article.md"
+	if err := run(t, e, "project", "knowledge", "article", "get", "--provider", "helpscout", "--id", "19", "--out", path); err != nil {
+		t.Fatal(err)
+	}
+	if written, err := os.ReadFile(path); err != nil || !strings.Contains(string(written), "replypen: helpcenter/v1") {
+		t.Fatalf("block not written: %v\n%s", err, written)
+	}
+	if got := out.String(); !strings.Contains(got, `"wrote"`) || strings.Contains(got, "helpcenter/v1") {
+		t.Errorf("stdout = %q, want a wrote summary without the block", got)
+	}
+}

@@ -2092,7 +2092,8 @@ Apply a help-centre article block (`replypen: helpcenter/v1`) to its provider.
 
 Run it with --dry-run first: the output is the exact provider calls that would be sent, in full.
 A published article is refused unless you pass --publish; without it the change lands in the
-provider's draft lane and the live article stays untouched. --from - reads the block from stdin.
+provider's draft lane (Help Scout) and the live article stays untouched. Knowledge Owl and
+Intercom have no draft lane: there the dry run previews the --publish calls with a warning. --from - reads the block from stdin.
 A real write needs the `knowledge:write` token scope; --dry-run and `article get` work with read.
 
 Example block:

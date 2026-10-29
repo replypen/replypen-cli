@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -44,7 +45,8 @@ func knowledgeArticleApplyCmd(e *env) *cobra.Command {
 		Long: "Apply a help-centre article block (`replypen: helpcenter/v1`) to its provider.\n\n" +
 			"Run it with --dry-run first: the output is the exact provider calls that would be sent, in full.\n" +
 			"A published article is refused unless you pass --publish; without it the change lands in the\n" +
-			"provider's draft lane and the live article stays untouched. --from - reads the block from stdin.\n" +
+			"provider's draft lane (Help Scout) and the live article stays untouched. Knowledge Owl and\n" +
+			"Intercom have no draft lane: there the dry run previews the --publish calls with a warning. --from - reads the block from stdin.\n" +
 			"A real write needs the `knowledge:write` token scope; --dry-run and `article get` work with read.\n\n" +
 			"Example block:\n" +
 			"  ---\n" +
@@ -118,15 +120,21 @@ func knowledgeArticleGetCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if e.jsonOut() {
-				return e.renderJSONInline(raw)
-			}
+			// --out wins over the output format: agents run without a TTY (JSON by default) and
+			// still need the editable block on disk.
 			if out != "" {
-				if err := os.WriteFile(out, []byte(resp.Markdown), 0o644); err != nil {
+				if err := os.WriteFile(out, []byte(resp.Markdown), 0o600); err != nil {
 					return fmt.Errorf("write %s: %w", out, err)
+				}
+				if e.jsonOut() {
+					summary, _ := json.Marshal(map[string]string{"wrote": out, "id": resp.ID, "status": resp.Status, "url": resp.URL})
+					return e.renderJSONInline(summary)
 				}
 				_, _ = fmt.Fprintf(e.out, "wrote %s\n", out)
 				return nil
+			}
+			if e.jsonOut() {
+				return e.renderJSONInline(raw)
 			}
 			_, _ = io.WriteString(e.out, resp.Markdown)
 			return nil
