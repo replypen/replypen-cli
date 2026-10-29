@@ -100,6 +100,8 @@ func isolatedConfig(t *testing.T) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("REPLYPEN_BASE_URL", "")
+	t.Setenv("RP_ENV", "")
+	t.Setenv("RC_ENV", "")
 }
 
 // TestLoginDeviceStoresToken: `rp auth login --device` runs the device flow and persists the token under the
@@ -121,7 +123,7 @@ func TestLoginDeviceStoresToken(t *testing.T) {
 		t.Errorf("expected the poll loop to run at least twice, got %d", stub.polls.Load())
 	}
 
-	tok, ok, err := token.Load("default")
+	tok, ok, err := token.Load(config.StoreKey(stub.srv.URL, "default"))
 	if err != nil || !ok {
 		t.Fatalf("token not stored: ok=%v err=%v", ok, err)
 	}
@@ -358,7 +360,7 @@ func TestRefreshOn401(t *testing.T) {
 		t.Errorf("expected exactly one refresh, got %d", stub.refreshes.Load())
 	}
 	// The rotated refresh token is persisted for next time.
-	stored, _, _ := token.Load("default")
+	stored, _, _ := token.Load(config.StoreKey(stub.srv.URL, "default"))
 	if stored.RefreshToken != "rcor_rotated" || stored.AccessToken != "rcoa_refreshed" {
 		t.Errorf("rotated pair not persisted: %+v", stored)
 	}
@@ -371,13 +373,14 @@ func TestRefreshOn401(t *testing.T) {
 func TestRefreshConcurrentRotation(t *testing.T) {
 	isolatedConfig(t)
 
+	var srv *httptest.Server
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /oauth/token", func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		path, _ := token.Path()
-		sibling, _ := json.Marshal(map[string]any{"profiles": map[string]token.Token{"default": {
+		sibling, _ := json.Marshal(map[string]any{"profiles": map[string]token.Token{config.StoreKey(srv.URL, "default"): {
 			AccessToken: "rcoa_sibling", RefreshToken: "rcor_sibling",
-			ExpiresAt: time.Now().Add(time.Hour), BaseURL: "http://stub",
+			ExpiresAt: time.Now().Add(time.Hour), BaseURL: srv.URL,
 		}}})
 		if err := os.WriteFile(path, sibling, 0o600); err != nil {
 			t.Errorf("sibling write: %v", err)
@@ -385,7 +388,7 @@ func TestRefreshConcurrentRotation(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
 	})
-	srv := httptest.NewServer(mux)
+	srv = httptest.NewServer(mux)
 	defer srv.Close()
 
 	seedToken(t, "default", token.Token{
@@ -419,10 +422,10 @@ func TestRefreshDeadTokenPromptsReauth(t *testing.T) {
 	}
 }
 
-// seedToken writes a token into the (isolated) store for a profile.
+// seedToken writes a token into the (isolated) store for a profile on the token's own server.
 func seedToken(t *testing.T, profile string, tok token.Token) {
 	t.Helper()
-	if err := token.Save(profile, tok); err != nil {
+	if err := token.Save(config.StoreKey(tok.BaseURL, profile), tok); err != nil {
 		t.Fatalf("seed token: %v", err)
 	}
 }

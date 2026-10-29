@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/replypen/replypen-cli/internal/client"
-	"github.com/replypen/replypen-cli/internal/config"
 )
 
 // newKnowledgeBundleCmd checks a site-published KB article bundle against the host's own parser, so a
@@ -38,7 +37,7 @@ func knowledgeBundleCheckCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res, err := config.LoadFor(e.profile, e.project)
+			res, err := e.loadConfig()
 			if err != nil {
 				return err
 			}

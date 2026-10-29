@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/replypen/replypen-cli/internal/config"
 	"github.com/replypen/replypen-cli/internal/oauth"
 	"github.com/replypen/replypen-cli/internal/token"
 )
@@ -19,6 +20,7 @@ const refreshSkew = 60 * time.Second
 // next command starts fresh. All refresh policy lives here — the client stays oblivious to OAuth.
 type liveSource struct {
 	profile string
+	key     string // token-store key: profile namespaced by server (config.StoreKey)
 	baseURL string
 	oauth   *oauth.Client
 	mu      sync.Mutex // serializes this source's Token/Refresh calls
@@ -27,19 +29,22 @@ type liveSource struct {
 
 // newLiveSource builds the token source for a profile against the issuer at baseURL.
 func newLiveSource(profile, baseURL string) *liveSource {
-	return &liveSource{profile: profile, baseURL: baseURL, oauth: oauth.NewClient(baseURL)}
+	return &liveSource{profile: profile, key: config.StoreKey(baseURL, profile), baseURL: baseURL, oauth: oauth.NewClient(baseURL)}
 }
 
 // Token returns a valid access token, refreshing pre-emptively when it's within refreshSkew of expiry.
 func (s *liveSource) Token(ctx context.Context) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t, ok, err := token.Load(s.profile)
+	t, ok, err := token.Load(s.key)
 	if err != nil {
 		return "", err
 	}
 	if !ok {
-		return "", reauthError(s.profile)
+		return "", s.reauthError()
+	}
+	if err := s.checkIssuer(t); err != nil {
+		return "", err
 	}
 	if !t.Expired(time.Now(), refreshSkew) {
 		s.last = t.AccessToken
@@ -65,9 +70,12 @@ func (s *liveSource) Refresh(ctx context.Context) (string, error) {
 // force (a 401 retry) skips the refresh only when the stored token differs from the rejected one.
 func (s *liveSource) refresh(ctx context.Context, force bool) (string, error) {
 	var out, presented string
-	err := token.Update(s.profile, func(cur token.Token, ok bool) (token.Token, bool, error) {
+	err := token.Update(s.key, func(cur token.Token, ok bool) (token.Token, bool, error) {
 		if !ok {
-			return cur, false, reauthError(s.profile)
+			return cur, false, s.reauthError()
+		}
+		if err := s.checkIssuer(cur); err != nil {
+			return cur, false, err
 		}
 		renewed := !force || (s.last != "" && cur.AccessToken != s.last)
 		if renewed && !cur.Expired(time.Now(), refreshSkew) {
@@ -75,7 +83,7 @@ func (s *liveSource) refresh(ctx context.Context, force bool) (string, error) {
 			return cur, false, nil
 		}
 		if cur.RefreshToken == "" {
-			return cur, false, reauthError(s.profile)
+			return cur, false, s.reauthError()
 		}
 		presented = cur.RefreshToken
 		res, err := s.oauth.Refresh(ctx, cur.RefreshToken)
@@ -104,15 +112,26 @@ func (s *liveSource) refresh(ctx context.Context, force bool) (string, error) {
 	}
 	// invalid_grant: re-read once before declaring the session dead — a sibling outside our lock (an older
 	// rp) may have rotated the refresh token we presented.
-	if fresh, ok, lerr := token.Load(s.profile); lerr == nil && ok &&
+	if fresh, ok, lerr := token.Load(s.key); lerr == nil && ok && sameServer(fresh.BaseURL, s.baseURL) &&
 		fresh.RefreshToken != presented && !fresh.Expired(time.Now(), refreshSkew) {
 		s.last = fresh.AccessToken
 		return fresh.AccessToken, nil
 	}
-	return "", reauthError(s.profile)
+	return "", s.reauthError()
+}
+
+// checkIssuer refuses a stored token minted by another server: neither its access token nor its refresh
+// token may ever be presented here (e.g. a prod "default" entry overwritten by a staging login before
+// the store was namespaced).
+func (s *liveSource) checkIssuer(t token.Token) error {
+	if sameServer(t.BaseURL, s.baseURL) {
+		return nil
+	}
+	return authenticationError(fmt.Sprintf("profile %q holds a token from %s, not %s — run `%s`",
+		s.profile, t.BaseURL, s.baseURL, loginCommand(s.baseURL)))
 }
 
 // reauthError is the shared "session can't be refreshed — log in again" error.
-func reauthError(profile string) error {
-	return authenticationError(fmt.Sprintf("session expired (profile %q) — run `rp auth login`", profile))
+func (s *liveSource) reauthError() error {
+	return authenticationError(fmt.Sprintf("session expired (profile %q%s) — run `%s`", s.profile, onServer(s.baseURL), loginCommand(s.baseURL)))
 }

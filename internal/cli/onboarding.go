@@ -26,11 +26,13 @@ func newDevOnboardingCmd(e *env) *cobra.Command {
 		Args:    cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if devURL == "" {
-				envURL, _, err := config.EnvBaseURL()
+				envURL, _, env, err := config.ResolveBaseURL(e.envName)
 				if err != nil {
 					return err
 				}
-				devURL = envURL
+				if env == config.EnvCustom {
+					devURL = envURL
+				}
 			}
 			if devURL == "" {
 				return fmt.Errorf("no dev url: pass --url http://localhost:<port> (make dev prints it) or set REPLYPEN_BASE_URL")

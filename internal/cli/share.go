@@ -150,7 +150,7 @@ func (e *env) newShareClient(t shareTarget) *client.Client {
 		base = e.baseURLOvr
 	}
 	if base == "" {
-		if res, err := config.Load(e.profile); err == nil && res.BaseURL != "" {
+		if res, err := e.loadConfig(); err == nil && res.BaseURL != "" {
 			base = res.BaseURL
 		} else {
 			base = config.DefaultBaseURL

@@ -279,8 +279,8 @@ human OAuth login / `default` fallback — no manual token-store cleanup needed.
 `default` token.
 
 For safety, a marker-sourced machine token is accepted only against built-in production
-(`https://app.replypen.com`); use a separate `rp auth login` profile for staging/custom
-`REPLYPEN_BASE_URL` targets.
+(`https://app.replypen.com`); on staging/custom targets sign in with `rp --env staging auth login`
+(or `REPLYPEN_BASE_URL=… rp auth login`), which stores a separate per-server token.
 
 Mint one token per project and add only the scopes the workflow needs:
 
@@ -366,15 +366,19 @@ Tenant-brain repository access also stays server-side: from a tenant brain check
 repository invitation, and human output prints its acceptance URL; `-o json` returns the raw receipt.
 Outside a checkout, select the exact repository with `--project <project> --tenant <slug>`.
 
-**Base URL** is deliberately boring: production is hardcoded to `https://app.replypen.com`. The only
-runtime override is `REPLYPEN_BASE_URL`, for deliberate staging/dev work. `rp auth login` uses the same
-resolution, and `rp auth status` prints both the URL and its source (`built-in production` or
-`REPLYPEN_BASE_URL`). Old `base_url` values in `~/.config/replypen/config.toml`, `.replypen.toml`,
+**Base URL** is deliberately boring: production is hardcoded to `https://app.replypen.com`. ReplyPen
+operators reach the staging twin with `--env staging` (or `export RP_ENV=staging`; `RC_ENV`, the operator
+scripts' variable, also counts); any other host uses `REPLYPEN_BASE_URL`. Selectors that disagree are an
+error. Every non-prod command prints one `env: …` line on stderr. Tokens are stored per server, so a staging
+login never replaces your production one: `rp --env staging auth login` once, then e.g.
+`rp --env staging auth status` / `rp --env staging status`. `rp auth status` prints the env, the URL and its source. Old `base_url` values in `~/.config/replypen/config.toml`, `.replypen.toml`,
 or the token store do not steer normal commands. The legacy production host
 `https://rootcause.probackup.io` is treated as an alias when an explicit env/token URL is canonicalized.
 
 ```bash
-export REPLYPEN_BASE_URL=https://staging.your-replypen-host
+rp --env staging auth login          # once; Google sign-in on staging.replypen.com
+RP_ENV=staging rp auth status        # same thing via the variable
+export REPLYPEN_BASE_URL=http://localhost:24729   # a local `make dev` box
 ```
 
 **Profiles** are the token-store keys. The profile is resolved as: explicit `--profile <name>` >

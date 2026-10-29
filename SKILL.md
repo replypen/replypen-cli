@@ -237,10 +237,20 @@ input here; it is a server-side scope threaded on by the command layer.
 - otherwise → `default` — and if that has no token, `notLoggedIn` says so and lists the stored profiles,
   because outside a brain the profile was chosen silently.
 
-Base URL is exactly `REPLYPEN_BASE_URL` (legacy `ROOTCAUSE_BASE_URL` accepted; both set and different is an
-error) > built-in production. Rationale: one env var is the only
-staging/dev escape hatch, so a stale persisted `base_url` in a marker or token record can never silently
-redirect traffic. `.replypen/local.toml` (else legacy `.rootcause/local.toml`) overlays `tenant` only. Every
+Base URL (the **server**; the profile then picks the identity on it, `ResolveBaseURL`): hidden operator flag
+`--env prod|staging` > `RP_ENV` > `RC_ENV` (the replypen operator scripts' variable, so one `export` moves
+both) > `REPLYPEN_BASE_URL` (legacy `ROOTCAUSE_BASE_URL`; custom/local hosts) > built-in production.
+Two selectors that disagree are an error, never a pick. Rationale: no persisted "current env" (the kubectl
+footgun) and no stale `base_url` in a marker or token record can silently redirect traffic; a non-prod
+target prints one `env: …` stderr line (`noteEnv`), so no line means prod.
+
+**Tokens are per server** ([`envsel.go`](internal/cli/envsel.go)): the store key is `config.StoreKey(base,
+profile)`, bare for prod (existing entries and older binaries unchanged), `<host[:port]>/<profile>` elsewhere
+(`staging.replypen.com/default`). `liveSource` refuses a token whose recorded issuer is another server
+(`checkIssuer`) before any request, so a token can never be sent to, or refreshed at, a server it was not
+minted by. A pre-namespace bare entry minted elsewhere (an old `local` profile) is never adopted: log in
+there again (a race-free move was not worth its locking). The env table twin for operator scripts is the host repo's
+`.agents/skills/support/scripts/boxes.py`; keep the two URLs in sync. `.replypen/local.toml` (else legacy `.rootcause/local.toml`) overlays `tenant` only. Every
 local artifact write goes under `.replypen/` and seeds its `*` .gitignore ([`internal/localstate`](internal/localstate/localstate.go)):
 brains only gitignore the legacy `/.rootcause/`.
 

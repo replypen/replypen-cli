@@ -31,14 +31,19 @@
 //	                              marker's primary project (commands may fall back to default if absent)
 //	otherwise:                    "default"
 //
-// Precedence for the base URL:
+// Precedence for the base URL (the SERVER; the profile then picks the identity on it):
 //
-//	REPLYPEN_BASE_URL (or legacy ROOTCAUSE_BASE_URL) > built-in production default
+//	--env prod|staging > RP_ENV > legacy RC_ENV (operator scripts' name) > REPLYPEN_BASE_URL (or legacy
+//	ROOTCAUSE_BASE_URL; a custom/local host) > built-in production. A named env plus a URL that points
+//	elsewhere is an error, never a silent pick.
+//
+// Tokens are stored per server (StoreKey), so a staging login can never overwrite or be sent as a prod one.
 package config
 
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,6 +55,12 @@ const (
 	// DefaultBaseURL is the built-in production API/app host.
 	DefaultBaseURL = "https://app.replypen.com"
 	LegacyBaseURL  = "https://rootcause.probackup.io"
+	StagingBaseURL = "https://staging.replypen.com"
+
+	// EnvProd / EnvStaging name the two hosted environments; EnvCustom is any other REPLYPEN_BASE_URL.
+	EnvProd    = "prod"
+	EnvStaging = "staging"
+	EnvCustom  = "custom"
 
 	// MarkerFileName is the committed, non-secret per-brain marker binding the checkout to a project.
 	// It is KEPT under OAuth — it carries project/tenant context and may name a machine-token env var,
@@ -71,6 +82,8 @@ const (
 
 	envBaseURL       = "REPLYPEN_BASE_URL"
 	legacyEnvBaseURL = "ROOTCAUSE_BASE_URL"
+	envName          = "RP_ENV"
+	legacyEnvName    = "RC_ENV"
 
 	// BindingPrimary / BindingAlso name which marker binding an invocation resolved to (Resolved.BindingKind).
 	BindingPrimary = "primary"
@@ -90,6 +103,7 @@ type Resolved struct {
 	BindingKind   string
 	BaseURL       string
 	BaseURLSource string
+	Env           string // EnvProd, EnvStaging or EnvCustom
 	Project       string
 	Tenant        string
 	TenantSource  string
@@ -139,22 +153,27 @@ func Load(profileName string) (Resolved, error) {
 // marker's own [[also]] bindings. Anything else (a project the marker does not bind, an explicit
 // --profile, no brain) resolves exactly as Load does — the selector stays a server-side scope.
 func LoadFor(profileName, project string) (Resolved, error) {
+	return LoadIn("", profileName, project)
+}
+
+// LoadIn is LoadFor on an explicitly selected environment (the --env flag; "" = RP_ENV/RC_ENV/URL/prod).
+func LoadIn(env, profileName, project string) (Resolved, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "" // a missing cwd only disables brain auto-discovery
 	}
-	return loadFor(profileName, project, cwd)
+	return loadFor(env, profileName, project, cwd)
 }
 
 // load is Load with cwd injected, so the resolution matrix is unit-testable without chdir.
-func load(profileName, cwd string) (Resolved, error) { return loadFor(profileName, "", cwd) }
+func load(profileName, cwd string) (Resolved, error) { return loadFor("", profileName, "", cwd) }
 
-func loadFor(profileName, project, cwd string) (Resolved, error) {
+func loadFor(env, profileName, project, cwd string) (Resolved, error) {
 	// Explicit --profile <name>: a pure override, no brain binding (the documented escape hatch). The
 	// token store is the source of auth; config.toml base_url profiles are intentionally ignored.
 	if profileName != "" {
 		res := Resolved{Profile: profileName}
-		return res, applyBaseURL(&res)
+		return res, applyBaseURL(&res, env)
 	}
 
 	// Auto mode: are we inside a brain?
@@ -165,7 +184,7 @@ func loadFor(profileName, project, cwd string) (Resolved, error) {
 	if brain == nil {
 		// Outside any brain: the default token profile.
 		res := Resolved{Profile: DefaultProfile}
-		return res, applyBaseURL(&res)
+		return res, applyBaseURL(&res, env)
 	}
 
 	// A secondary binding is a full, independent identity: its own profile, its own machine-token env var
@@ -183,7 +202,7 @@ func loadFor(profileName, project, cwd string) (Resolved, error) {
 			Project:     bind.Project,
 			Brain:       &bound,
 		}
-		return res, applyBaseURL(&res)
+		return res, applyBaseURL(&res, env)
 	}
 
 	// Inside a brain: first name the project profile. Transport still stays env > production.
@@ -199,22 +218,92 @@ func loadFor(profileName, project, cwd string) (Resolved, error) {
 		TenantSource: tenantSource,
 		Brain:        brain,
 	}
-	return res, applyBaseURL(&res)
+	return res, applyBaseURL(&res, env)
 }
 
-func applyBaseURL(res *Resolved) error {
-	v, source, err := EnvBaseURL()
+func applyBaseURL(res *Resolved, flagEnv string) error {
+	base, source, env, err := ResolveBaseURL(flagEnv)
 	if err != nil {
 		return err
 	}
-	if v != "" {
-		res.BaseURL = CanonicalBaseURL(v)
-		res.BaseURLSource = source
-		return nil
-	}
-	res.BaseURL = DefaultBaseURL
-	res.BaseURLSource = "built-in production"
+	res.BaseURL, res.BaseURLSource, res.Env = base, source, env
 	return nil
+}
+
+// ResolveBaseURL applies the base-URL precedence (package doc) for an optional --env value.
+func ResolveBaseURL(flagEnv string) (base, source, env string, err error) {
+	name, nameSource, err := selectedEnv(flagEnv)
+	if err != nil {
+		return "", "", "", err
+	}
+	u, urlSource, err := EnvBaseURL()
+	if err != nil {
+		return "", "", "", err
+	}
+	if name != "" {
+		want, ok := EnvBaseURLs()[name]
+		if !ok {
+			return "", "", "", fmt.Errorf("%s %q is not an environment; use %s or %s", nameSource, name, EnvProd, EnvStaging)
+		}
+		if u != "" && CanonicalBaseURL(u) != want {
+			return "", "", "", fmt.Errorf("%s=%s targets %s but %s=%q points elsewhere; unset one", nameSource, name, want, urlSource, u)
+		}
+		return want, nameSource, name, nil
+	}
+	if u != "" {
+		u = CanonicalBaseURL(u)
+		return u, urlSource, EnvOf(u), nil
+	}
+	return DefaultBaseURL, "built-in production", EnvProd, nil
+}
+
+// EnvBaseURLs is the hosted environment table. The operator scripts' twin is the replypen repo's
+// .agents/skills/support/scripts/boxes.py (this binary ships to customers, so it cannot read that).
+func EnvBaseURLs() map[string]string {
+	return map[string]string{EnvProd: DefaultBaseURL, EnvStaging: StagingBaseURL}
+}
+
+// EnvOf names the environment a canonical base URL belongs to (EnvCustom for local/other hosts).
+func EnvOf(base string) string {
+	for name, u := range EnvBaseURLs() {
+		if strings.TrimRight(base, "/") == u {
+			return name
+		}
+	}
+	return EnvCustom
+}
+
+// selectedEnv is --env, else RP_ENV, else RC_ENV (the operator scripts' variable). The two variables
+// disagreeing is refused: one shell would otherwise reach different boxes from rp and from the scripts.
+func selectedEnv(flagEnv string) (name, source string, err error) {
+	if flagEnv != "" {
+		return flagEnv, "--env", nil
+	}
+	cur, legacy := os.Getenv(envName), os.Getenv(legacyEnvName)
+	switch {
+	case cur != "" && legacy != "" && cur != legacy:
+		return "", "", fmt.Errorf("%s=%q and %s=%q disagree; unset one", envName, cur, legacyEnvName, legacy)
+	case cur != "":
+		return cur, envName, nil
+	case legacy != "":
+		return legacy, legacyEnvName, nil
+	}
+	return "", "", nil
+}
+
+// StoreKey is the token-store key for profile on the server at base. Production keeps the bare
+// profile name (every existing entry stays valid, older binaries keep working); any other server is
+// namespaced by host[:port], e.g. "staging.replypen.com/default", so identities never cross servers.
+func StoreKey(base, profile string) string {
+	base = CanonicalBaseURL(strings.TrimRight(base, "/"))
+	if base == "" || base == DefaultBaseURL {
+		return profile
+	}
+	host := base
+	if u, err := url.Parse(base); err == nil && u.Host != "" {
+		host = u.Host
+	}
+	return host + "/" + profile
 }
 
 // EnvBaseURL returns the explicitly configured base URL and the variable it came from ("" when
@@ -236,6 +325,7 @@ func EnvBaseURL() (value, source string, err error) {
 // CanonicalBaseURL maps the legacy production hostname onto the customer-facing ReplyPen app host.
 // Custom/staging hosts pass through unchanged.
 func CanonicalBaseURL(u string) string {
+	u = strings.TrimRight(u, "/")
 	if u == LegacyBaseURL {
 		return DefaultBaseURL
 	}

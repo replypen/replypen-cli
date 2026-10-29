@@ -29,6 +29,7 @@ import (
 // Tests inject baseURL/output/token and capture out/err here instead of relying on TTY detection or a
 // real token store.
 type env struct {
+	envName    string // --env: prod|staging; "" = RP_ENV / RC_ENV / REPLYPEN_BASE_URL / prod (config.ResolveBaseURL)
 	profile    string // --profile: an explicit token-store profile (AWS-style override)
 	project    string // --project: server-side project scope; it never selects a token profile
 	tenant     string // --tenant: explicit tenant override where an endpoint accepts it
@@ -66,6 +67,7 @@ type env struct {
 	loginTenant string
 	scopeHeader bool
 	requestCtx  context.Context
+	envNoted    bool
 }
 
 // Execute is the binary entrypoint. It returns the process exit code so main stays trivial; any
@@ -134,6 +136,9 @@ func newRootCmd(e *env, version string) *cobra.Command {
 	root.PersistentFlags().StringVar(&e.project, "project", e.project, "scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])")
 	root.PersistentFlags().StringVar(&e.tenant, "tenant", e.tenant, "override the login tenant where supported (default: RC_TENANT)")
 	root.PersistentFlags().StringVar(&e.scope, "scope", "", "force request routing: project|tenant. \"project\" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; \"tenant\" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.")
+	// Operator-only (customers only ever reach prod), so hidden from help; documented in SKILL.md.
+	root.PersistentFlags().StringVar(&e.envName, "env", "", "server environment: prod|staging (default: RP_ENV, else RC_ENV, else REPLYPEN_BASE_URL, else prod)")
+	_ = root.PersistentFlags().MarkHidden("env")
 	root.PersistentFlags().StringVarP(&e.output, "output", "o", "", "output format: json|table (default: auto-detect)")
 	root.PersistentFlags().StringVar(&e.outDir, "out-dir", "", "directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)")
 	root.PersistentFlags().BoolVar(&e.noPreview, "no-preview", false, "write large output artifacts but omit head/tail previews")
@@ -195,7 +200,7 @@ func (e *env) mode() render.Mode {
 // it — machine-token check, tenant→project resolution, scope header, project validation, selector
 // enforcement — runs identically in tests and production. Tests replace the credential, never the order.
 func (e *env) newClient() (*client.Client, error) {
-	res, err := config.LoadFor(e.profile, e.project)
+	res, err := e.loadConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +214,7 @@ func (e *env) newClient() (*client.Client, error) {
 		e.resolved = res
 	}
 
+	e.noteEnv(res, baseURL)
 	newSource := e.tokenSource
 	if newSource == nil {
 		newSource = e.storedTokenSource
@@ -259,7 +265,7 @@ func (e *env) storedTokenSource(res *config.Resolved, baseURL string) (client.To
 		return nil, err
 	}
 	if !ok && e.profile == "" && res.Brain != nil {
-		if _, fallbackOK, ferr := token.Load(config.DefaultProfile); ferr != nil {
+		if _, fallbackOK, ferr := loadStored(config.DefaultProfile, baseURL); ferr != nil {
 			return nil, ferr
 		} else if fallbackOK {
 			res.Profile = config.DefaultProfile
@@ -268,7 +274,7 @@ func (e *env) storedTokenSource(res *config.Resolved, baseURL string) (client.To
 		}
 	}
 	if !ok {
-		return nil, notLoggedIn(*res, e.profile)
+		return nil, notLoggedIn(*res, e.profile, baseURL)
 	}
 	return newLiveSource(res.Profile, baseURL), nil
 }
@@ -349,31 +355,37 @@ func (e *env) resolvePinnedProject(c *client.Client) error {
 // Outside a brain with no --profile/RC_PROFILE the profile was silently defaulted, so say that out
 // loud and list what could be picked instead — a caller run from an arbitrary customer repo has no
 // other way to learn that a profile is even the missing ingredient.
-func notLoggedIn(res config.Resolved, explicitProfile string) error {
+func notLoggedIn(res config.Resolved, explicitProfile, base string) error {
+	login := loginCommand(base)
 	if res.Brain != nil {
-		return authenticationError(fmt.Sprintf("this brain is project %q but you're not logged in for it\n"+
-			"  fix: run `rp auth login` from here (use --device on a headless box)", res.Brain.Project))
+		return authenticationError(fmt.Sprintf("this brain is project %q but you're not logged in for it%s\n"+
+			"  fix: run `%s` from here (use --device on a headless box)", res.Brain.Project, onServer(base), login))
 	}
 	if explicitProfile == "" {
 		return authenticationError(fmt.Sprintf("no .replypen.toml (or legacy .rootcause.toml) here and no --profile given — "+
-			"pass --profile <name> or cd into the brain checkout (%s)", knownProfilesHint()))
+			"pass --profile <name> or cd into the brain checkout (%s)", knownProfilesHint(base)))
 	}
-	return authenticationError(fmt.Sprintf("not logged in (profile %q) — run `rp auth login`", res.Profile))
+	return authenticationError(fmt.Sprintf("not logged in (profile %q%s) — run `%s`", res.Profile, onServer(base), login))
 }
 
-// knownProfilesHint names the logged-in profiles so the fix is copy-pasteable. A store read error is
-// swallowed: this is a hint inside another error, never the reason a command fails.
-func knownProfilesHint() string {
+// knownProfilesHint names the profiles logged in on base's server so the fix is copy-pasteable. A store
+// read error is swallowed: this is a hint inside another error, never the reason a command fails.
+func knownProfilesHint(base string) string {
 	profiles, err := token.List()
-	if err != nil || len(profiles) == 0 {
-		return "no profiles logged in yet — run `rp auth login`"
-	}
 	names := make([]string, 0, len(profiles))
-	for name := range profiles {
+	prefix := strings.TrimSuffix(config.StoreKey(base, "x"), "x")
+	for key := range profiles {
+		name, ok := strings.CutPrefix(key, prefix)
+		if !ok || (prefix == "" && strings.Contains(key, "/")) {
+			continue
+		}
 		names = append(names, name)
 	}
+	if err != nil || len(names) == 0 {
+		return "no profiles logged in yet" + onServer(base) + " — run `" + loginCommand(base) + "`"
+	}
 	sort.Strings(names)
-	return "known profiles: " + strings.Join(names, ", ")
+	return "known profiles" + onServer(base) + ": " + strings.Join(names, ", ")
 }
 
 // tenantOr returns the explicit --tenant flag when set, else any local tenant override captured by

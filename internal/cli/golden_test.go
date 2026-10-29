@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/replypen/replypen-cli/internal/client"
+	"github.com/replypen/replypen-cli/internal/config"
 	"github.com/replypen/replypen-cli/internal/token"
 )
 
@@ -591,7 +592,7 @@ func TestNoProfileOutsideBrainHint(t *testing.T) {
 
 	t.Run("empty store", func(t *testing.T) {
 		err := run(t, newEnv(t), "status")
-		want := "no .replypen.toml (or legacy .rootcause.toml) here and no --profile given — pass --profile <name> or cd into the brain checkout (no profiles logged in yet — run `rp auth login`)"
+		want := "no .replypen.toml (or legacy .rootcause.toml) here and no --profile given — pass --profile <name> or cd into the brain checkout (no profiles logged in yet on " + srv.URL + " — run `REPLYPEN_BASE_URL=" + srv.URL + " rp auth login`)"
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("got %v\nwant substring %q", err, want)
 		}
@@ -600,12 +601,12 @@ func TestNoProfileOutsideBrainHint(t *testing.T) {
 	t.Run("known profiles listed", func(t *testing.T) {
 		e := newEnv(t)
 		for _, name := range []string{"momentum", "dentai"} {
-			if err := token.Save(name, token.Token{AccessToken: "x", BaseURL: srv.URL}); err != nil {
+			if err := token.Save(config.StoreKey(srv.URL, name), token.Token{AccessToken: "x", BaseURL: srv.URL}); err != nil {
 				t.Fatal(err)
 			}
 		}
 		err := run(t, e, "status")
-		if err == nil || !strings.Contains(err.Error(), "known profiles: dentai, momentum") {
+		if err == nil || !strings.Contains(err.Error(), "known profiles on "+srv.URL+": dentai, momentum") {
 			t.Fatalf("expected the sorted profile list, got %v", err)
 		}
 	})
@@ -614,7 +615,7 @@ func TestNoProfileOutsideBrainHint(t *testing.T) {
 		e := newEnv(t)
 		t.Setenv("RC_PROFILE", "momentum")
 		err := run(t, e, "status")
-		if err == nil || !strings.Contains(err.Error(), `not logged in (profile "momentum")`) {
+		if err == nil || !strings.Contains(err.Error(), `not logged in (profile "momentum" on `+srv.URL+`)`) {
 			t.Fatalf("expected RC_PROFILE to select the profile, got %v", err)
 		}
 	})

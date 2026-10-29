@@ -40,6 +40,8 @@ func clearEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv(envBaseURL, "")
 	t.Setenv(legacyEnvBaseURL, "")
+	t.Setenv(envName, "")
+	t.Setenv(legacyEnvName, "")
 }
 
 func TestLoad_NoBrain_IgnoresConfigBaseURL(t *testing.T) {
@@ -323,7 +325,7 @@ func TestLoadFor_SecondaryBindingSelectedByProject(t *testing.T) {
 	writeConfig(t, "")
 	dir := brainDirWith(t, multiBindingMarker)
 
-	res, err := loadFor("", "acme-support", dir)
+	res, err := loadFor("", "", "acme-support", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +353,7 @@ func TestLoadFor_DefaultAndUnboundProjectKeepPrimaryBinding(t *testing.T) {
 	dir := brainDirWith(t, multiBindingMarker)
 
 	for _, project := range []string{"", "acme-staff", "other-project"} {
-		res, err := loadFor("", project, dir)
+		res, err := loadFor("", "", project, dir)
 		if err != nil {
 			t.Fatalf("project %q: %v", project, err)
 		}
@@ -369,7 +371,7 @@ func TestLoadFor_ExplicitProfileWinsOverSecondaryBinding(t *testing.T) {
 	writeConfig(t, "")
 	dir := brainDirWith(t, multiBindingMarker)
 
-	res, err := loadFor("scratch", "acme-support", dir)
+	res, err := loadFor("", "scratch", "acme-support", dir)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -55,6 +55,7 @@ type doctorScope struct {
 	TenantSource  string `json:"tenant_source,omitempty"`
 	BaseURL       string `json:"base_url"`
 	BaseURLSource string `json:"base_url_source"`
+	Env           string `json:"env"`
 	LoginNote     string `json:"login_scope_note,omitempty"`
 }
 
@@ -137,7 +138,7 @@ func collectDoctorReport(e *env, version string) (doctorReport, error) {
 	doctorScope := doctorScope{
 		Profile: scope.Profile, Project: scope.Project, ProjectSource: scope.ProjectSource,
 		Tenant: scope.Tenant, TenantSource: scope.TenantSource,
-		BaseURL: scope.BaseURL, BaseURLSource: scope.BaseURLSource,
+		BaseURL: scope.BaseURL, BaseURLSource: scope.BaseURLSource, Env: scope.Env,
 	}
 	if scope.LoginScopeError != "" {
 		doctorScope.LoginNote = "login scope unavailable: " + scope.LoginScopeError

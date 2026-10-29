@@ -31,6 +31,7 @@ type scopeResolution struct {
 	TenantSource  string
 	BaseURL       string
 	BaseURLSource string
+	Env           string
 	BrainDir      string
 	// BindingKind/BindingEnv disclose WHICH marker binding supplied the profile: "primary" or "also"
 	// (a [[also]] binding matched --project/RC_PROJECT), plus its machine_token_env name when declared.
@@ -67,7 +68,7 @@ func newLoginCmd(e *env) *cobra.Command {
 			"all-projects, if you're an admin) on the browser consent screen.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			res, err := config.LoadFor(e.profile, e.project)
+			res, err := e.loadConfig()
 			if err != nil {
 				return err
 			}
@@ -77,6 +78,7 @@ func newLoginCmd(e *env) *cobra.Command {
 				res.BaseURLSource = "test override"
 			}
 
+			e.noteEnv(res, base)
 			oc := oauth.NewClient(base)
 			oc.PollWait = devicePollWait
 			ctx, cancel := context.WithTimeout(e.ctx(), loginTimeout)
@@ -98,7 +100,7 @@ func newLoginCmd(e *env) *cobra.Command {
 				ExpiresAt:    time.Now().Add(time.Duration(toks.ExpiresIn) * time.Second),
 				BaseURL:      base,
 			}
-			if err := token.Save(res.Profile, t); err != nil {
+			if err := token.Save(config.StoreKey(base, res.Profile), t); err != nil {
 				return err
 			}
 
@@ -106,7 +108,7 @@ func newLoginCmd(e *env) *cobra.Command {
 			if res.Brain != nil {
 				target = res.Brain.Project + " (brain " + res.Brain.Dir + ")"
 			}
-			_, _ = fmt.Fprintf(e.out, "logged in — token stored for profile %q\n", res.Profile)
+			_, _ = fmt.Fprintf(e.out, "logged in — token stored for profile %q%s\n", res.Profile, onServer(base))
 			_, _ = fmt.Fprintf(e.err, "target: %s · %s\n", target, base)
 			return nil
 		},
@@ -123,16 +125,21 @@ func newLogoutCmd(e *env) *cobra.Command {
 		Short: "Revoke and clear this profile's stored tokens",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			res, err := config.LoadFor(e.profile, e.project)
+			res, err := e.loadConfig()
 			if err != nil {
 				return err
 			}
-			t, ok, err := token.Load(res.Profile)
+			server := res.BaseURL
+			if e.baseURLOvr != "" {
+				server = e.baseURLOvr
+			}
+			e.noteEnv(res, server)
+			t, ok, err := loadStored(res.Profile, server)
 			if err != nil {
 				return err
 			}
 			if !ok {
-				_, _ = fmt.Fprintf(e.out, "already logged out (profile %q)\n", res.Profile)
+				_, _ = fmt.Fprintf(e.out, "already logged out (profile %q%s)\n", res.Profile, onServer(server))
 				return nil
 			}
 			// Best-effort revocation: a network failure here must not block clearing the local store (the
@@ -157,10 +164,10 @@ func newLogoutCmd(e *env) *cobra.Command {
 			if t.AccessToken != "" {
 				_ = oc.Revoke(ctx, t.AccessToken)
 			}
-			if err := token.Delete(res.Profile); err != nil {
+			if err := token.Delete(config.StoreKey(server, res.Profile)); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(e.out, "logged out (profile %q)\n", res.Profile)
+			_, _ = fmt.Fprintf(e.out, "logged out (profile %q%s)\n", res.Profile, onServer(server))
 			return nil
 		},
 	}
@@ -182,7 +189,7 @@ func newAuthStatusCmd(e *env) *cobra.Command {
 			}
 			res, t, loggedIn := scope.resolved, scope.token, scope.loggedIn
 			base, autoProject := scope.BaseURL, scope.autoProject
-			status, expiry := "not logged in — run `rp auth login`", ""
+			status, expiry := "not logged in — run `"+loginCommand(base)+"`", ""
 			if loggedIn {
 				status = "logged in"
 				if !t.ExpiresAt.IsZero() {
@@ -219,6 +226,7 @@ func newAuthStatusCmd(e *env) *cobra.Command {
 					"login_scope_error":  scopeErr,
 					"base_url":           base,
 					"base_url_source":    scope.BaseURLSource,
+					"env":                scope.Env,
 					"brain_dir":          scope.BrainDir,
 					"binding_kind":       scope.BindingKind,
 					"binding_env":        scope.BindingEnv,
@@ -260,6 +268,7 @@ func newAuthStatusCmd(e *env) *cobra.Command {
 					_, _ = fmt.Fprintf(e.out, "tenant:    - (login has no tenant)\n")
 				}
 			}
+			_, _ = fmt.Fprintf(e.out, "env:       %s\n", scope.Env)
 			_, _ = fmt.Fprintf(e.out, "base URL:  %s (%s)\n", base, emptyDash(scope.BaseURLSource))
 			if res.Brain != nil {
 				_, _ = fmt.Fprintf(e.out, "brain:     %s\n", res.Brain.Dir)
@@ -280,7 +289,7 @@ func newAuthStatusCmd(e *env) *cobra.Command {
 // resolveScope centralizes the exact profile/project/tenant/base-URL precedence. Auth status opts
 // into the soft login lookup; local diagnostics leave it off and never contact the ReplyPen API.
 func (e *env) resolveScope(includeLogin bool) (scopeResolution, error) {
-	res, err := config.LoadFor(e.profile, e.project)
+	res, err := e.loadConfig()
 	if err != nil {
 		return scopeResolution{}, err
 	}
@@ -290,13 +299,14 @@ func (e *env) resolveScope(includeLogin bool) (scopeResolution, error) {
 		res.BaseURLSource = "test override"
 	}
 
+	e.noteEnv(res, base)
 	t, loggedIn, err := loadResolvedToken(res, base)
 	if err != nil {
 		return scopeResolution{}, err
 	}
 	autoProject := ""
 	if !loggedIn && e.profile == "" && res.Brain != nil {
-		if fallback, ok, ferr := token.Load(config.DefaultProfile); ferr != nil {
+		if fallback, ok, ferr := loadStored(config.DefaultProfile, base); ferr != nil {
 			return scopeResolution{}, ferr
 		} else if ok {
 			t = fallback
@@ -352,7 +362,7 @@ func (e *env) resolveScope(includeLogin bool) (scopeResolution, error) {
 		resolved: res, token: t, loggedIn: loggedIn,
 		Profile: res.Profile, Project: project, ProjectSource: projectSource,
 		Tenant: tenant, TenantSource: tenantSource,
-		BaseURL: base, BaseURLSource: res.BaseURLSource, BrainDir: brainDir(res),
+		BaseURL: base, BaseURLSource: res.BaseURLSource, Env: config.EnvOf(config.CanonicalBaseURL(base)), BrainDir: brainDir(res),
 		BindingKind: res.BindingKind, BindingEnv: brainMachineTokenEnv(res),
 		LoginProject: loginProject, LoginTenant: loginTenant, LoginAllProjects: loginAllProjects,
 		LoginScopeError: scopeErr, autoProject: autoProject,

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/replypen/replypen-cli/internal/config"
 	"github.com/replypen/replypen-cli/internal/token"
 )
 
@@ -80,7 +81,7 @@ func TestConcurrentProcessesRefreshOnce(t *testing.T) {
 	if refreshes != 1 {
 		t.Errorf("refresh requests = %d, want exactly 1", refreshes)
 	}
-	if stored, _, _ := token.Load("default"); stored.AccessToken != "rcoa_gen1" || stored.RefreshToken != "rcor_gen1" {
+	if stored, _, _ := token.Load(config.StoreKey(srv.URL, "default")); stored.AccessToken != "rcoa_gen1" || stored.RefreshToken != "rcor_gen1" {
 		t.Errorf("stored token = %+v, want the single rotated pair", stored)
 	}
 }
@@ -178,7 +179,7 @@ func TestConcurrentProfilesRefreshInParallel(t *testing.T) {
 		if !strings.Contains(outs[i], "TOKEN=rcoa_new_"+p+"\n") {
 			t.Errorf("profile %s did not end with its renewed token:\n%s", p, outs[i])
 		}
-		stored, _, _ := token.Load(p)
+		stored, _, _ := token.Load(config.StoreKey(srv.URL, p))
 		if stored.AccessToken != "rcoa_new_"+p || stored.RefreshToken != "rcor_new_"+p {
 			t.Errorf("stored %s = %+v, want its rotated pair", p, stored)
 		}

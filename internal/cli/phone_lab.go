@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/replypen/replypen-cli/internal/config"
 	"github.com/replypen/replypen-cli/internal/debugdump"
 	"github.com/replypen/replypen-cli/internal/outputspill"
 	"github.com/replypen/replypen-cli/internal/render"
@@ -44,7 +43,7 @@ func runPhoneLabDebug(e *env, target phoneLabTarget, outDir string) error {
 		e.tenant = target.tenant
 	}
 	// A pasted URL cannot redirect an OAuth bearer. Resolve the trusted config before any client I/O.
-	res, err := config.LoadFor(e.profile, e.project)
+	res, err := e.loadConfig()
 	if err != nil {
 		return err
 	}

@@ -20,7 +20,7 @@ import (
 // OAuth login / default-profile fallback. Under CLAUDE_CODE_REMOTE=true a declared-but-missing
 // variable still fails closed instead of reaching for a broader token.
 func loadResolvedToken(res config.Resolved, baseURL string) (token.Token, bool, error) {
-	stored, ok, err := token.Load(res.Profile)
+	stored, ok, err := loadStored(res.Profile, baseURL)
 	if err != nil {
 		return token.Token{}, false, err
 	}
@@ -37,11 +37,12 @@ func loadResolvedToken(res config.Resolved, baseURL string) (token.Token, bool, 
 			}
 			// Stale: the variable disappeared. Keep the entry (it may come back) but never use it.
 			stored, ok = token.Token{}, false
-		} else if baseURL != config.DefaultBaseURL {
+		} else if config.CanonicalBaseURL(baseURL) != config.DefaultBaseURL {
 			return token.Token{}, false, fmt.Errorf(
-				"refusing to send machine token %q to non-production base URL %q\n  fix: unset REPLYPEN_BASE_URL or use `rp auth login` for that environment",
+				"refusing to send machine token %q to non-production base URL %q\n  fix: machine tokens are production-only; run `%s` for a human login there",
 				stored.MachineTokenEnv,
 				baseURL,
+				loginCommand(baseURL),
 			)
 		}
 	}
@@ -62,14 +63,15 @@ func loadResolvedToken(res config.Resolved, baseURL string) (token.Token, bool, 
 			res.Brain.MachineTokenEnv,
 		)
 	}
-	if baseURL != config.DefaultBaseURL {
-		if ok && config.CanonicalBaseURL(stored.BaseURL) == baseURL {
+	if config.CanonicalBaseURL(baseURL) != config.DefaultBaseURL {
+		if ok && sameServer(stored.BaseURL, baseURL) {
 			return stored, true, nil
 		}
 		return token.Token{}, false, fmt.Errorf(
-			"refusing to send machine token %q to non-production base URL %q\n  fix: unset REPLYPEN_BASE_URL or use `rp auth login` for that environment",
+			"refusing to send machine token %q to non-production base URL %q\n  fix: machine tokens are production-only; run `%s` for a human login there",
 			res.Brain.MachineTokenEnv,
 			baseURL,
+			loginCommand(baseURL),
 		)
 	}
 	if ok && stored.RefreshToken == secret && stored.MachineTokenEnv == res.Brain.MachineTokenEnv {
