@@ -66,6 +66,9 @@ type RunAttributionDraft struct {
 	SentMessageID string `json:"sent_message_id,omitempty"`
 	// Origin is agent|originate|compose; older servers omit it (read as agent).
 	Origin string `json:"origin,omitempty"`
+	// SentWith is the mail app the human sent from (stored X-Mailer/User-Agent); thread-level drafts only,
+	// and only Gmail/IMAP mailboxes carry it.
+	SentWith string `json:"sent_with,omitempty"`
 }
 
 type RunAttributionFeedback struct {

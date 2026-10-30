@@ -130,6 +130,9 @@ func renderDraftLine(w io.Writer, d client.RunAttributionDraft, alwaysOrigin boo
 	if d.SentMessageID != "" {
 		_, _ = fmt.Fprintf(w, " → sent message %s", d.SentMessageID)
 	}
+	if d.SentWith != "" {
+		_, _ = fmt.Fprintf(w, " (sent with %s)", oneLine(d.SentWith))
+	}
 	_, _ = fmt.Fprintln(w)
 }
 

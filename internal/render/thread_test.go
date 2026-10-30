@@ -69,7 +69,7 @@ func TestThreadTraceDraftOriginGolden(t *testing.T) {
 		Threads: []client.ThreadTraceThread{{
 			LocalThreadID: "11111111-aaaa", Provider: "gmail", Status: "new", Outcome: "outbound",
 			MessageCount: 1, DraftCount: 1, Subject: "Your quote", CreatedAt: at, UpdatedAt: at,
-			Drafts: []client.RunAttributionDraft{{DraftID: "d-orig", Status: "sent", Origin: "originate", SentMessageID: "m-sent"}},
+			Drafts: []client.RunAttributionDraft{{DraftID: "d-orig", Status: "sent", Origin: "originate", SentMessageID: "m-sent", SentWith: "Superhuman Desktop"}},
 		}},
 	}
 	agent := &client.ThreadTrace{
