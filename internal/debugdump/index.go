@@ -418,7 +418,7 @@ func renderPromptContext(r client.RunHeader, jsonlName string) []string {
 	return out
 }
 
-// userTurnTailLimit caps the index copy; boot probes can make the tail long, the JSONL keeps it whole.
+// userTurnTailLimit caps the index copy (its last chars); boot probes make the tail long, the JSONL keeps it whole.
 const userTurnTailLimit = 2000
 
 // renderUserTurnTail prints the host text appended after the rendered user turn (boot probes, run clock,
@@ -432,9 +432,11 @@ func renderUserTurnTail(r client.RunHeader, jsonlName string) []string {
 	if *r.UserTurnTail == "" {
 		return append(out, "- Nothing: the host appended no text after the rendered turn.", "")
 	}
+	// Keep the END: boot probes come first and run long, the clock and per-turn notes follow them.
 	text := *r.UserTurnTail
-	if len([]rune(text)) > userTurnTailLimit {
-		text = truncate(text, userTurnTailLimit) + "\n(truncated; full text: jq -r '.user_turn_tail' " + jsonlName + ")"
+	if rs := []rune(text); len(rs) > userTurnTailLimit {
+		text = fmt.Sprintf("(first %d chars, mostly boot-probe output, omitted; full text: jq -r '.user_turn_tail' %s)\n…",
+			len(rs)-userTurnTailLimit, jsonlName) + string(rs[len(rs)-userTurnTailLimit:])
 	}
 	return append(out, fence(text, "text"), "")
 }

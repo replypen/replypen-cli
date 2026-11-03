@@ -3,6 +3,7 @@ package debugdump
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/replypen/replypen-cli/internal/client"
@@ -147,5 +148,17 @@ func TestEventKeysCoverEvents(t *testing.T) {
 		if !seen[k] {
 			t.Errorf("eventKeys names %q, no event line emitted it", k)
 		}
+	}
+}
+
+// A long tail keeps its END in the index: the clock line follows kilobytes of boot-probe output.
+func TestUserTurnTailIndexKeepsTheClock(t *testing.T) {
+	tail := strings.Repeat("probe row\n", 900) + "\n\nCurrent run time: today is Tuesday."
+	out := strings.Join(renderUserTurnTail(client.RunHeader{UserTurnTail: &tail}, "x.jsonl"), "\n")
+	if !strings.Contains(out, "Current run time: today is Tuesday.") || !strings.Contains(out, "jq -r '.user_turn_tail' x.jsonl") {
+		t.Fatalf("clipped tail lost its end or the jq pointer:\n%s", out)
+	}
+	if renderUserTurnTail(client.RunHeader{}, "x.jsonl") != nil {
+		t.Fatal("an uncaptured tail must render nothing")
 	}
 }
