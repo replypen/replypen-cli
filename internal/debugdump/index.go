@@ -104,6 +104,7 @@ func RenderIndex(full *client.FullResponse) string {
 	// "not captured" line here would blame retention for an access decision.
 	if !redacted {
 		add(renderPromptContext(r, jsonlName)...)
+		add(renderUserTurnTail(r, jsonlName)...)
 	}
 
 	add("## Question", "")
@@ -415,6 +416,27 @@ func renderPromptContext(r client.RunHeader, jsonlName string) []string {
 			fmt.Sprintf(`jq -r '.preselected_turn // "(none)"' %s   # the grounding step's pre-selected ranges`, jsonlName),
 		}, "\n"), "sh"), "")
 	return out
+}
+
+// userTurnTailLimit caps the index copy; boot probes can make the tail long, the JSONL keeps it whole.
+const userTurnTailLimit = 2000
+
+// renderUserTurnTail prints the host text appended after the rendered user turn (boot probes, run clock,
+// per-turn notes) verbatim: it is short, no section or orientation turn carries it, and it is where
+// per-turn steering such as the clock line lives. Silent when the server captured none (older run).
+func renderUserTurnTail(r client.RunHeader, jsonlName string) []string {
+	if r.UserTurnTail == nil {
+		return nil
+	}
+	out := []string{"## Appended to the user turn", ""}
+	if *r.UserTurnTail == "" {
+		return append(out, "- Nothing: the host appended no text after the rendered turn.", "")
+	}
+	text := *r.UserTurnTail
+	if len([]rune(text)) > userTurnTailLimit {
+		text = truncate(text, userTurnTailLimit) + "\n(truncated; full text: jq -r '.user_turn_tail' " + jsonlName + ")"
+	}
+	return append(out, fence(text, "text"), "")
 }
 
 // promptContextProvenance says where a run's prompt context came from when it is not simply "rendered by

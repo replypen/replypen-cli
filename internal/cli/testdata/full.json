@@ -56,6 +56,7 @@
     ],
     "bootstrap_turn": "=== /brain/AGENTS.md · your durable routing map ===\nStart at cases/.\n\n=== /mirrors/app · directory map — paths only, open files with bash (read-only customer source) ===\napp/models/invoice.rb\n",
     "preselected_turn": "=== pre-selected ranges ===\n/kb/billing/refunds.md L1-40\n",
+    "user_turn_tail": "Current run time: today is Friday 2026-06-19 09:00:00 UTC. A person reviews and sends this draft later.",
     "manifest_blocks": [
       { "path": "/brain/AGENTS.md", "gloss": "your durable routing map", "presence": "pasted_full", "authoritative": true, "truncated": false, "chars": 52 },
       { "path": "/tenant/AGENTS.md", "gloss": "tenant overlay", "presence": "pasted_full", "authoritative": true, "truncated": true, "chars": 8192 },

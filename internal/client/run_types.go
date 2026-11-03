@@ -583,6 +583,10 @@ type RunHeader struct {
 	ContextCaptureOriginRunID string `json:"context_capture_origin_run_id,omitempty"`
 	ContextCapturedAt         string `json:"context_captured_at,omitempty"`
 	PromptDecomposition       string `json:"prompt_decomposition,omitempty"`
+	// UserTurnTail is the host text appended after the rendered user turn (boot probes, run clock, per-turn
+	// notes), verbatim. nil = not captured (older run or server); "" = captured, nothing appended. This
+	// run's own even on an "inherited" capture. Cross-repo contract — do not rename.
+	UserTurnTail *string `json:"user_turn_tail,omitempty"`
 	// DetailRedacted marks a trace served WITHOUT its detail: the caller is not a project-level admin, so
 	// the server omits the sensitive header fields (system_prompt, grounding_*, warm_start_digest, prior
 	// messages/notes, tenant settings, egress) and ships an empty events list. Every renderer must call

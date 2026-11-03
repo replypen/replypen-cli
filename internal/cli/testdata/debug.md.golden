@@ -71,6 +71,12 @@ jq -r '.bootstrap_turn // "(none)"' 11111111-coca-cola.jsonl   # the pasted orie
 jq -r '.preselected_turn // "(none)"' 11111111-coca-cola.jsonl   # the grounding step's pre-selected ranges
 ```
 
+## Appended to the user turn
+
+```text
+Current run time: today is Friday 2026-06-19 09:00:00 UTC. A person reviews and sends this draft later.
+```
+
 ## Question
 
 ```
