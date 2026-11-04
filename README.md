@@ -642,6 +642,7 @@ help using `go test ./internal/cli -update`.
 | `rp project mailbox settings` | Read or edit nested mailbox settings (persona/channel) |
 | `rp project mailbox templates` | Export Gmail canned responses as a separate JSON artifact |
 | `rp project mailbox test` | Re-run the live IMAP/SMTP check on a connected mailbox and print the checklist |
+| `rp project mailbox thread` | Fetch one mail thread live from the mailbox (read-only) as Markdown |
 | `rp project mailbox` | Manage watched mailboxes (the channel plane's inbox watch) |
 | `rp project member add` | Create a member |
 | `rp project member ls` | List members |

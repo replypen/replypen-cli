@@ -13,6 +13,7 @@ import (
 
 	"github.com/replypen/replypen-cli/internal/client"
 	"github.com/replypen/replypen-cli/internal/localstate"
+	"github.com/replypen/replypen-cli/internal/outputspill"
 	"github.com/replypen/replypen-cli/internal/render"
 )
 
@@ -27,6 +28,7 @@ func newMailboxCmd(e *env) *cobra.Command {
 		mailboxLsCmd(e),
 		mailboxModeCmd(e),
 		mailboxHarvestCmd(e),
+		mailboxThreadCmd(e),
 		mailboxTemplatesCmd(e),
 		mailboxIMAPEnvCmd(e),
 		newMailboxSettingsCmd(e),
@@ -36,6 +38,67 @@ func newMailboxCmd(e *env) *cobra.Command {
 		mailboxPasswordLinkCmd(e),
 		mailboxTestCmd(e),
 	)
+	return cmd
+}
+
+// mailboxThreadCmd re-reads ONE conversation live from the customer's mailbox, the way back to mail text
+// after ReplyPen's retention scrubbed its own copy. Text mode always writes the Markdown to a 0600 file
+// under --out-dir and prints only a body-free index; -o json passes the server rows through.
+func mailboxThreadCmd(e *env) *cobra.Command {
+	var runID string
+	cmd := &cobra.Command{
+		Use:   "thread (--run <run-id> | <mailbox-id> <thread-id>)",
+		Short: "Fetch one mail thread live from the mailbox (read-only) as Markdown",
+		Long: "Fetch one conversation live from the customer's mailbox: every message with direction, date,\n" +
+			"from/to, cleaned body and attachment names. Works after ReplyPen's retention scrubbed its own copy.\n" +
+			"Read-only towards the provider (no label or read-state change); nothing is stored server-side.\n" +
+			"Needs the harvest permission (mailbox admin with connections:manage).\n\n" +
+			"  rp project mailbox thread --run 41b8785a --tenant lbv\n" +
+			"  rp project mailbox thread <mailbox-id> <provider-thread-id>",
+		Args: func(_ *cobra.Command, args []string) error {
+			if runID != "" && len(args) != 0 {
+				return fmt.Errorf("give either --run or <mailbox-id> <thread-id>, not both")
+			}
+			if runID == "" && len(args) != 2 {
+				return fmt.Errorf("need --run <run-id> or <mailbox-id> <thread-id>")
+			}
+			return nil
+		},
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, err := e.newClient()
+			if err != nil {
+				return err
+			}
+			if err := e.resolvePinnedProject(c); err != nil {
+				return err
+			}
+			var t *client.MailThread
+			var raw json.RawMessage
+			label := "mail-thread-"
+			if runID != "" {
+				id := normalizeRunID(runID)
+				t, raw, err = c.RunMailThread(e.ctx(), id, e.scopeProject(), e.scopeTenant())
+				label += id
+			} else {
+				t, raw, err = c.MailboxThread(e.ctx(), args[0], args[1], e.scopeProject(), e.scopeTenant())
+				label += args[1]
+			}
+			if err != nil {
+				return err
+			}
+			if e.jsonOut() {
+				return e.renderJSON(label, raw)
+			}
+			cfg := e.spillConfig()
+			art, err := outputspill.WriteArtifact(cfg, cfg.DirFor(label), "thread.md", render.MailThreadMarkdown(t), "markdown", false)
+			if err != nil {
+				return err
+			}
+			render.MailThreadIndex(e.out, t, art.Path)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&runID, "run", "", "the run whose email thread to fetch (full id or 8-char prefix)")
 	return cmd
 }
 

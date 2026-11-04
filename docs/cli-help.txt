@@ -1225,6 +1225,7 @@ Available Commands:
   ls            List watched mailboxes (id, provider, email, status, mode, tenant, health)
   mode          Set the mailbox watch, processing, and delivery mode
   harvest       Start a local-synthesis harvest of a mailbox (optionally wait for the export)
+  thread        Fetch one mail thread live from the mailbox (read-only) as Markdown
   templates     Export Gmail canned responses as a separate JSON artifact
   imap-env      Write an IMAP mailbox env file for local deep harvest (0600; values never printed)
   settings      Read or edit nested mailbox settings (persona/channel)
@@ -1290,6 +1291,31 @@ Flags:
       --max-threads int     cap the harvest to N threads (0 = server default)
       --timeout duration    max time to wait under --wait (default 5m0s)
       --wait                poll the export until it reaches a terminal status
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project mailbox thread --help
+Fetch one conversation live from the customer's mailbox: every message with direction, date,
+from/to, cleaned body and attachment names. Works after ReplyPen's retention scrubbed its own copy.
+Read-only towards the provider (no label or read-state change); nothing is stored server-side.
+Needs the harvest permission (mailbox admin with connections:manage).
+
+  rp project mailbox thread --run 41b8785a --tenant lbv
+  rp project mailbox thread <mailbox-id> <provider-thread-id>
+
+Usage:
+  rp project mailbox thread (--run <run-id> | <mailbox-id> <thread-id>) [flags]
+
+Flags:
+      --run string   the run whose email thread to fetch (full id or 8-char prefix)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
