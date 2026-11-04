@@ -1308,6 +1308,8 @@ from/to, cleaned body and attachment names. Works after ReplyPen's retention scr
 Read-only towards the provider (no label or read-state change); nothing is stored server-side.
 Needs the harvest permission (mailbox admin with connections:manage).
 
+Bodies go to a 0600 file under --out-dir (also with -o json); --raw-output prints the JSON inline.
+
   rp project mailbox thread --run 41b8785a --tenant lbv
   rp project mailbox thread <mailbox-id> <provider-thread-id>
 

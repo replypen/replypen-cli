@@ -58,6 +58,18 @@ func TestMailboxThreadWritesPrivateMarkdown(t *testing.T) {
 	if gotPath != "/api/v1/projects/alpha/mailboxes/mbx-1/threads/1a0c?tenant=lbv" {
 		t.Fatalf("mailbox request = %s", gotPath)
 	}
+	// Piped/-o json: bodies to a 0600 file, stdout a manifest; --raw-output alone prints them inline.
+	e, out, _ = newTestEnv(t, srv, "json")
+	if err := run(t, e, "--out-dir", outDir, "--project", "alpha", "project", "mailbox", "thread", "--run", "41b8785a"); err != nil {
+		t.Fatalf("json form: %v", err)
+	}
+	if strings.Contains(out.String(), "Forwarded to the insurer") || !strings.Contains(out.String(), "thread.json") {
+		t.Fatalf("json stdout must be a body-free manifest:\n%s", out.String())
+	}
+	e, out, _ = newTestEnv(t, srv, "json")
+	if err := run(t, e, "--raw-output", "--project", "alpha", "project", "mailbox", "thread", "--run", "41b8785a"); err != nil || !strings.Contains(out.String(), "Forwarded to the insurer") {
+		t.Fatalf("raw-output = %v:\n%s", err, out.String())
+	}
 	if err := run(t, e, "--project", "alpha", "project", "mailbox", "thread", "--run", "x", "mbx-1", "1a0c"); err == nil {
 		t.Fatal("--run plus positional args must be rejected")
 	}

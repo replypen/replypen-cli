@@ -42,8 +42,9 @@ func newMailboxCmd(e *env) *cobra.Command {
 }
 
 // mailboxThreadCmd re-reads ONE conversation live from the customer's mailbox, the way back to mail text
-// after ReplyPen's retention scrubbed its own copy. Text mode always writes the Markdown to a 0600 file
-// under --out-dir and prints only a body-free index; -o json passes the server rows through.
+// after ReplyPen's retention scrubbed its own copy. Mail bodies never reach stdout unless asked: text mode
+// writes the Markdown, -o json the server rows, to a 0600 file under --out-dir (index / body-free manifest
+// on stdout); only --raw-output prints the JSON inline, for scripts.
 func mailboxThreadCmd(e *env) *cobra.Command {
 	var runID string
 	cmd := &cobra.Command{
@@ -53,6 +54,7 @@ func mailboxThreadCmd(e *env) *cobra.Command {
 			"from/to, cleaned body and attachment names. Works after ReplyPen's retention scrubbed its own copy.\n" +
 			"Read-only towards the provider (no label or read-state change); nothing is stored server-side.\n" +
 			"Needs the harvest permission (mailbox admin with connections:manage).\n\n" +
+			"Bodies go to a 0600 file under --out-dir (also with -o json); --raw-output prints the JSON inline.\n\n" +
 			"  rp project mailbox thread --run 41b8785a --tenant lbv\n" +
 			"  rp project mailbox thread <mailbox-id> <provider-thread-id>",
 		Args: func(_ *cobra.Command, args []string) error {
@@ -86,10 +88,18 @@ func mailboxThreadCmd(e *env) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if e.jsonOut() {
-				return e.renderJSON(label, raw)
-			}
 			cfg := e.spillConfig()
+			if e.jsonOut() {
+				if e.rawOutput {
+					return e.renderJSONInline(raw)
+				}
+				art, err := outputspill.WriteArtifact(cfg, cfg.DirFor(label), "thread.json", raw, "json", false)
+				if err != nil {
+					return err
+				}
+				art.Preview = nil // a preview would put mail text on stdout
+				return outputspill.WriteManifest(e.out, outputspill.ManifestForArtifact(art))
+			}
 			art, err := outputspill.WriteArtifact(cfg, cfg.DirFor(label), "thread.md", render.MailThreadMarkdown(t), "markdown", false)
 			if err != nil {
 				return err
