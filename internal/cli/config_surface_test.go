@@ -856,6 +856,30 @@ func TestMailboxPasswordLink(t *testing.T) {
 	}
 }
 
+// TestMailboxConnectLink: the tenant reaches the server as the scope selector and every link prints on
+// its own labelled line (picker, gmail, outlook, outlook-admin).
+func TestMailboxConnectLink(t *testing.T) {
+	srv := stubServer(t)
+	defer srv.Close()
+	e, out, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, "project", "mailbox", "connect-link", "--tenant", "acme"); err != nil {
+		t.Fatalf("project mailbox connect-link: %v", err)
+	}
+	got := out.String()
+	for _, want := range []string{
+		"picker         https://rc.test/connect/",
+		"/tenants/acme?sig=s1",
+		"gmail          https://rc.test/connect/",
+		"/tenants/acme/gmail?sig=g1",
+		"outlook-admin  https://rc.test/connect/",
+		"/tenants/acme/outlook/admin?sig=s1",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("connect-link output missing %q:\n%s", want, got)
+		}
+	}
+}
+
 // --- parseSetArgs value coercion ---
 
 // The literal `null` must reach the server as JSON null for every kind (nullable knobs reset to

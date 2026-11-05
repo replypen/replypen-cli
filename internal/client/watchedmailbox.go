@@ -130,6 +130,37 @@ func (c *Client) MailboxPasswordLink(ctx context.Context, id, project, tenant st
 	return &out, raw, nil
 }
 
+// ConnectLinks is the no-login OAuth handoff set for one scope: the provider picker, one-button Gmail and
+// Outlook links, and the Microsoft IT-admin consent link. None carries a credential.
+type ConnectLinks struct {
+	Tenant          string `json:"tenant"`
+	ConnectURL      string `json:"connect_url"`
+	GmailURL        string `json:"gmail_url"`
+	OutlookURL      string `json:"outlook_url"`
+	OutlookAdminURL string `json:"outlook_admin_url"`
+}
+
+// MailboxConnectLinks fetches GET .../mailboxes/connect-links — mint the scope's stable no-login OAuth
+// connect links (pure HMAC, idempotent). A tenant-pinned token may omit the tenant.
+func (c *Client) MailboxConnectLinks(ctx context.Context, project, tenant string) (*ConnectLinks, json.RawMessage, error) {
+	if project == "" {
+		return nil, nil, &APIError{Status: http.StatusBadRequest, Code: "PROJECT_REQUIRED", Message: "mailbox connect links require a project scope"}
+	}
+	if err := requireTenantProject(project, tenant, "mailboxes"); err != nil {
+		return nil, nil, err
+	}
+	path := collectionScopePath(watchedProjectPath(project, "/mailboxes/connect-links"), "", tenant)
+	var raw json.RawMessage
+	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+		return nil, nil, err
+	}
+	var out ConnectLinks
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, nil, err
+	}
+	return &out, raw, nil
+}
+
 // ProbeIMAPMailbox posts POST .../mailboxes/{id}/probe — re-run the live connection check against the
 // mailbox's STORED credentials. A failing probe is still a 200: the checklist IS the answer, so the
 // caller reads mailbox.Probe rather than an error envelope.

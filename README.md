@@ -630,6 +630,7 @@ help using `go test ./internal/cli -update`.
 | `rp project knowledge` | Search knowledge content and configure synchronization |
 | `rp project list` | List the projects this token can see (the fleet, for an all-projects token) |
 | `rp project mailbox connect-imap` | Connect a generic IMAP/SMTP mailbox (live-probed before it's saved) |
+| `rp project mailbox connect-link` | Print the no-login OAuth connect links (picker, Gmail, Outlook, Outlook IT-admin consent) |
 | `rp project mailbox connect` | Print the dashboard Connections URL to start a provider's browser OAuth |
 | `rp project mailbox harvest` | Start a local-synthesis harvest of a mailbox (optionally wait for the export) |
 | `rp project mailbox imap-env` | Write an IMAP mailbox env file for local deep harvest (0600; values never printed) |

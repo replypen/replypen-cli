@@ -1233,6 +1233,7 @@ Available Commands:
   connect-imap  Connect a generic IMAP/SMTP mailbox (live-probed before it's saved)
   seed-imap     Store an IMAP mailbox's server settings without a password and print its no-login password link
   password-link Print the no-login password link for an IMAP mailbox (also used for rotation)
+  connect-link  Print the no-login OAuth connect links (picker, Gmail, Outlook, Outlook IT-admin consent)
   test          Re-run the live IMAP/SMTP check on a connected mailbox and print the checklist
 
 Global Flags:
@@ -1513,6 +1514,22 @@ Print the no-login password link for an IMAP mailbox (also used for rotation)
 
 Usage:
   rp project mailbox password-link <mailbox-id> [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project mailbox connect-link --help
+Print the no-login OAuth connect links (picker, Gmail, Outlook, Outlook IT-admin consent)
+
+Usage:
+  rp project mailbox connect-link [flags]
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

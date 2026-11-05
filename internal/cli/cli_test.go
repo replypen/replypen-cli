@@ -1152,6 +1152,13 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":"` + r.PathValue("id") + `","provider":"imap","email_address":"info@acme.test","status":"awaiting_credential","processing_enabled":false,"has_sync_cursor":false,"password_link":"https://rc.test/mailbox-password/` + r.PathValue("id") + `?sig=abc"}`))
 	})
+	mux.HandleFunc("GET /api/v1/projects/{project}/mailboxes/connect-links", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		tn := r.URL.Query().Get("tenant")
+		base := "https://rc.test/connect/" + r.PathValue("project") + "/tenants/" + tn
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"tenant":"` + tn + `","connect_url":"` + base + `?sig=s1","gmail_url":"` + base + `/gmail?sig=g1","outlook_url":"` + base + `/outlook?sig=o1","outlook_admin_url":"` + base + `/outlook/admin?sig=s1"}`))
+	})
 	// mailbox probe: id "green" passes every stage; "warn" connects but cannot place drafts; "broken"
 	// fails a required stage (a 200 — the checklist IS the answer, not an error envelope).
 	mux.HandleFunc("POST /api/v1/projects/{project}/mailboxes/{id}/probe", func(w http.ResponseWriter, r *http.Request) {

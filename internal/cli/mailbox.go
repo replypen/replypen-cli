@@ -36,6 +36,7 @@ func newMailboxCmd(e *env) *cobra.Command {
 		mailboxConnectIMAPCmd(e),
 		mailboxSeedIMAPCmd(e),
 		mailboxPasswordLinkCmd(e),
+		mailboxConnectLinkCmd(e),
 		mailboxTestCmd(e),
 	)
 	return cmd
@@ -672,6 +673,45 @@ func mailboxPasswordLinkCmd(e *env) *cobra.Command {
 				return fmt.Errorf("no password link available — the server has no signing key configured for this surface")
 			}
 			_, _ = fmt.Fprintln(e.out, m.PasswordLink)
+			return nil
+		},
+	}
+}
+
+// mailboxConnectLinkCmd prints the no-login OAuth connect links an operator hands a Gmail/Microsoft 365
+// customer: the picker, one-button Gmail and Outlook links, and the IT-admin consent link for a Microsoft
+// directory that blocks user consent. The machine twin of the integrations page's "No-login inbox link".
+func mailboxConnectLinkCmd(e *env) *cobra.Command {
+	return &cobra.Command{
+		Use:   "connect-link",
+		Short: "Print the no-login OAuth connect links (picker, Gmail, Outlook, Outlook IT-admin consent)",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			c, err := e.newClient()
+			if err != nil {
+				return err
+			}
+			if err := e.resolvePinnedProject(c); err != nil {
+				return err
+			}
+			l, raw, err := c.MailboxConnectLinks(e.ctx(), e.scopeProject(), e.scopeTenant())
+			if err != nil {
+				return err
+			}
+			if e.jsonOut() {
+				return e.renderJSONInline(raw)
+			}
+			if l == nil || l.ConnectURL == "" {
+				return fmt.Errorf("no connect link available — the server has no signing key configured for this surface")
+			}
+			for _, row := range [][2]string{
+				{"picker", l.ConnectURL},
+				{"gmail", l.GmailURL},
+				{"outlook", l.OutlookURL},
+				{"outlook-admin", l.OutlookAdminURL},
+			} {
+				_, _ = fmt.Fprintf(e.out, "%-14s %s\n", row[0], row[1])
+			}
 			return nil
 		},
 	}
