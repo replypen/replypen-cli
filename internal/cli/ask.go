@@ -36,6 +36,7 @@ type askFlags struct {
 	attachPaths    []string // deprecated --attach alias, merged after --file
 	noWait         bool
 	simulation     bool
+	economy        bool
 	mailbox        string
 	dryScope       bool
 	replayChatRun  string
@@ -162,6 +163,7 @@ func newAskCmd(e *env) *cobra.Command {
 				Simulation:      f.simulation,
 				Mailbox:         f.mailbox,
 				ReasoningEffort: effort,
+				Speed:           askSpeed(f.economy),
 				Sender:          sender,
 				Subject:         subject,
 				Principal:       principal,
@@ -225,6 +227,7 @@ func newAskCmd(e *env) *cobra.Command {
 	_ = cmd.Flags().MarkDeprecated("attach", "use --file instead")
 	cmd.Flags().BoolVar(&f.simulation, "simulation", false, "dress rehearsal: real brain + grounding, but no action executes, no journal commit and nothing is placed in a mailbox (attachments are refused)")
 	cmd.Flags().StringVar(&f.mailbox, "mailbox", "", "with --simulation --scenario email: replay this watched mailbox's contract (id, slug or address; default: the scope's single processing mailbox)")
+	cmd.Flags().BoolVar(&f.economy, "economy", false, "economy speed for long or batch work (simulations, bulk tests): a few minutes slower, for runs nobody waits on; default is standard speed. Ignored on chat replays")
 	cmd.Flags().BoolVar(&f.noWait, "no-wait", false, "submit and print the run_id immediately, without waiting")
 	cmd.Flags().StringArrayVar(&f.credentialEnv, "credential-env", nil, "send the local env var NAME as run credential NAME (the value never touches argv); repeatable")
 	cmd.Flags().BoolVar(&f.dryScope, "dry-scope", false, "resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)")
@@ -236,6 +239,14 @@ func newAskCmd(e *env) *cobra.Command {
 
 func (f *askFlags) replaying() bool {
 	return strings.TrimSpace(f.replayRun) != "" || strings.TrimSpace(f.replayChatRun) != ""
+}
+
+// askSpeed maps --economy onto the run's `speed` request; "" leaves the server default (standard).
+func askSpeed(economy bool) string {
+	if economy {
+		return "economy"
+	}
+	return ""
 }
 
 // askReplayConflicts are the flags a replay refuses: the turn's identity, framing and session are
@@ -298,6 +309,7 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 		MirrorRefs:      mirrorRefs,
 		Simulation:      true,
 		ReasoningEffort: effort,
+		Speed:           askSpeed(f.economy),
 		Credentials:     credentials,
 		Project:         e.scopeProject(),
 	}

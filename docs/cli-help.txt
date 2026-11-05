@@ -70,6 +70,7 @@ Flags:
       --brain-ref string             run against a non-main PROJECT brain ref (e.g. dev/refund-rework) — a test run
       --credential-env stringArray   send the local env var NAME as run credential NAME (the value never touches argv); repeatable
       --dry-scope                    resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)
+      --economy                      economy speed for long or batch work (simulations, bulk tests): a few minutes slower, for runs nobody waits on; default is standard speed. Ignored on chat replays
       --effort string                reasoning effort override: default, pro, or max
       --file stringArray             attach a local file to the synthetic run (repeatable; max 4 files, 5 MiB each, 15 MiB total)
       --from string                  sender address for --scenario email (default "rp-ask@example.test")

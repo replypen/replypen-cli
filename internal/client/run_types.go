@@ -324,12 +324,15 @@ type SubmitRequest struct {
 	// Mailbox (id, slug or address) names the watched mailbox a simulation email run replays, so it runs
 	// that mailbox's prompt contract (notes on/off, persona). Omitted: the server picks the scope's single
 	// processing mailbox. Simulation email runs only (the server 400s otherwise).
-	Mailbox         string       `json:"mailbox,omitempty"`
-	ReasoningEffort string       `json:"reasoning_effort,omitempty"`
-	Sender          string       `json:"sender,omitempty"`
-	Subject         string       `json:"subject,omitempty"`
-	Principal       *Principal   `json:"principal,omitempty"`
-	Attachments     []Attachment `json:"attachments,omitempty"`
+	Mailbox         string `json:"mailbox,omitempty"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
+	// Speed is "economy" (a few minutes slower, for runs nobody waits on) or "standard"; omitted =
+	// the server default, standard. Chat replays ignore it.
+	Speed       string       `json:"speed,omitempty"`
+	Sender      string       `json:"sender,omitempty"`
+	Subject     string       `json:"subject,omitempty"`
+	Principal   *Principal   `json:"principal,omitempty"`
+	Attachments []Attachment `json:"attachments,omitempty"`
 	// Credentials are integrator-minted tokens (env name → value) the host seals for this run only and
 	// injects as workspace env; a simulation only carries names the project allow-lists.
 	Credentials map[string]string `json:"credentials,omitempty"`
