@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0 # GoReleaser needs full history + tags for the changelog
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.25"
+          go-version: "1.27"
       - uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
