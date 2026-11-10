@@ -1,2 +1,4 @@
 [tools]
 go = "1.27"
+# Same as CI (.github/workflows/ci.yml): release.sh lints locally; an older build refuses go 1.27 modules.
+golangci-lint = "2.15.0"
