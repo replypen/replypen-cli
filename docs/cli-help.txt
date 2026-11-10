@@ -80,7 +80,8 @@ Flags:
       --principal-id string          principal external id (the asserted identity); requires --principal-kind
       --principal-kind string        principal kind to scope the run's data (e.g. kampadmin_person); requires --principal-id
       --replay-chat-run string       older chat-only spelling of --replay-run
-      --replay-run string            rerun one stored email run or chat turn (run id or run link) as a side-effect-free test run on live data; see the help above
+      --replay-run strings           rerun a stored email run or chat turn (run id or run link) as a side-effect-free test run on live data; see the help above. Repeat or comma-separate for a batch (with --no-wait)
+      --reps int                     with --replay-run --no-wait: submit each replay this many times (repeated replays measure run-to-run variance) (default 1)
       --scenario string              answer shape: email or raw (default "email")
       --session string               session id to thread the run onto
       --simulation                   dress rehearsal: real brain + grounding, but no action executes, no journal commit and nothing is placed in a mailbox (attachments are refused)
@@ -109,6 +110,7 @@ Available Commands:
   list           List recent runs (filterable)
   sessions       List chat conversations (sessions) with turns, outcome and feedback
   show           Show one run
+  wait           Wait for many runs at once (e.g. a batch replay); --once just reads their status
   events         Show the full per-event trace
   trace          Show the whole run bundle (--brief: just what was asked and answered)
   debug          Decompose a run into local debug artifacts
@@ -227,6 +229,26 @@ Show one run
 
 Usage:
   rp run show <id> [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp run wait --help
+Poll every given run until all reach a terminal status (done, failed, …) or --timeout elapses, then print each one. -o json prints an array of the same bodies `rp run show -o json` returns. A run still in flight at the timeout is printed as it stands and the command exits non-zero. --once reads each status one time and returns (exit 0), for a caller that keeps its own loop.
+
+Usage:
+  rp run wait <id>... [flags]
+
+Flags:
+      --once               read each run's status once and return
+      --timeout duration   max time to wait for every run (default 30m0s)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -5416,6 +5438,7 @@ Usage:
 Available Commands:
   ls                List projects
   identity-failures List identity failures without patient details (global admin)
+  run-usage         Summed LLM cost and tokens per run (human global admin; evaluation only)
   add               Create a project (name=… [default_tier=standard|pro] [egress_mode=wildcard|enforce])
 
 Global Flags:
@@ -5455,6 +5478,22 @@ Usage:
 Flags:
       --cursor string   next_cursor from a previous page
       --simulation      show simulation failures instead of live failures
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp admin project run-usage --help
+Summed LLM cost (USD) and prompt/completion/reasoning tokens per run, across every model call the run made (loop, grounding, side steps). Up to 200 run ids. A run with no usage rows is absent. Global-admin only: cost is internal unit economics, never shown on customer surfaces.
+
+Usage:
+  rp admin project run-usage <project> <run-id>... [flags]
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

@@ -40,7 +40,8 @@ type askFlags struct {
 	mailbox        string
 	dryScope       bool
 	replayChatRun  string
-	replayRun      string
+	replayRuns     []string
+	reps           int
 	credentialEnv  []string
 	timeout        time.Duration
 }
@@ -231,14 +232,15 @@ func newAskCmd(e *env) *cobra.Command {
 	cmd.Flags().BoolVar(&f.noWait, "no-wait", false, "submit and print the run_id immediately, without waiting")
 	cmd.Flags().StringArrayVar(&f.credentialEnv, "credential-env", nil, "send the local env var NAME as run credential NAME (the value never touches argv); repeatable")
 	cmd.Flags().BoolVar(&f.dryScope, "dry-scope", false, "resolve and print the principal scope this run WOULD get, without running the agent (no LLM spend)")
-	cmd.Flags().StringVar(&f.replayRun, "replay-run", "", "rerun one stored email run or chat turn (run id or run link) as a side-effect-free test run on live data; see the help above")
+	cmd.Flags().StringSliceVar(&f.replayRuns, "replay-run", nil, "rerun a stored email run or chat turn (run id or run link) as a side-effect-free test run on live data; see the help above. Repeat or comma-separate for a batch (with --no-wait)")
+	cmd.Flags().IntVar(&f.reps, "reps", 1, "with --replay-run --no-wait: submit each replay this many times (repeated replays measure run-to-run variance)")
 	cmd.Flags().StringVar(&f.replayChatRun, "replay-chat-run", "", "older chat-only spelling of --replay-run")
 	cmd.Flags().DurationVar(&f.timeout, "timeout", 5*time.Minute, "max time to wait for a terminal status")
 	return cmd
 }
 
 func (f *askFlags) replaying() bool {
-	return strings.TrimSpace(f.replayRun) != "" || strings.TrimSpace(f.replayChatRun) != ""
+	return len(f.replayRuns) > 0 || strings.TrimSpace(f.replayChatRun) != ""
 }
 
 // askSpeed maps --economy onto the run's `speed` request; "" leaves the server default (standard).
@@ -256,21 +258,43 @@ var askReplayConflicts = []string{"mailbox", "principal-kind", "principal-id", "
 // runAskReplay is `rp ask --replay-chat-run`: replay a stored chat turn as a simulation, then wait and
 // print the chat answer like a raw ask. --simulation is implied (accepted, never needed).
 func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMode bool) error {
-	flag, value := "replay-run", f.replayRun
+	flag, value := "replay-run", ""
+	if len(f.replayRuns) > 0 {
+		value = f.replayRuns[0]
+	}
 	if strings.TrimSpace(f.replayChatRun) != "" {
-		if strings.TrimSpace(f.replayRun) != "" {
+		if len(f.replayRuns) > 0 {
 			return fmt.Errorf("--replay-run and --replay-chat-run cannot be combined")
 		}
 		flag, value = "replay-chat-run", f.replayChatRun
+	}
+	batch := len(f.replayRuns) > 1 || f.reps != 1
+	switch {
+	case f.reps < 1 || f.reps > maxReplayBatch:
+		return fmt.Errorf("--reps must be 1-%d", maxReplayBatch)
+	case batch && flag == "replay-chat-run":
+		return fmt.Errorf("a batch replay takes --replay-run, not --replay-chat-run")
+	case batch && !f.noWait:
+		return fmt.Errorf("a batch replay (several --replay-run ids or --reps > 1) submits only: add --no-wait, then wait with `rp run wait <ids>`")
+	case batch && f.dryScope:
+		return fmt.Errorf("--dry-scope takes one --replay-run")
+	case batch && len(args) == 1 && len(f.replayRuns) > 1:
+		return fmt.Errorf("a question override takes one --replay-run")
+	case len(f.replayRuns)*f.reps > maxReplayBatch:
+		return fmt.Errorf("a batch replay submits at most %d runs (ids × reps)", maxReplayBatch)
 	}
 	for _, name := range askReplayConflicts {
 		if cmd.Flags().Changed(name) {
 			return fmt.Errorf("--%s cannot be combined with --%s: the replay keeps the original run's principal, framing and conversation", name, flag)
 		}
 	}
-	target, err := parseRunTarget(value, "")
-	if err != nil {
-		return fmt.Errorf("--%s: %w", flag, err)
+	// A batch resolves each id itself, per row: one bad id must not abort the others.
+	var target shareTarget
+	if !batch {
+		var err error
+		if target, err = parseRunTarget(value, ""); err != nil {
+			return fmt.Errorf("--%s: %w", flag, err)
+		}
 	}
 	effort, err := normalizeAskEffort(f.effort, cmd.Flags().Changed("effort"))
 	if err != nil {
@@ -295,7 +319,7 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 	// The original is read first: it resolves a short id, fails fast on a run the caller cannot see, and is
 	// the baseline of the comparison printed after the replay.
 	var orig *client.RunDetail
-	if !f.dryScope {
+	if !f.dryScope && !batch {
 		if orig, err = c.Run(e.ctx(), target.runID, e.scopeProject(), e.scopeTenant()); err != nil {
 			return err
 		}
@@ -312,6 +336,9 @@ func runAskReplay(e *env, cmd *cobra.Command, f *askFlags, args []string, jsonMo
 		Speed:           askSpeed(f.economy),
 		Credentials:     credentials,
 		Project:         e.scopeProject(),
+	}
+	if batch {
+		return submitReplayBatch(e, c, req, f.replayRuns, f.reps, jsonMode)
 	}
 	if flag == "replay-chat-run" {
 		req.ReplayChatRun = target.runID

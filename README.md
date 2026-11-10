@@ -474,6 +474,7 @@ help using `go test ./internal/cli -update`.
 | `rp admin project add` | Create a project (name=… [default_tier=standard|pro] [egress_mode=wildcard|enforce]) |
 | `rp admin project identity-failures` | List identity failures without patient details (global admin) |
 | `rp admin project ls` | List projects |
+| `rp admin project run-usage` | Summed LLM cost and tokens per run (human global admin; evaluation only) |
 | `rp admin project` | Manage box-level projects |
 | `rp admin user add` | Create a user (email=… [admin=true] [password=…]) |
 | `rp admin user ls` | List users |
@@ -735,6 +736,7 @@ help using `go test ./internal/cli -update`.
 | `rp run show` | Show one run |
 | `rp run thread` | Trace one run, provider/local thread, or session through pipeline and placement |
 | `rp run trace` | Show the whole run bundle (--brief: just what was asked and answered) |
+| `rp run wait` | Wait for many runs at once (e.g. a batch replay); --once just reads their status |
 | `rp run` | Inspect and manage the run lifecycle |
 | `rp self completion` | Generate a shell completion script |
 | `rp self doctor` | Diagnose the active rp install, PATH copies, scope, and updates |

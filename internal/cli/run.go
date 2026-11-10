@@ -30,6 +30,7 @@ func newRunCmd(e *env) *cobra.Command {
 		newRunListCmd(e),
 		newRunSessionsCmd(e),
 		newRunShowCmd(e),
+		newRunWaitCmd(e),
 		newRunEventsCmd(e),
 		newRunTraceCmd(e),
 		newRunDebugCmd(e),
