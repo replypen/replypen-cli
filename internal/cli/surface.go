@@ -49,6 +49,7 @@ func newProjectSurfaceCmd(e *env, version string) *cobra.Command {
 		newBrandingCmd(e),
 		newEnvCmd(e),
 		newGitHubCmd(e),
+		newSiteCmd(e),
 		newActionConfigCmd(e),
 		newProjectActionCmd(e),
 		newChatCmd(e, version),

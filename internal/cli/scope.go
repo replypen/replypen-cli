@@ -83,7 +83,8 @@ func commandScope(path string) scopeSpec {
 	// Proposals sit under project settings but, like triage, have a tenant tree of their own.
 	case strings.HasPrefix(path, "project settings proposals "):
 		return projectTenant
-	case strings.HasPrefix(path, "project repo "), strings.HasPrefix(path, "project connection "), strings.HasPrefix(path, "project member "):
+	case strings.HasPrefix(path, "project repo "), strings.HasPrefix(path, "project connection "), strings.HasPrefix(path, "project member "),
+		strings.HasPrefix(path, "project site "):
 		return projectTenant
 	case strings.HasPrefix(path, "project mailbox ") &&
 		!strings.HasPrefix(path, "project mailbox settings "):

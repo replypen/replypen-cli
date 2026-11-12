@@ -685,6 +685,11 @@ help using `go test ./internal/cli -update`.
 | `rp project settings runtime` | Manage flat runtime settings |
 | `rp project settings schema` | Show the config registry (fields, types, scopes, defaults) |
 | `rp project settings` | Read, change, and describe project settings |
+| `rp project site domain add` | Connect (idempotent: rerun = advance + status) |
+| `rp project site domain rm` | Disconnect the hostname |
+| `rp project site domain status` | Show where the hostname stands (changes nothing) |
+| `rp project site domain` | Connect a website to its own hostname (www.example.be): add, status, rm |
+| `rp project site` | ReplyPen-hosted websites (--tenant for a tenant's site) |
 | `rp project tenant add` | Create a tenant |
 | `rp project tenant budget add` | Raise (or with a negative amount, lower) a tenant's monthly AI limit by USD |
 | `rp project tenant budget get` | Show a tenant's monthly AI limit and this month's usage |
