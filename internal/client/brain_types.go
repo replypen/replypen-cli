@@ -23,6 +23,10 @@ type BrainStatus struct {
 	// Source is set when this project runs on another project's brain (a read-only brain alias, state
 	// "read_only_alias"); the SHA fields then describe the source's main as fetched into the alias cache.
 	Source *BrainSource `json:"brain_source,omitempty"`
+	// RemoteMode is the brain's declared remote: "none" (ReplyPen holds it on box, state "local_only")
+	// or "github". RemoteMismatch: a "none" brain whose box clone still lists an origin (never contacted).
+	RemoteMode     string `json:"remote_mode,omitempty"`
+	RemoteMismatch bool   `json:"remote_mismatch,omitempty"`
 }
 
 // BrainSource is the provenance of a read-only brain alias.

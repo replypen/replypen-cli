@@ -279,6 +279,9 @@ func BrainStatus(w io.Writer, r *client.BrainStatusResponse) {
 		_, _ = fmt.Fprintf(w, "Origin:  %s\n", clipID(st.RemoteSHA, 12))
 	}
 	_, _ = fmt.Fprintf(w, "State:   %s", state)
+	if state == "local_only" {
+		_, _ = fmt.Fprint(w, " (no remote: the on-box main is the source of truth)")
+	}
 	if st.Ahead > 0 || st.Behind > 0 {
 		_, _ = fmt.Fprintf(w, " (ahead %d, behind %d)", st.Ahead, st.Behind)
 	}
@@ -288,6 +291,9 @@ func BrainStatus(w io.Writer, r *client.BrainStatusResponse) {
 	_, _ = fmt.Fprintln(w)
 	if st.SyncedAt != "" {
 		_, _ = fmt.Fprintf(w, "Synced:  %s\n", st.SyncedAt)
+	}
+	if st.RemoteMismatch {
+		_, _ = fmt.Fprintln(w, "Remote:  none by setting, but the box clone still lists an origin (never contacted)")
 	}
 	// A FAILED boot check is why local main can be behind origin: the box kept the last-good commit.
 	// An alias status carries no boot verdict of its own (runs use the source's), so don't claim "unchecked".

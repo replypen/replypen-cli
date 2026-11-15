@@ -5542,6 +5542,7 @@ Available Commands:
   ls                List projects
   identity-failures List identity failures without patient details (global admin)
   run-usage         Summed LLM cost and tokens per run (human global admin; evaluation only)
+  brain-remote      Move a project's brains off GitHub (none) or back (github) (human global admin)
   add               Create a project (name=… [default_tier=standard|pro] [egress_mode=wildcard|enforce])
 
 Global Flags:
@@ -5597,6 +5598,26 @@ Summed LLM cost (USD) and prompt/completion/reasoning tokens per run, across eve
 
 Usage:
   rp admin project run-usage <project> <run-id>... [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp admin project brain-remote --help
+Leaving GitHub (--mode none) refuses unless, for the project brain and every tenant brain, main/stable/edge equal GitHub, nothing exists only on GitHub, no run is in flight and the off-box backup holds the current refs; then it removes the remote. Nothing on GitHub is deleted. --mode github re-adds the remote and pushes. --dry-run runs the checklist only.
+
+Usage:
+  rp admin project brain-remote <project> --mode none|github [--dry-run] [flags]
+
+Flags:
+      --dry-run       run the checklist only; change nothing
+      --mode string   none (local-only, no GitHub) or github
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

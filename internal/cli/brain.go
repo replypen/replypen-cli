@@ -138,7 +138,11 @@ func brainBootCheckError(err error) error {
 	return err
 }
 
-const brainReadOnlyAlias = "BRAIN_READ_ONLY_ALIAS"
+const (
+	brainReadOnlyAlias = "BRAIN_READ_ONLY_ALIAS"
+	brainLocalOnly     = "BRAIN_LOCAL_ONLY"
+	remoteModeNone     = "none"
+)
 
 // brainAliasError adds the plain-language next step to a refused brain write on a read-only brain alias.
 // The error envelope doesn't name the source project, so the hint stays generic unless the caller knows it.
@@ -393,12 +397,22 @@ func brainPublishCmd(e *env) *cobra.Command {
 					Message: "brain publish refused: this project runs on a read-only brain alias"}, project, src.Project)
 			}
 
-			syncResp, syncRaw, err := c.BrainSync(e.ctx(), project, "")
-			if err != nil {
-				return brainAliasError(brainBootCheckError(err), project, "")
-			}
-			if syncResp.Sync.ManualReconcile {
-				return fmt.Errorf("brain box clone is %q and needs manual reconcile — reconcile the box clone, see `rp dev brain status`", syncResp.Sync.After.State)
+			// A brain without a remote has nothing to sync from: its on-box main already is the source, so
+			// publish is promote + verify against the local channel.
+			// Keyed on the declared mode, not the state: a dirty or missing local-only clone reports
+			// another state, and sync would still answer 409 BRAIN_LOCAL_ONLY.
+			localOnly := pre.Status.RemoteMode == remoteModeNone
+			var syncResp client.BrainSyncResponse
+			var syncRaw json.RawMessage
+			if !localOnly {
+				resp, raw, err := c.BrainSync(e.ctx(), project, "")
+				if err != nil {
+					return brainAliasError(brainBootCheckError(err), project, "")
+				}
+				if resp.Sync.ManualReconcile {
+					return fmt.Errorf("brain box clone is %q and needs manual reconcile — reconcile the box clone, see `rp dev brain status`", resp.Sync.After.State)
+				}
+				syncResp, syncRaw = *resp, raw
 			}
 
 			promoteResp, promoteRaw, err := c.BrainPromote(e.ctx(), project, client.BrainPromoteRequest{Channel: channel, SHA: sha})
@@ -414,7 +428,7 @@ func brainPublishCmd(e *env) *cobra.Command {
 			if ch == nil {
 				return fmt.Errorf("verify failed: brain status did not report channel %q", channel)
 			}
-			if ch.ResolvedSHA != sha || !ch.MatchesOrigin {
+			if ch.ResolvedSHA != sha || (!ch.MatchesOrigin && !localOnly) {
 				return fmt.Errorf("verify failed: channel %q resolved %s (matches origin: %t), want %s", channel, dashOr(ch.ResolvedSHA), ch.MatchesOrigin, sha)
 			}
 
@@ -462,6 +476,10 @@ func publishTenantBrain(e *env, sha string) error {
 		return fmt.Errorf("--channel is required to publish a project brain (stable or edge); a tenant brain publishes without one (--tenant or its checkout)")
 	}
 	resp, syncRaw, err := c.BrainSync(e.ctx(), project, tenant)
+	var apiErr *client.APIError
+	if asAPIError(err, &apiErr) && apiErr.Code == brainLocalOnly {
+		return fmt.Errorf("tenant %s's brain has no remote: ReplyPen holds it on box and serves its main directly, so there is nothing to publish from a pushed commit", tenant)
+	}
 	if err != nil {
 		return brainBootCheckError(err)
 	}

@@ -993,3 +993,29 @@ func TestBrainAliasStatusAndSyncRender(t *testing.T) {
 		assertGolden(t, tc.golden, out.String())
 	}
 }
+
+// A brain without a remote (state local_only) has nothing to sync: publish promotes and verifies the
+// local channel, never calls sync, and never asks for an origin match.
+func TestBrainPublishLocalOnlySkipsSync(t *testing.T) {
+	status := fmt.Sprintf(`{"project":"alpha","status":{"available":true,"ref":"main","state":"local_only","remote_mode":"none","channels":[{"channel":"stable","resolved_sha":%q,"matches_origin":false,"state":"current"}]}}`, publishSHA)
+	srv, seen := publishStub(t, publishSyncOK, status, "")
+	e, out, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, "dev", "brain", "publish", "--channel", "stable", "--sha", publishSHA); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if seen.sync || !seen.promote || seen.status != 2 {
+		t.Fatalf("chain = %+v, want promote + verify without sync", *seen)
+	}
+	if !strings.Contains(out.String(), "local_only (no remote: the on-box main is the source of truth)") {
+		t.Fatalf("status render = %q", out.String())
+	}
+}
+
+// BRAIN_LOCAL_ONLY reads as "no remote", never as a missing push.
+func TestBrainLocalOnlyErrorHasNoPushHint(t *testing.T) {
+	var errb strings.Builder
+	printError(&errb, &client.APIError{Status: http.StatusConflict, Code: "BRAIN_LOCAL_ONLY", Message: "this brain has no remote to sync from; its on-box main is the source of truth"})
+	if strings.Contains(errb.String(), "git push") || !strings.Contains(errb.String(), "no GitHub remote") {
+		t.Fatalf("stderr = %q", errb.String())
+	}
+}

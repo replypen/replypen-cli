@@ -493,7 +493,14 @@ func printErrorBody(w io.Writer, err error) {
 		}
 		// INVALID_SETTINGS carries per-field detail; print one line per field as specified.
 		for _, f := range apiErr.Fields {
-			_, _ = fmt.Fprintf(w, "  %s: %s\n", f.Key, f.Message)
+			switch {
+			case f.Key != "":
+				_, _ = fmt.Fprintf(w, "  %s: %s\n", f.Key, f.Message)
+			case f.Status == "ok": // a keyless checklist (e.g. BRAIN_REMOTE_REFUSED)
+				_, _ = fmt.Fprintf(w, "  ✓ %s\n", f.Message)
+			default:
+				_, _ = fmt.Fprintf(w, "  ✗ %s\n", f.Message)
+			}
 		}
 		// A rejected --brain-ref usually means the ref isn't on the project's brain origin yet.
 		if apiErr.Code == "BAD_BRAIN_REF" && strings.Contains(apiErr.Message, "tenant_brain_ref") {
@@ -505,9 +512,14 @@ func printErrorBody(w io.Writer, err error) {
 		if apiErr.Code == "BAD_MIRROR_REF" {
 			_, _ = fmt.Fprintln(w, "  --mirror-ref takes <repo>=<ref>: a configured mirror name (rp project repo ls) and a branch or 40-char SHA")
 		}
-		// An unreachable promote SHA means the tested commit never reached the brain origin.
+		// An unreachable promote SHA means the tested commit never reached the brain's main: on a GitHub
+		// brain that is a missing push; a local-only brain promotes only commits already on its on-box main.
 		if apiErr.Code == "BRAIN_SHA_UNREACHABLE" {
-			_, _ = fmt.Fprintln(w, "  SHA not reachable from origin/main — did you `git push` the brain repo?")
+			_, _ = fmt.Fprintln(w, "  SHA not on the brain's main — on a GitHub brain, did you `git push` it? A brain without a remote promotes only commits already on its on-box main (rp dev brain status)")
+		}
+		// A brain without a remote: nothing to sync or fetch from; never a push hint.
+		if apiErr.Code == "BRAIN_LOCAL_ONLY" {
+			_, _ = fmt.Fprintln(w, "  this brain has no GitHub remote: ReplyPen holds it on box. Use a branch or commit it already has (rp dev brain status)")
 		}
 		return
 	}
