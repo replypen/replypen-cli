@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -33,9 +34,12 @@ const maxRetryAfter = 30 * time.Second
 // sendSpec is one request for the transport loop. Zero values mean the JSON defaults: Accept
 // application/json, and Content-Type application/json when a body is present.
 type sendSpec struct {
-	method      string
-	path        string
-	body        []byte
+	method string
+	path   string
+	body   []byte
+	// bodyFile streams the request body from this file instead of body, re-opened per attempt so a retry
+	// or 401 refresh resends it whole (large uploads never sit in memory).
+	bodyFile    string
 	accept      string            // Accept header; "" → application/json
 	contentType string            // body Content-Type; "" → application/json (multipart passes its boundary)
 	headers     map[string]string // extra headers (the chat embed origin)
@@ -112,12 +116,31 @@ func (c *Client) fetch(ctx context.Context, spec sendSpec) ([]byte, error) {
 // sendOnce builds and performs exactly one HTTP round trip with the given bearer token.
 func (c *Client) sendOnce(ctx context.Context, spec sendSpec, token string) (*http.Response, error) {
 	var r io.Reader
+	var size int64 = -1
 	if len(spec.body) > 0 {
 		r = bytes.NewReader(spec.body)
 	}
+	if spec.bodyFile != "" {
+		f, err := os.Open(spec.bodyFile)
+		if err != nil {
+			return nil, fmt.Errorf("open request body: %w", err)
+		}
+		fi, err := f.Stat()
+		if err != nil {
+			_ = f.Close()
+			return nil, fmt.Errorf("open request body: %w", err)
+		}
+		r, size = f, fi.Size()
+	}
 	req, err := http.NewRequestWithContext(ctx, spec.method, c.baseURL+spec.path, r)
 	if err != nil {
+		if rc, ok := r.(io.Closer); ok {
+			_ = rc.Close()
+		}
 		return nil, fmt.Errorf("build request: %w", err)
+	}
+	if size >= 0 {
+		req.ContentLength = size
 	}
 	// An empty token is the share-link path: the credential is the `t=` query parameter, and an
 	// `Authorization: Bearer ` header with no value is rejected by proxies before it reaches us.
@@ -125,7 +148,7 @@ func (c *Client) sendOnce(ctx context.Context, spec sendSpec, token string) (*ht
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	req.Header.Set("Accept", orDefault(spec.accept, "application/json"))
-	if len(spec.body) > 0 {
+	if len(spec.body) > 0 || spec.bodyFile != "" {
 		req.Header.Set("Content-Type", orDefault(spec.contentType, "application/json"))
 	}
 	for k, v := range spec.headers {

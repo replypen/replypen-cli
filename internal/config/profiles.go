@@ -332,6 +332,12 @@ func CanonicalBaseURL(u string) string {
 	return u
 }
 
+// CheckoutTenant is the tenant a brain checkout names itself: its local override, else its marker's.
+func CheckoutTenant(brain *Brain) (string, error) {
+	tenant, _, err := resolveTenant(brain)
+	return tenant, err
+}
+
 func resolveTenant(brain *Brain) (string, string, error) {
 	tenant := brain.Tenant
 	source := ""

@@ -288,6 +288,12 @@ brains only gitignore the legacy `/.rootcause/`.
   promote's dry run over the same server-side canary — it exits non-zero on a refusing verdict, but the
   server enforces the check on `promote` too, so preflight is for *seeing* the answer early, never what
   makes promotion safe. `consumers` (not `checked`) is the authoritative channel-use count.
+  A brain without a GitHub repository (`remote_mode: none`) moves commits as git bundles
+  ([brain_bundle.go](internal/cli/brain_bundle.go)): `clone` (origin = a bundle file in `.git`, refreshed by
+  `pull`), `push [name]` → `dev/<name>`, `publish` without `--sha` = push → `sync {"ref"}` (server
+  fast-forwards main, boot-checked) → optional `--channel` promote + verify. The server is the only writer
+  of `main`; `pull` never moves a local `main` that has commits the server lacks. All refuse a `github`
+  brain (its flow is GitHub). Local git runs with hooks disabled.
 - **`rp dev console` principal binding** (`--principal-kind`/`--principal-id` on `bash run`,
   `database query`, `database schema`) reuses `principalFromFlags` from [ask.go](internal/cli/ask.go): the
   pair is all-or-nothing, because half a principal is a silent under- or over-scope. It is **omitempty on
@@ -306,7 +312,9 @@ brains only gitignore the legacy `/.rootcause/`.
   one. `--migrate` fails closed on binaries it cannot identify as ours. One narrow exception:
   `rp dev mirror refresh --accept-descendant`, `rp dev mirror publish` and the tenant `rp dev brain publish`
   shell out to the cwd checkout's own `git` (`fetch` from its origin, `merge-base --is-ancestor`) to prove
-  ancestry (`gitIsAncestor`, [mirror.go](internal/cli/mirror.go)). None of them ever pushes.
+  ancestry (`gitIsAncestor`, [mirror.go](internal/cli/mirror.go)). None of them ever pushes. The
+  bundle commands (`rp dev brain clone|pull|push`, `publish` without `--sha`) also run local `git`
+  (clone/fetch from a bundle file, `bundle create`); their only network is the ReplyPen API.
 
 ## Adding a command
 

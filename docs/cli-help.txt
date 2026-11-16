@@ -4181,6 +4181,9 @@ Usage:
 
 Available Commands:
   status      Show deployed brain cache status
+  clone       Clone a brain that has no GitHub repository (add --tenant <slug> for a tenant brain)
+  pull        Fetch the brain's latest main and branches into this checkout (brains without a GitHub repository)
+  push        Upload the current branch as dev/<name> so test runs can use it (brains without a GitHub repository)
   sync        Fetch origin/main and refresh deployed brain cache
   render      Show a tenant's compiled brain projection
   preflight   Dry-run a channel promotion: which tenants would the candidate commit break?
@@ -4207,6 +4210,54 @@ Show deployed brain cache status
 
 Usage:
   rp dev brain status [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp dev brain clone --help
+Clone a brain that has no GitHub repository (add --tenant <slug> for a tenant brain)
+
+Usage:
+  rp dev brain clone <project> [dir] [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp dev brain pull --help
+Fetch the brain's latest main and branches into this checkout (brains without a GitHub repository)
+
+Usage:
+  rp dev brain pull [flags]
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp dev brain push --help
+Upload the current branch as dev/<name> so test runs can use it (brains without a GitHub repository)
+
+Usage:
+  rp dev brain push [name] [flags]
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -4301,14 +4352,16 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp dev brain publish --help
-Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain
+Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain.
+
+On a brain without a GitHub repository, omit --sha inside its checkout (`rp dev brain clone`): publish uploads the current branch, fast-forwards the brain's main to it after a boot check, and with --channel promotes it.
 
 Usage:
-  rp dev brain publish [--channel stable|edge] --sha <commit> [flags]
+  rp dev brain publish [--channel stable|edge] [--sha <commit>] [flags]
 
 Flags:
       --channel string   project brain channel to publish (stable or edge); omit for a tenant brain
-      --sha string       exact full 40-character commit SHA (must be pushed to the brain origin)
+      --sha string       exact full 40-character commit SHA (must be pushed to the brain origin); omit in the checkout of a brain without a GitHub repository to publish its current branch
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

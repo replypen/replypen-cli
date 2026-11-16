@@ -24,7 +24,7 @@ var errEmptyInstruction = errors.New("empty instruction — pass it as args or p
 // outside a run. Long edit instructions can be piped on STDIN.
 func newBrainCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "brain", Short: "Inspect, publish, and manage brain repositories"}
-	cmd.AddCommand(brainStatusCmd(e), brainSyncCmd(e), brainRenderCmd(e), brainPreflightCmd(e), brainPromoteCmd(e), brainPublishCmd(e), brainEditCmd(e), brainConsolidateCmd(e), newBrainDeveloperCmd(e))
+	cmd.AddCommand(brainStatusCmd(e), brainCloneCmd(e), brainPullCmd(e), brainPushCmd(e), brainSyncCmd(e), brainRenderCmd(e), brainPreflightCmd(e), brainPromoteCmd(e), brainPublishCmd(e), brainEditCmd(e), brainConsolidateCmd(e), newBrainDeveloperCmd(e))
 	return cmd
 }
 
@@ -361,10 +361,19 @@ type brainPublishResult struct {
 func brainPublishCmd(e *env) *cobra.Command {
 	var channel, sha string
 	cmd := &cobra.Command{
-		Use:   "publish [--channel stable|edge] --sha <commit>",
+		Use:   "publish [--channel stable|edge] [--sha <commit>]",
 		Short: "Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain",
-		Args:  cobra.NoArgs,
+		Long: "Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain.\n\n" +
+			"On a brain without a GitHub repository, omit --sha inside its checkout (`rp dev brain clone`): publish uploads " +
+			"the current branch, fast-forwards the brain's main to it after a boot check, and with --channel promotes it.",
+		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if channel != "" && channel != "stable" && channel != "edge" {
+				return fmt.Errorf("--channel must be stable or edge")
+			}
+			if sha == "" {
+				return publishLocalBrain(e, channel)
+			}
 			if !fullGitSHA.MatchString(sha) {
 				return fmt.Errorf("--sha must be an exact full 40-character commit SHA")
 			}
@@ -452,8 +461,7 @@ func brainPublishCmd(e *env) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&channel, "channel", "", "project brain channel to publish (stable or edge); omit for a tenant brain")
-	cmd.Flags().StringVar(&sha, "sha", "", "exact full 40-character commit SHA (must be pushed to the brain origin)")
-	_ = cmd.MarkFlagRequired("sha")
+	cmd.Flags().StringVar(&sha, "sha", "", "exact full 40-character commit SHA (must be pushed to the brain origin); omit in the checkout of a brain without a GitHub repository to publish its current branch")
 	return cmd
 }
 
@@ -478,7 +486,7 @@ func publishTenantBrain(e *env, sha string) error {
 	resp, syncRaw, err := c.BrainSync(e.ctx(), project, tenant)
 	var apiErr *client.APIError
 	if asAPIError(err, &apiErr) && apiErr.Code == brainLocalOnly {
-		return fmt.Errorf("tenant %s's brain has no remote: ReplyPen holds it on box and serves its main directly, so there is nothing to publish from a pushed commit", tenant)
+		return fmt.Errorf("tenant %s's brain has no GitHub repository: run `rp dev brain publish` without --sha inside its checkout (`rp dev brain clone %s --tenant %s`)", tenant, project, tenant)
 	}
 	if err != nil {
 		return brainBootCheckError(err)

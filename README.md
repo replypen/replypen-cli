@@ -340,6 +340,19 @@ that exact SHA — and exits non-zero on any mismatch (`-o json` carries the rec
 in with an authorized project-maintainer login instead. Explicitly narrowed tokens need the dedicated
 `brain:promote` OAuth scope in addition to that project-level admin authority.
 
+**A brain without a GitHub repository** (`rp dev brain status` shows `remote_mode: none`) is edited with
+ordinary local git; commits travel as git bundles over the API. `rp dev brain clone <project> [dir]
+[--tenant <slug>]` downloads and clones it (origin is a bundle file in `.git`, the checkout gets its
+`.replypen.toml`). Commit on a branch, then `rp dev brain push [name]` uploads it as `dev/<name>` (default:
+the branch name) for test runs with `--brain-ref dev/<name>`, and `rp dev brain publish` (no `--sha`)
+uploads, fast-forwards the brain's `main` to it after the server's boot check, and with `--channel
+stable|edge` promotes and verifies it. The server only fast-forwards: if `main` moved meanwhile, `rp dev
+brain pull` (refreshes origin, fast-forwards local `main`, never discards local commits), rebase, publish
+again (a `main` checked out in another worktree is left for you to pull there). A tenant checkout
+publishes only its own brain (`--channel` is refused there), and push/publish refuse when the checkout's
+marker names another brain than the command targets. Uploads are capped at 200 MB. Uploaded `dev/*`
+branches expire after 30 days.
+
 **Source mirrors** follow the same rule: a push is picked up by the hourly refresh at best. From the
 source repo's checkout, after pushing the commit to every branch a project tracks, `rp dev mirror publish
 --sha <SHA>` refreshes every mirror of that repo your login can see (`--project` narrows it), each at its
@@ -493,6 +506,7 @@ help using `go test ./internal/cli -update`.
 | `rp dev api openapi` | Dump the canonical OpenAPI document |
 | `rp dev api routes` | Show the canonical API route manifest |
 | `rp dev api` | Inspect the public API contract |
+| `rp dev brain clone` | Clone a brain that has no GitHub repository (add --tenant <slug> for a tenant brain) |
 | `rp dev brain consolidate` | Queue the consolidation cron on demand |
 | `rp dev brain developer invite` | Invite a GitHub user to this tenant brain repository |
 | `rp dev brain developer` | Manage tenant brain developer access |
@@ -500,6 +514,8 @@ help using `go test ./internal/cli -update`.
 | `rp dev brain preflight` | Dry-run a channel promotion: which tenants would the candidate commit break? |
 | `rp dev brain promote` | Promote an exact tested commit to a project brain channel |
 | `rp dev brain publish` | Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain |
+| `rp dev brain pull` | Fetch the brain's latest main and branches into this checkout (brains without a GitHub repository) |
+| `rp dev brain push` | Upload the current branch as dev/<name> so test runs can use it (brains without a GitHub repository) |
 | `rp dev brain render` | Show a tenant's compiled brain projection |
 | `rp dev brain status` | Show deployed brain cache status |
 | `rp dev brain sync` | Fetch origin/main and refresh deployed brain cache |
