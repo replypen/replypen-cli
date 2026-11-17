@@ -251,6 +251,13 @@ func commitPending(e *env, co bundleCheckout, message string) error {
 	if err != nil || status == "" || status == "?? "+config.MarkerFileName {
 		return err
 	}
+	// pushBundle's refusals, checked before committing so a refused upload never strands a fresh commit.
+	if currentBranch(e.ctx(), co.dir) == "" {
+		return errors.New("HEAD is detached: check out a branch first (`git switch -c <name>`)")
+	}
+	if _, err := gitIn(e.ctx(), co.dir, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"); err != nil {
+		return errors.New("this checkout has no origin/main: run `rp dev brain pull` first")
+	}
 	if err := assertCheckoutScope(co); err != nil {
 		return err
 	}
@@ -594,11 +601,11 @@ type localPublishResult struct {
 	Dir          string `json:"dir"`
 }
 
-// replayOntoMovedMain rebases the current branch's commits (since the old origin/main) onto the brain's
-// fresh main, but only when the paths changed upstream and locally are disjoint. On overlap or a rebase
-// conflict the checkout stays exactly as it was (the rebase is aborted); only origin/* has moved.
+// replayOntoMovedMain rebases the current branch's commits (since its merge-base with the brain's fresh
+// main) onto that main, but only when the paths changed upstream and locally are disjoint. On overlap or a
+// rebase conflict the checkout stays exactly as it was (the rebase is aborted); only origin/* has moved.
 func replayOntoMovedMain(e *env, c *client.Client, co bundleCheckout) error {
-	oldBase, err := gitIn(e.ctx(), co.dir, "rev-parse", "refs/remotes/origin/main")
+	head, err := gitIn(e.ctx(), co.dir, "rev-parse", "HEAD")
 	if err != nil {
 		return err
 	}
@@ -606,37 +613,77 @@ func replayOntoMovedMain(e *env, c *client.Client, co bundleCheckout) error {
 	if err != nil {
 		return err
 	}
-	upstream, err := gitIn(e.ctx(), co.dir, "diff", "--name-only", "--no-renames", oldBase, newBase)
+	// Not the stored origin/main: after a `pull` it is already past this branch's base.
+	base, err := gitIn(e.ctx(), co.dir, "merge-base", "HEAD", newBase)
 	if err != nil {
 		return err
 	}
-	local, err := gitIn(e.ctx(), co.dir, "diff", "--name-only", "--no-renames", oldBase, "HEAD")
+	upstream, err := changedPaths(e, co, base, newBase)
+	if err != nil {
+		return err
+	}
+	local, err := changedPaths(e, co, base, head)
 	if err != nil {
 		return err
 	}
 	theirs := map[string]bool{}
-	for _, p := range strings.Fields(upstream) {
+	for _, p := range upstream {
 		theirs[p] = true
 	}
 	var overlap []string
-	for _, p := range strings.Split(local, "\n") {
-		if p != "" && theirs[p] {
+	for _, p := range local {
+		if theirs[p] {
 			overlap = append(overlap, p)
 		}
 	}
 	if len(overlap) > 0 {
 		return publishConflict(fmt.Sprintf("the brain's main moved and changed the same paths as your commits: %s", strings.Join(overlap, ", ")))
 	}
-	if _, err := gitIn(e.ctx(), co.dir, "rebase", "--quiet", "--onto", newBase, oldBase); err != nil {
-		_, _ = gitIn(e.ctx(), co.dir, "rebase", "--abort")
+	// rebase --onto linearizes: a merge commit's own changes would silently vanish from what lands.
+	if merges, err := gitIn(e.ctx(), co.dir, "rev-list", "--merges", base+".."+head); err != nil || merges != "" {
+		return publishConflict("the brain's main moved and your commits include a merge, which is never replayed automatically (linearize your commits first)")
+	}
+	if _, err := gitIn(e.ctx(), co.dir, "rebase", "--quiet", "--onto", newBase, base); err != nil {
+		// Detached from the command's context: a cancelled publish must still undo its rebase.
+		ctx := context.WithoutCancel(e.ctx())
+		_, aerr := gitIn(ctx, co.dir, "rebase", "--abort")
+		now, _ := gitIn(ctx, co.dir, "rev-parse", "HEAD")
+		if aerr != nil || now != head || rebaseInProgress(co) {
+			return fmt.Errorf("the brain's main moved, replaying your commits onto it conflicted (%v), and undoing the rebase failed (%v): fix %s by hand (`git rebase --abort`, then `git reset --keep %s`); nothing was published", err, aerr, co.dir, head)
+		}
 		return publishConflict(fmt.Sprintf("the brain's main moved and replaying your commits onto it conflicted (%v)", err))
 	}
 	return nil
 }
 
+// changedPaths lists the paths that differ between two commits, NUL-separated so spaces and non-ASCII
+// names come through unquoted.
+func changedPaths(e *env, co bundleCheckout, from, to string) ([]string, error) {
+	out, err := gitIn(e.ctx(), co.dir, "diff", "--name-only", "--no-renames", "-z", from, to)
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, p := range strings.Split(out, "\x00") {
+		if p != "" {
+			paths = append(paths, p)
+		}
+	}
+	return paths, nil
+}
+
+func rebaseInProgress(co bundleCheckout) bool {
+	for _, d := range []string{"rebase-merge", "rebase-apply"} {
+		if _, err := os.Stat(filepath.Join(co.gitDir, d)); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
 func publishConflict(msg string) error {
 	return withHint(&commandError{code: exitUsage, name: "BRAIN_MAIN_MOVED_OVERLAP", message: msg + "; nothing was published and your checkout is unchanged"},
-		"re-apply your change on a fresh main: `rp dev brain clone <project> [--tenant <slug>] --temp`, redo the edit, publish")
+		"re-apply your change on a fresh main: `rp dev brain clone <project> [--tenant <slug>] --temp`, redo the edit (as plain, unmerged commits), publish")
 }
 
 // isBundleCheckout: the checkout's origin is the bundle file in its own .git, as `rp dev brain clone`
@@ -647,13 +694,26 @@ func isBundleCheckout(e *env, co bundleCheckout) bool {
 }
 
 // removableCheckout is why the checkout must be kept ("" = safe to delete): the refreshed origin/main
-// (the box's main) must contain sha, and nothing local may be uncommitted, stashed or unpublished.
+// (the box's main) must contain sha, and nothing local may be uncommitted, ignored (beyond rp's own
+// state), stashed, unpublished or held by a linked worktree (which shares this .git's objects).
 func removableCheckout(e *env, co bundleCheckout, sha string) string {
 	if gitIsAncestorIn(e.ctx(), co.dir, sha, "refs/remotes/origin/main") != nil {
 		return "the brain's main as downloaded does not contain " + short(sha)
 	}
 	if status, err := gitIn(e.ctx(), co.dir, "status", "--porcelain"); err != nil || status != "" {
 		return "it has uncommitted changes"
+	}
+	ignored, err := gitIn(e.ctx(), co.dir, "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
+	if err != nil {
+		return err.Error()
+	}
+	for _, p := range strings.Split(ignored, "\x00") {
+		if p != "" && p != config.LocalFileName && !strings.HasPrefix(p, ".replypen/output/") {
+			return "it has ignored files that may hold work (" + p + ")"
+		}
+	}
+	if wts, err := gitIn(e.ctx(), co.dir, "worktree", "list", "--porcelain"); err != nil || strings.Count("\n"+wts, "\nworktree ") > 1 {
+		return "other worktrees share its .git (see `git worktree list`)"
 	}
 	if _, err := gitIn(e.ctx(), co.dir, "rev-parse", "--verify", "--quiet", "refs/stash"); err == nil {
 		return "it has a stash"

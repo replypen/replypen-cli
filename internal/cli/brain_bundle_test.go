@@ -626,3 +626,177 @@ func TestBrainBundlePublishRmSafety(t *testing.T) {
 		t.Fatalf("checkout with unpublished work was deleted: %v", serr)
 	}
 }
+
+// tempCheckout clones the project brain with --temp and chdirs into it.
+func tempCheckout(t *testing.T, f *fakeBundle) string {
+	t.Helper()
+	isolateCache(t)
+	t.Chdir(t.TempDir())
+	e, out, _ := newTestEnv(t, f.srv, "json")
+	if err := run(t, e, "dev", "brain", "clone", "alpha", "--temp"); err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+	var cl struct{ Dir string }
+	if err := json.Unmarshal(out.Bytes(), &cl); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(cl.Dir)
+	return cl.Dir
+}
+
+// publishRmKept runs publish -m --rm, which must land but keep the checkout for reason.
+func publishRmKept(t *testing.T, f *fakeBundle, co, reason string) {
+	t.Helper()
+	e, out, errb := newTestEnv(t, f.srv, "json")
+	if err := run(t, e, "dev", "brain", "publish", "-m", "edit", "--rm"); err != nil {
+		t.Fatalf("publish --rm: %v", err)
+	}
+	var rc struct{ Removed bool }
+	if err := json.Unmarshal(out.Bytes(), &rc); err != nil || rc.Removed || !strings.Contains(errb.String(), co) || !strings.Contains(errb.String(), reason) {
+		t.Fatalf("receipt = %q, stderr = %q", out.String(), errb.String())
+	}
+	if _, err := os.Stat(co); err != nil {
+		t.Fatalf("checkout was deleted: %v", err)
+	}
+}
+
+func TestBrainBundlePublishRmKeepsIgnoredWork(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	co := tempCheckout(t, f)
+	writeIn(t, co, ".gitignore", "notes.txt\n")
+	writeIn(t, co, "notes.txt", "precious\n")
+	publishRmKept(t, f, co, "ignored files")
+	if got, _ := os.ReadFile(filepath.Join(co, "notes.txt")); string(got) != "precious\n" {
+		t.Fatalf("ignored work lost: %q", got)
+	}
+}
+
+func TestBrainBundlePublishRmKeepsLinkedWorktree(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	co := tempCheckout(t, f)
+	wt := filepath.Join(t.TempDir(), "wt")
+	mustGitT(t, co, "worktree", "add", "-q", "--detach", wt)
+	commitIn(t, wt, "wip.md", "wip\n")
+	writeIn(t, co, "skill.md", "s\n")
+	publishRmKept(t, f, co, "worktrees")
+}
+
+// A local merge commit is never auto-replayed (rebase --onto would drop its own changes).
+func TestBrainBundlePublishRefusesReplayingMerge(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	co := tempCheckout(t, f)
+	mustGitT(t, co, "switch", "-q", "-c", "side")
+	commitIn(t, co, "a.md", "a\n")
+	mustGitT(t, co, "switch", "-q", "main")
+	commitIn(t, co, "b.md", "b\n")
+	mustGitT(t, co, "merge", "-q", "--no-ff", "-m", "merge side", "side")
+	writeIn(t, co, "a.md", "fixed in merge\n")
+	mustGitT(t, co, "commit", "-q", "--amend", "-a", "--no-edit")
+	head := mustGitT(t, co, "rev-parse", "HEAD")
+	boxMain := commitIn(t, f.box, "journal.md", "j\n")
+	e, _, _ := newTestEnv(t, f.srv, "table")
+	err := run(t, e, "dev", "brain", "publish")
+	var ce *commandError
+	if err == nil || !strings.Contains(err.Error(), "merge") || !errors.As(err, &ce) || ce.name != "BRAIN_MAIN_MOVED_OVERLAP" {
+		t.Fatalf("merge replay err = %v", err)
+	}
+	if mustGitT(t, co, "rev-parse", "HEAD") != head || mustGitT(t, f.box, "rev-parse", "main") != boxMain {
+		t.Fatal("refused merge replay changed the checkout or the box")
+	}
+}
+
+// Disjoint paths that still conflict (file a vs directory a/) abort the rebase: checkout back as it was.
+func TestBrainBundlePublishRebaseConflictAborts(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	co := tempCheckout(t, f)
+	writeIn(t, co, "a", "file\n")
+	mustGitT(t, co, "add", "a")
+	mustGitT(t, co, "commit", "-q", "-m", "file a")
+	head := mustGitT(t, co, "rev-parse", "HEAD")
+	if err := os.MkdirAll(filepath.Join(f.box, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	boxMain := commitIn(t, f.box, "a/b", "dir\n")
+	e, _, _ := newTestEnv(t, f.srv, "table")
+	err := run(t, e, "dev", "brain", "publish")
+	if err == nil || !strings.Contains(err.Error(), "conflicted") {
+		t.Fatalf("conflicting replay err = %v", err)
+	}
+	gitDir := mustGitT(t, co, "rev-parse", "--absolute-git-dir")
+	for _, d := range []string{"rebase-merge", "rebase-apply"} {
+		if _, serr := os.Stat(filepath.Join(gitDir, d)); serr == nil {
+			t.Fatalf("rebase left in progress (%s)", d)
+		}
+	}
+	if mustGitT(t, co, "rev-parse", "HEAD") != head || mustGitT(t, co, "symbolic-ref", "--short", "HEAD") != "main" ||
+		mustGitT(t, co, "status", "--porcelain", "--untracked-files=no") != "" || mustGitT(t, f.box, "rev-parse", "main") != boxMain {
+		t.Fatal("aborted replay did not restore the checkout, or touched the box")
+	}
+}
+
+// Overlap is detected on paths git would quote (spaces, non-ASCII).
+func TestBrainBundlePublishOverlapOddPaths(t *testing.T) {
+	gitIdentityEnv(t)
+	for _, name := range []string{"my file.md", "café.md"} {
+		t.Run(name, func(t *testing.T) {
+			f := newFakeBundle(t, "none")
+			co := tempCheckout(t, f)
+			commitIn(t, co, name, "mine\n")
+			boxMain := commitIn(t, f.box, name, "theirs\n")
+			e, _, _ := newTestEnv(t, f.srv, "table")
+			err := run(t, e, "dev", "brain", "publish")
+			if err == nil || !strings.Contains(err.Error(), "same paths as your commits: "+name) {
+				t.Fatalf("overlap on %q err = %v", name, err)
+			}
+			if mustGitT(t, f.box, "rev-parse", "main") != boxMain {
+				t.Fatal("an overlapping change landed")
+			}
+		})
+	}
+}
+
+// branch → pull → publish: the replay base is the branch's merge-base with the new main, not the stored
+// origin/main, so paths the box changed before the pull are not mistaken for local changes.
+func TestBrainBundlePublishReplayAfterPull(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	co := tempCheckout(t, f)
+	mustGitT(t, co, "switch", "-q", "-c", "feature")
+	commitIn(t, co, "local.md", "mine\n")
+	commitIn(t, f.box, "journal.md", "j1\n")
+	e, _, _ := newTestEnv(t, f.srv, "table")
+	if err := run(t, e, "dev", "brain", "pull"); err != nil {
+		t.Fatalf("pull: %v", err)
+	}
+	moved := commitIn(t, f.box, "journal.md", "j2\n")
+	if err := run(t, e, "dev", "brain", "publish"); err != nil {
+		t.Fatalf("publish after pull: %v", err)
+	}
+	if mustGitT(t, f.box, "rev-parse", "main~1") != moved || mustGitT(t, f.box, "show", "main:local.md") != "mine" {
+		t.Fatal("the branch was not replayed onto the moved main")
+	}
+}
+
+// A detached HEAD is refused before -m commits, so no commit is stranded.
+func TestBrainBundleDetachedDirtyRefusedBeforeCommit(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	co := tempCheckout(t, f)
+	mustGitT(t, co, "switch", "-q", "--detach")
+	head := mustGitT(t, co, "rev-parse", "HEAD")
+	writeIn(t, co, "skill.md", "s\n")
+	e, _, _ := newTestEnv(t, f.srv, "table")
+	for _, cmd := range []string{"push", "publish"} {
+		err := run(t, e, "dev", "brain", cmd, "-m", "edit")
+		if err == nil || !strings.Contains(err.Error(), "detached") {
+			t.Fatalf("%s err = %v", cmd, err)
+		}
+	}
+	if mustGitT(t, co, "rev-parse", "HEAD") != head || !strings.Contains(mustGitT(t, co, "status", "--porcelain"), "skill.md") {
+		t.Fatal("a refused upload committed the edit")
+	}
+}
