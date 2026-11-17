@@ -50,8 +50,17 @@ func TestAdminBrainRemote(t *testing.T) {
 	if !strings.Contains(errb.String(), "✗ alpha brain: main differs from origin (1 ahead, 0 behind)") {
 		t.Fatalf("stderr = %q", errb.String())
 	}
-	if len(bodies) != 2 || bodies[0]["mode"] != "none" || bodies[1]["dry_run"] != false {
+	if len(bodies) != 2 || bodies[0]["mode"] != "none" || bodies[1]["dry_run"] != false || bodies[0]["scope"] != nil {
 		t.Fatalf("bodies = %v", bodies)
+	}
+	if err := run(t, e, "admin", "project", "brain-remote", "alpha", "--mode", "none", "--scope", "tenants", "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 3 || bodies[2]["scope"] != "tenants" {
+		t.Fatalf("tenant-scope body = %v", bodies)
+	}
+	if err := run(t, e, "admin", "project", "brain-remote", "alpha", "--mode", "none", "--scope", "project"); err == nil || len(bodies) != 3 {
+		t.Fatalf("bad scope err = %v, calls = %d", err, len(bodies))
 	}
 }
 

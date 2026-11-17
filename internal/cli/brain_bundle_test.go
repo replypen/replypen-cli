@@ -53,6 +53,13 @@ func fakeBundleServer(t *testing.T, remoteMode string) (*httptest.Server, string
 
 func newFakeBundle(t *testing.T, remoteMode string) *fakeBundle {
 	t.Helper()
+	return newFakeBundleSplit(t, remoteMode, remoteMode)
+}
+
+// newFakeBundleSplit gives the project brain and the tenant overlay their own remote modes, as a project
+// with behavior.tenant_brain_remote set reports them.
+func newFakeBundleSplit(t *testing.T, projectMode, tenantMode string) *fakeBundle {
+	t.Helper()
 	f := &fakeBundle{box: t.TempDir(), tenant: t.TempDir(), uploads: map[string]int{}}
 	for _, dir := range []string{f.box, f.tenant} {
 		mustGitT(t, dir, "init", "-q", "-b", "main")
@@ -73,8 +80,12 @@ func newFakeBundle(t *testing.T, remoteMode string) *fakeBundle {
 	})
 	for _, base := range []string{"/api/v1/projects/alpha", "/api/v1/projects/alpha/tenants/{slug}"} {
 		mux.HandleFunc("GET "+base+"/brain/status", func(w http.ResponseWriter, r *http.Request) {
+			mode := projectMode
+			if r.PathValue("slug") != "" {
+				mode = tenantMode
+			}
 			_, _ = fmt.Fprintf(w, `{"project":"alpha","status":{"available":true,"ref":"main","state":"local_only","remote_mode":%q,"local_sha":%q}}`,
-				remoteMode, mustGitT(t, boxOf(r), "rev-parse", "main"))
+				mode, mustGitT(t, boxOf(r), "rev-parse", "main"))
 		})
 		mux.HandleFunc("GET "+base+"/brain/bundle", func(w http.ResponseWriter, r *http.Request) {
 			path := filepath.Join(t.TempDir(), "dl.bundle")
@@ -822,5 +833,54 @@ func TestChangedPathsKeepsLeadingSpace(t *testing.T) {
 	paths, err := changedPaths(e, bundleCheckout{dir: f.box}, base, head)
 	if err != nil || len(paths) != 1 || paths[0] != " leading.md" {
 		t.Fatalf("paths=%q err=%v", paths, err)
+	}
+}
+
+// A GitHub project whose tenant brains left GitHub (tenant_brain_remote none): the tenant checkout takes
+// the bundle flow end to end, while the project brain keeps the GitHub flow (clone refused, no upload).
+func TestBrainBundleTenantLocalOnProjectGitHub(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundleSplit(t, "github", "none")
+	e, _, _ := newTestEnv(t, f.srv, "table")
+	work := t.TempDir()
+	t.Chdir(work)
+
+	err := run(t, e, "dev", "brain", "clone", "alpha")
+	if err == nil || !strings.Contains(err.Error(), "lives on GitHub") {
+		t.Fatalf("project clone err = %v, want the GitHub refusal", err)
+	}
+	if _, serr := os.Stat(filepath.Join(work, "alpha")); serr == nil {
+		t.Fatal("refused project clone left a directory")
+	}
+
+	e2, _, _ := newTestEnv(t, f.srv, "table")
+	if err := run(t, e2, "dev", "brain", "clone", "alpha", "--tenant", "t1"); err != nil {
+		t.Fatalf("tenant clone: %v", err)
+	}
+	co := filepath.Join(work, "alpha-t1")
+	t.Chdir(co)
+	mustGitT(t, co, "switch", "-q", "-c", "edit")
+	edit := commitIn(t, co, "tenant.md", "t\n")
+	e3, _, _ := newTestEnv(t, f.srv, "table")
+	if err := run(t, e3, "dev", "brain", "push"); err != nil {
+		t.Fatalf("tenant push: %v", err)
+	}
+	e4, _, _ := newTestEnv(t, f.srv, "table")
+	if err := run(t, e4, "dev", "brain", "publish"); err != nil {
+		t.Fatalf("tenant publish: %v", err)
+	}
+	if got := mustGitT(t, f.tenant, "rev-parse", "main"); got != edit {
+		t.Fatalf("tenant main = %s, want %s", got, edit)
+	}
+	moved := commitIn(t, f.tenant, "journal.md", "j\n")
+	e5, _, _ := newTestEnv(t, f.srv, "table")
+	if err := run(t, e5, "dev", "brain", "pull"); err != nil {
+		t.Fatalf("tenant pull: %v", err)
+	}
+	if got := mustGitT(t, co, "rev-parse", "main"); got != moved {
+		t.Fatalf("tenant main after pull = %s, want %s", got, moved)
+	}
+	if f.uploads[""] != 0 {
+		t.Fatalf("the project brain got %d bundle uploads", f.uploads[""])
 	}
 }

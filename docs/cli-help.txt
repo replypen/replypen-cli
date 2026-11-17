@@ -5671,14 +5671,15 @@ Global Flags:
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp admin project brain-remote --help
-Leaving GitHub (--mode none) refuses unless, for the project brain and every tenant brain, main/stable/edge equal GitHub, nothing exists only on GitHub, no run is in flight and the off-box backup holds the current refs; then it removes the remote. Nothing on GitHub is deleted. --mode github re-adds the remote and pushes. --dry-run runs the checklist only.
+Leaving GitHub (--mode none) refuses unless, for the project brain and every tenant brain, main/stable/edge equal GitHub, nothing exists only on GitHub, no run is in flight and the off-box backup holds the current refs; then it removes the remote. Nothing on GitHub is deleted. --mode github re-adds the remote and pushes. --scope tenants moves only the tenant brains (behavior.tenant_brain_remote) and leaves the project brain where it is; tenants can only join GitHub while the project brain is there. --dry-run runs the checklist only.
 
 Usage:
-  rp admin project brain-remote <project> --mode none|github [--dry-run] [flags]
+  rp admin project brain-remote <project> --mode none|github [--scope tenants] [--dry-run] [flags]
 
 Flags:
-      --dry-run       run the checklist only; change nothing
-      --mode string   none (local-only, no GitHub) or github
+      --dry-run        run the checklist only; change nothing
+      --mode string    none (local-only, no GitHub) or github
+      --scope string   all (default: every brain) or tenants (only the tenant brains)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -5687,7 +5688,6 @@ Global Flags:
       --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
       --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
       --raw-output       disable progressive output spill and print full payloads to stdout
-      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
       --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp admin project add --help
