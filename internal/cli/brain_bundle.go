@@ -659,7 +659,7 @@ func replayOntoMovedMain(e *env, c *client.Client, co bundleCheckout) error {
 // changedPaths lists the paths that differ between two commits, NUL-separated so spaces and non-ASCII
 // names come through unquoted.
 func changedPaths(e *env, co bundleCheckout, from, to string) ([]string, error) {
-	out, err := gitIn(e.ctx(), co.dir, "diff", "--name-only", "--no-renames", "-z", from, to)
+	out, err := gitRawIn(e.ctx(), co.dir, "diff", "--name-only", "--no-renames", "-z", from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -703,7 +703,7 @@ func removableCheckout(e *env, co bundleCheckout, sha string) string {
 	if status, err := gitIn(e.ctx(), co.dir, "status", "--porcelain"); err != nil || status != "" {
 		return "it has uncommitted changes"
 	}
-	ignored, err := gitIn(e.ctx(), co.dir, "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
+	ignored, err := gitRawIn(e.ctx(), co.dir, "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
 	if err != nil {
 		return err.Error()
 	}
@@ -857,6 +857,12 @@ func brainScopeLabel(project, tenant string) string {
 
 // gitIn runs git in dir ("" = the current directory) with hooks disabled, returning trimmed stdout.
 func gitIn(ctx context.Context, dir string, args ...string) (string, error) {
+	out, err := gitRawIn(ctx, dir, args...)
+	return strings.TrimSpace(out), err
+}
+
+// gitRawIn is gitIn without the whitespace trim: -z listings need it, a path may start or end with a space.
+func gitRawIn(ctx context.Context, dir string, args ...string) (string, error) {
 	full := []string{"-c", "core.hooksPath=/dev/null"}
 	if dir != "" {
 		full = append(full, "-C", dir)
@@ -870,7 +876,7 @@ func gitIn(ctx context.Context, dir string, args ...string) (string, error) {
 		}
 		return "", fmt.Errorf("git %s: %w", args[0], err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	return string(out), nil
 }
 
 func currentBranch(ctx context.Context, dir string) string {

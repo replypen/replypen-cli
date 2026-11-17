@@ -800,3 +800,27 @@ func TestBrainBundleDetachedDirtyRefusedBeforeCommit(t *testing.T) {
 		t.Fatal("a refused upload committed the edit")
 	}
 }
+
+func TestPublishRmKeepsIgnoredLeadingSpacePath(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	co := tempCheckout(t, f)
+	if err := os.MkdirAll(filepath.Join(co, " .replypen"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeIn(t, co, ".gitignore", " .replypen/\n")
+	writeIn(t, co, " .replypen/local.toml", "precious\n")
+	publishRmKept(t, f, co, "ignored files")
+}
+
+func TestChangedPathsKeepsLeadingSpace(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	base := mustGitT(t, f.box, "rev-parse", "HEAD")
+	head := commitIn(t, f.box, " leading.md", "mine\n")
+	e, _, _ := newTestEnv(t, f.srv, "json")
+	paths, err := changedPaths(e, bundleCheckout{dir: f.box}, base, head)
+	if err != nil || len(paths) != 1 || paths[0] != " leading.md" {
+		t.Fatalf("paths=%q err=%v", paths, err)
+	}
+}
