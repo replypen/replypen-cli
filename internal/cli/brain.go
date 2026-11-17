@@ -359,20 +359,26 @@ type brainPublishResult struct {
 // project channel. Without --channel the target is a tenant overlay, which serves its own main: publish
 // is then sync + proof that the served main contains the SHA (a push alone is never picked up).
 func brainPublishCmd(e *env) *cobra.Command {
-	var channel, sha string
+	var channel, sha, message string
+	var remove bool
 	cmd := &cobra.Command{
 		Use:   "publish [--channel stable|edge] [--sha <commit>]",
 		Short: "Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain",
 		Long: "Make an exact pushed commit live: promote a project brain channel, or sync a tenant brain.\n\n" +
 			"On a brain without a GitHub repository, omit --sha inside its checkout (`rp dev brain clone`): publish uploads " +
-			"the current branch, fast-forwards the brain's main to it after a boot check, and with --channel promotes it.",
+			"the current branch, fast-forwards the brain's main to it after a boot check, and with --channel promotes it. " +
+			"If main moved meanwhile and touched none of your paths, your commits are replayed onto it (up to 3 attempts); " +
+			"overlapping paths stop it with the checkout unchanged. Afterwards the checkout is refreshed to the new main.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if channel != "" && channel != "stable" && channel != "edge" {
 				return fmt.Errorf("--channel must be stable or edge")
 			}
 			if sha == "" {
-				return publishLocalBrain(e, channel)
+				return publishLocalBrain(e, channel, message, remove)
+			}
+			if message != "" || remove {
+				return fmt.Errorf("-m and --rm apply to publishing a checkout of a brain without a GitHub repository; drop them with --sha")
 			}
 			if !fullGitSHA.MatchString(sha) {
 				return fmt.Errorf("--sha must be an exact full 40-character commit SHA")
@@ -462,6 +468,8 @@ func brainPublishCmd(e *env) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&channel, "channel", "", "project brain channel to publish (stable or edge); omit for a tenant brain")
 	cmd.Flags().StringVar(&sha, "sha", "", "exact full 40-character commit SHA (must be pushed to the brain origin); omit in the checkout of a brain without a GitHub repository to publish its current branch")
+	cmd.Flags().StringVarP(&message, "message", "m", "", "checkout publish: commit uncommitted changes (git add -A) with this message first; without it a dirty tree is refused")
+	cmd.Flags().BoolVar(&remove, "rm", false, "checkout publish: delete the checkout made by rp dev brain clone once the landed commit is verified on the brain's main and nothing is left unpublished")
 	return cmd
 }
 

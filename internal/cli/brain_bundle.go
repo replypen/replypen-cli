@@ -34,12 +34,16 @@ var maxBundleUpload = client.MaxBrainBundleUpload
 var devNameUnsafe = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
 
 func brainCloneCmd(e *env) *cobra.Command {
-	return &cobra.Command{
+	var temp bool
+	cmd := &cobra.Command{
 		Use:   "clone <project> [dir]",
 		Short: "Clone a brain that has no GitHub repository (add --tenant <slug> for a tenant brain)",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			project := args[0]
+			if temp && len(args) == 2 {
+				return errors.New("--temp picks its own directory under the user cache; drop the dir argument")
+			}
 			if e.project == "" {
 				e.project = project
 			}
@@ -54,6 +58,23 @@ func brainCloneCmd(e *env) *cobra.Command {
 			}
 			if len(args) == 2 {
 				dir = args[1]
+			}
+			if temp {
+				cache, err := os.UserCacheDir()
+				if err != nil {
+					return err
+				}
+				root := filepath.Join(cache, "replypen", "brains")
+				if err := os.MkdirAll(root, 0o700); err != nil {
+					return err
+				}
+				// Resolved, so the dir in this receipt equals the one push/publish receipts report.
+				if root, err = filepath.EvalSymlinks(root); err != nil {
+					return err
+				}
+				if dir, err = os.MkdirTemp(root, dir+"-"); err != nil {
+					return err
+				}
 			}
 			entries, rerr := os.ReadDir(dir)
 			if rerr == nil && len(entries) > 0 {
@@ -74,7 +95,7 @@ func brainCloneCmd(e *env) *cobra.Command {
 			}
 			defer func() { _ = os.RemoveAll(tmp) }()
 			// A failed clone is removed again, so a rerun is not refused by its leftovers.
-			created, done := os.IsNotExist(rerr), false
+			created, done := os.IsNotExist(rerr) || temp, false
 			defer func() {
 				if !done && created {
 					_ = os.RemoveAll(abs)
@@ -105,7 +126,11 @@ func brainCloneCmd(e *env) *cobra.Command {
 			done = true
 			mainSHA, _ := gitIn(e.ctx(), dir, "rev-parse", "main")
 			if e.jsonOut() {
-				raw, merr := json.Marshal(map[string]any{"project": project, "tenant": tenant, "dir": dir, "main": mainSHA})
+				receipt := map[string]any{"project": project, "tenant": tenant, "dir": dir, "main": mainSHA, "sha": mainSHA}
+				if temp {
+					receipt["temp"] = true
+				}
+				raw, merr := json.Marshal(receipt)
 				if merr != nil {
 					return merr
 				}
@@ -113,12 +138,26 @@ func brainCloneCmd(e *env) *cobra.Command {
 			}
 			_, _ = fmt.Fprintf(e.out, "Cloned the %s brain into %s (main %s).\n", brainScopeLabel(project, tenant), dir, short(mainSHA))
 			if wrote != "" {
-				_, _ = fmt.Fprintf(e.out, "Wrote %s so rp knows this checkout; commit it with your first change.\n", wrote)
+				_, _ = fmt.Fprintf(e.out, "Wrote %s so rp knows this checkout; it rides along with your first commit.\n", wrote)
 			}
-			_, _ = fmt.Fprintln(e.out, "Next: create a branch, commit, then `rp dev brain publish` (or `rp dev brain push` to test it first with --brain-ref dev/<branch>).")
+			if temp {
+				_, _ = fmt.Fprintf(e.out, "Next: edit on main, then `rp dev brain publish -m \"<what and why>\" --rm` (or `rp dev brain push -m \"<what and why>\"` to test it first with %s dev/<name>).\n", brainRefFlag(tenant))
+				return nil
+			}
+			_, _ = fmt.Fprintf(e.out, "Next: create a branch, commit, then `rp dev brain publish` (or `rp dev brain push` to test it first with %s dev/<branch>).\n", brainRefFlag(tenant))
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&temp, "temp", false, "throwaway checkout under the user cache dir (no dir argument); delete it after publishing with publish --rm")
+	return cmd
+}
+
+// brainRefFlag is the `rp ask` flag that tests an uploaded dev/ ref of this brain.
+func brainRefFlag(tenant string) string {
+	if tenant != "" {
+		return "--tenant-brain-ref"
+	}
+	return "--brain-ref"
 }
 
 func brainPullCmd(e *env) *cobra.Command {
@@ -163,13 +202,17 @@ func brainPullCmd(e *env) *cobra.Command {
 }
 
 func brainPushCmd(e *env) *cobra.Command {
-	return &cobra.Command{
+	var message string
+	cmd := &cobra.Command{
 		Use:   "push [name]",
 		Short: "Upload the current branch as dev/<name> so test runs can use it (brains without a GitHub repository)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			co, c, err := openBundleCheckout(e, "use `git push`")
 			if err != nil {
+				return err
+			}
+			if err := commitPending(e, co, message); err != nil {
 				return err
 			}
 			name := ""
@@ -192,10 +235,37 @@ func brainPushCmd(e *env) *cobra.Command {
 				return nil
 			}
 			_, _ = fmt.Fprintf(e.out, "Uploaded as %s: %s\n", up.Ref, up.SHA)
-			_, _ = fmt.Fprintf(e.out, "Test it with --brain-ref %s; make it live with `rp dev brain publish`.\n", up.Ref)
+			_, _ = fmt.Fprintf(e.out, "Test it with %s %s; make it live with `rp dev brain publish`.\n", brainRefFlag(co.tenant), up.Ref)
 			return nil
 		},
 	}
+	cmd.Flags().StringVarP(&message, "message", "m", "", "commit uncommitted changes (git add -A) with this message first; without it a dirty tree is refused")
+	return cmd
+}
+
+// commitPending commits the whole working tree (untracked files included) with message. Without a message
+// a dirty tree is refused: uploading HEAD while edits sit uncommitted would publish a partial tree. The
+// marker clone writes, left untracked, is not an edit: alone it is neither refused nor committed.
+func commitPending(e *env, co bundleCheckout, message string) error {
+	status, err := gitIn(e.ctx(), co.dir, "status", "--porcelain")
+	if err != nil || status == "" || status == "?? "+config.MarkerFileName {
+		return err
+	}
+	if err := assertCheckoutScope(co); err != nil {
+		return err
+	}
+	if strings.TrimSpace(message) == "" {
+		return fmt.Errorf("%s has uncommitted changes: pass -m \"<what and why>\" to commit them all, or commit (or discard) them yourself first", co.dir)
+	}
+	return commitAll(e, co, message)
+}
+
+func commitAll(e *env, co bundleCheckout, message string) error {
+	if _, err := gitIn(e.ctx(), co.dir, "add", "-A"); err != nil {
+		return err
+	}
+	_, err := gitIn(e.ctx(), co.dir, "commit", "--quiet", "-m", message)
+	return err
 }
 
 // bundleCheckout is a local brain checkout bound to its project/tenant scope.
@@ -247,19 +317,8 @@ func requireLocalOnlyBrain(e *env, c *client.Client, project, tenant, githubHint
 // local main with commits the server's main lacks is never moved (kept=true), nor is a main checked out
 // in another worktree (mainAt names it): moving the ref under it would leave its index and files stale.
 func pullBundle(e *env, c *client.Client, co bundleCheckout) (before, after string, kept bool, mainAt string, err error) {
-	bundlePath := filepath.Join(co.gitDir, bundleFileName)
-	if err = downloadBundle(e, c, co.project, co.tenant, bundlePath); err != nil {
+	if after, err = fetchBundle(e, c, co); err != nil {
 		return "", "", false, "", err
-	}
-	if _, err = gitIn(e.ctx(), co.dir, "remote", "set-url", "origin", bundlePath); err != nil {
-		return "", "", false, "", err
-	}
-	if _, err = gitIn(e.ctx(), co.dir, "fetch", "--quiet", "--prune", "--tags", "origin", "+refs/heads/*:refs/remotes/origin/*"); err != nil {
-		return "", "", false, "", err
-	}
-	after, err = gitIn(e.ctx(), co.dir, "rev-parse", "refs/remotes/origin/main")
-	if err != nil {
-		return "", "", false, "", errors.New("the downloaded brain has no main")
 	}
 	before, _ = gitIn(e.ctx(), co.dir, "rev-parse", "--verify", "--quiet", "refs/heads/main")
 	switch {
@@ -279,6 +338,26 @@ func pullBundle(e *env, c *client.Client, co bundleCheckout) (before, after stri
 		_, err = gitIn(e.ctx(), co.dir, "update-ref", "refs/heads/main", after, before)
 	}
 	return before, after, false, "", err
+}
+
+// fetchBundle downloads a fresh bundle into .git and fetches it as origin; local branches are not touched.
+// Returns the new origin/main.
+func fetchBundle(e *env, c *client.Client, co bundleCheckout) (string, error) {
+	bundlePath := filepath.Join(co.gitDir, bundleFileName)
+	if err := downloadBundle(e, c, co.project, co.tenant, bundlePath); err != nil {
+		return "", err
+	}
+	if _, err := gitIn(e.ctx(), co.dir, "remote", "set-url", "origin", bundlePath); err != nil {
+		return "", err
+	}
+	if _, err := gitIn(e.ctx(), co.dir, "fetch", "--quiet", "--prune", "--tags", "origin", "+refs/heads/*:refs/remotes/origin/*"); err != nil {
+		return "", err
+	}
+	after, err := gitIn(e.ctx(), co.dir, "rev-parse", "refs/remotes/origin/main")
+	if err != nil {
+		return "", errors.New("the downloaded brain has no main")
+	}
+	return after, nil
 }
 
 // worktreeWithMain is the path of another worktree of this repository that has main checked out ("" =
@@ -303,6 +382,7 @@ func worktreeWithMain(ctx context.Context, dir string) string {
 type bundlePush struct {
 	Project string `json:"project"`
 	Tenant  string `json:"tenant,omitempty"`
+	Dir     string `json:"dir"`
 	Branch  string `json:"branch"`
 	Ref     string `json:"ref,omitempty"`
 	SHA     string `json:"sha"`
@@ -319,7 +399,7 @@ func pushBundle(e *env, c *client.Client, co bundleCheckout, name string) (bundl
 	if err != nil {
 		return bundlePush{}, err
 	}
-	up := bundlePush{Project: co.project, Tenant: co.tenant, Branch: branch, SHA: head}
+	up := bundlePush{Project: co.project, Tenant: co.tenant, Dir: co.dir, Branch: branch, SHA: head}
 	base, err := gitIn(e.ctx(), co.dir, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/main")
 	if err != nil || base == "" {
 		return up, errors.New("this checkout has no origin/main: run `rp dev brain pull` first")
@@ -374,7 +454,8 @@ func devName(branch, sha string) string {
 
 // publishLocalBrain is `rp dev brain publish` without --sha on a brain without a remote: upload the
 // checkout's branch, fast-forward the server's main to it (boot-checked), then promote --channel if given.
-func publishLocalBrain(e *env, channel string) error {
+// A main that moved meanwhile is replayed onto (disjoint paths only), and the checkout is refreshed after.
+func publishLocalBrain(e *env, channel, message string, remove bool) error {
 	co, c, err := openBundleCheckout(e, "push to GitHub and run `rp dev brain publish --sha <commit>`")
 	if err != nil {
 		return err
@@ -384,15 +465,38 @@ func publishLocalBrain(e *env, channel string) error {
 	if channel != "" && co.tenant != "" {
 		return fmt.Errorf("this is tenant %s's brain: --channel promotes the shared project brain, which a tenant checkout never publishes; drop --channel to publish the tenant brain", co.tenant)
 	}
-	up, err := pushBundle(e, c, co, "")
-	if err != nil {
+	if remove && !isBundleCheckout(e, co) {
+		return fmt.Errorf("--rm deletes only a checkout made by `rp dev brain clone`; %s is not one (its origin is not the bundle in .git), so it was not touched", co.dir)
+	}
+	if err := commitPending(e, co, message); err != nil {
 		return err
 	}
-	ref := up.Ref
-	if ref == "" {
-		ref = up.SHA // already on main: sync answers "main already contains"
+	var up bundlePush
+	var syncResp *client.BrainSyncResponse
+	var syncRaw json.RawMessage
+	rebased := false
+	for attempt := 1; ; attempt++ {
+		if up, err = pushBundle(e, c, co, ""); err != nil {
+			return err
+		}
+		ref := up.Ref
+		if ref == "" {
+			ref = up.SHA // already on main: sync answers "main already contains"
+		}
+		syncResp, syncRaw, err = c.BrainSyncRef(e.ctx(), co.project, co.tenant, ref)
+		var apiErr *client.APIError
+		if !asAPIError(err, &apiErr) || apiErr.Code != brainNotFastForward {
+			break
+		}
+		if attempt == maxPublishAttempts {
+			return withHint(fmt.Errorf("the brain's main kept moving: gave up after %d attempts (%v)", attempt, err),
+				"publish again in a moment; nothing was landed")
+		}
+		if err := replayOntoMovedMain(e, c, co); err != nil {
+			return err
+		}
+		rebased = true
 	}
-	syncResp, syncRaw, err := c.BrainSyncRef(e.ctx(), co.project, co.tenant, ref)
 	if err != nil {
 		return brainBootCheckError(err)
 	}
@@ -403,8 +507,11 @@ func publishLocalBrain(e *env, channel string) error {
 	if served != up.SHA && gitHasCommit(e.ctx(), co.dir, served) && gitIsAncestorIn(e.ctx(), co.dir, up.SHA, served) != nil {
 		return fmt.Errorf("verify failed: the brain's main is %s, which does not contain %s", short(served), short(up.SHA))
 	}
-	res := brainPublishResult{Project: syncResp.Project, Tenant: co.tenant, Channel: channel, SHA: up.SHA, OldSHA: syncResp.Sync.Before.LocalSHA,
-		Sync: syncResp.Sync, Verified: true, Raw: map[string]json.RawMessage{"sync": syncRaw}}
+	res := localPublishResult{
+		brainPublishResult: brainPublishResult{Project: syncResp.Project, Tenant: co.tenant, Channel: channel, SHA: up.SHA, OldSHA: syncResp.Sync.Before.LocalSHA,
+			Sync: syncResp.Sync, Verified: true, Raw: map[string]json.RawMessage{"sync": syncRaw}},
+		PreviousMain: syncResp.Sync.Before.LocalSHA, DevRef: up.Ref, Rebased: rebased, Dir: co.dir,
+	}
 	var statusResp *client.BrainStatusResponse
 	if channel != "" {
 		promoteResp, promoteRaw, err := c.BrainPromote(e.ctx(), co.project, client.BrainPromoteRequest{Channel: channel, SHA: up.SHA})
@@ -427,6 +534,27 @@ func publishLocalBrain(e *env, channel string) error {
 		res.OldSHA = promoteResp.OldSHA
 		res.Raw["promote"], res.Raw["status"] = promoteRaw, statusRaw
 	}
+	// The land is done; from here a failure only keeps the checkout (warned on stderr), never fails publish.
+	keepWhy := ""
+	if _, _, _, _, err := pullBundle(e, c, co); err != nil {
+		keepWhy = "refreshing it failed: " + err.Error()
+	}
+	if remove && keepWhy == "" {
+		keepWhy = removableCheckout(e, co, up.SHA)
+		if keepWhy == "" {
+			if err := os.RemoveAll(co.dir); err != nil {
+				keepWhy = err.Error()
+			} else {
+				res.Removed = true
+			}
+		}
+	}
+	switch {
+	case keepWhy != "" && remove:
+		_, _ = fmt.Fprintf(e.err, "Published, but kept the checkout %s: %s\n", co.dir, keepWhy)
+	case keepWhy != "":
+		_, _ = fmt.Fprintf(e.err, "warning: published, but %s\n", keepWhy)
+	}
 	if e.jsonOut() {
 		raw, err := json.Marshal(res)
 		if err != nil {
@@ -436,13 +564,110 @@ func publishLocalBrain(e *env, channel string) error {
 	}
 	if statusResp != nil {
 		render.BrainStatus(e.out, statusResp)
-		return nil
+	} else {
+		render.BrainSync(e.out, syncResp)
+		if co.tenant == "" && len(syncResp.Sync.After.Channels) > 0 {
+			_, _ = fmt.Fprintf(e.out, "Tenants on a channel still serve the old commit: `rp dev brain publish --channel stable` (or edge) promotes %s.\n", short(up.SHA))
+		}
 	}
-	render.BrainSync(e.out, syncResp)
-	if co.tenant == "" && len(syncResp.Sync.After.Channels) > 0 {
-		_, _ = fmt.Fprintf(e.out, "Tenants on a channel still serve the old commit: `rp dev brain publish --channel stable` (or edge) promotes %s.\n", short(up.SHA))
+	if rebased {
+		_, _ = fmt.Fprintf(e.out, "The brain's main had moved: your commits were replayed onto it (no overlapping paths) as %s; a proof run before this publish tested the old base.\n", short(up.SHA))
+	}
+	if res.Removed {
+		_, _ = fmt.Fprintf(e.out, "Removed the checkout %s.\n", co.dir)
 	}
 	return nil
+}
+
+const (
+	brainNotFastForward = "BRAIN_NOT_FAST_FORWARD"
+	maxPublishAttempts  = 3
+)
+
+// localPublishResult is publish's receipt for a checkout; the --sha paths keep brainPublishResult as is.
+type localPublishResult struct {
+	brainPublishResult
+	PreviousMain string `json:"previous_main"`
+	DevRef       string `json:"dev_ref"`
+	Rebased      bool   `json:"rebased"`
+	Removed      bool   `json:"removed"`
+	Dir          string `json:"dir"`
+}
+
+// replayOntoMovedMain rebases the current branch's commits (since the old origin/main) onto the brain's
+// fresh main, but only when the paths changed upstream and locally are disjoint. On overlap or a rebase
+// conflict the checkout stays exactly as it was (the rebase is aborted); only origin/* has moved.
+func replayOntoMovedMain(e *env, c *client.Client, co bundleCheckout) error {
+	oldBase, err := gitIn(e.ctx(), co.dir, "rev-parse", "refs/remotes/origin/main")
+	if err != nil {
+		return err
+	}
+	newBase, err := fetchBundle(e, c, co)
+	if err != nil {
+		return err
+	}
+	upstream, err := gitIn(e.ctx(), co.dir, "diff", "--name-only", "--no-renames", oldBase, newBase)
+	if err != nil {
+		return err
+	}
+	local, err := gitIn(e.ctx(), co.dir, "diff", "--name-only", "--no-renames", oldBase, "HEAD")
+	if err != nil {
+		return err
+	}
+	theirs := map[string]bool{}
+	for _, p := range strings.Fields(upstream) {
+		theirs[p] = true
+	}
+	var overlap []string
+	for _, p := range strings.Split(local, "\n") {
+		if p != "" && theirs[p] {
+			overlap = append(overlap, p)
+		}
+	}
+	if len(overlap) > 0 {
+		return publishConflict(fmt.Sprintf("the brain's main moved and changed the same paths as your commits: %s", strings.Join(overlap, ", ")))
+	}
+	if _, err := gitIn(e.ctx(), co.dir, "rebase", "--quiet", "--onto", newBase, oldBase); err != nil {
+		_, _ = gitIn(e.ctx(), co.dir, "rebase", "--abort")
+		return publishConflict(fmt.Sprintf("the brain's main moved and replaying your commits onto it conflicted (%v)", err))
+	}
+	return nil
+}
+
+func publishConflict(msg string) error {
+	return withHint(&commandError{code: exitUsage, name: "BRAIN_MAIN_MOVED_OVERLAP", message: msg + "; nothing was published and your checkout is unchanged"},
+		"re-apply your change on a fresh main: `rp dev brain clone <project> [--tenant <slug>] --temp`, redo the edit, publish")
+}
+
+// isBundleCheckout: the checkout's origin is the bundle file in its own .git, as `rp dev brain clone`
+// leaves it. A GitHub clone (or anything else) fails this, so --rm can never delete one.
+func isBundleCheckout(e *env, co bundleCheckout) bool {
+	url, err := gitIn(e.ctx(), co.dir, "remote", "get-url", "origin")
+	return err == nil && filepath.Clean(url) == filepath.Join(co.gitDir, bundleFileName)
+}
+
+// removableCheckout is why the checkout must be kept ("" = safe to delete): the refreshed origin/main
+// (the box's main) must contain sha, and nothing local may be uncommitted, stashed or unpublished.
+func removableCheckout(e *env, co bundleCheckout, sha string) string {
+	if gitIsAncestorIn(e.ctx(), co.dir, sha, "refs/remotes/origin/main") != nil {
+		return "the brain's main as downloaded does not contain " + short(sha)
+	}
+	if status, err := gitIn(e.ctx(), co.dir, "status", "--porcelain"); err != nil || status != "" {
+		return "it has uncommitted changes"
+	}
+	if _, err := gitIn(e.ctx(), co.dir, "rev-parse", "--verify", "--quiet", "refs/stash"); err == nil {
+		return "it has a stash"
+	}
+	heads, err := gitIn(e.ctx(), co.dir, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+	if err != nil {
+		return err.Error()
+	}
+	for _, h := range strings.Fields(heads) {
+		if gitIsAncestorIn(e.ctx(), co.dir, "refs/heads/"+h, "refs/remotes/origin/main") != nil {
+			return "branch " + h + " has commits the brain's main does not"
+		}
+	}
+	return ""
 }
 
 func downloadBundle(e *env, c *client.Client, project, tenant, dst string) error {

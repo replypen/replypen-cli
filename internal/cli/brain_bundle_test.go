@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,6 +42,8 @@ type fakeBundle struct {
 	box, tenant   string
 	uploads       map[string]int // per brain ("" = project, else tenant slug)
 	contentLength []int64
+	syncs         int
+	beforeSync    func(box string) // runs before each land, e.g. to move main under the client
 }
 
 func fakeBundleServer(t *testing.T, remoteMode string) (*httptest.Server, string) {
@@ -94,6 +97,10 @@ func newFakeBundle(t *testing.T, remoteMode string) *fakeBundle {
 			var body struct{ Ref string }
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			box := boxOf(r)
+			f.syncs++
+			if f.beforeSync != nil {
+				f.beforeSync(box)
+			}
 			before := mustGitT(t, box, "rev-parse", "main")
 			sha := mustGitT(t, box, "rev-parse", body.Ref+"^{commit}")
 			if exec.Command("git", "-C", box, "merge-base", "--is-ancestor", before, sha).Run() != nil {
@@ -164,35 +171,32 @@ func TestBrainBundleCloneEditPublishPull(t *testing.T) {
 		t.Fatalf("box main = %s, want %s", got, edit)
 	}
 
-	// The server's main moves on (a journal commit); a branch cut before it is refused in plain words.
+	// The server's main moves on (a journal commit); a branch cut before it touching other paths is replayed
+	// onto it, and the refresh moves local main to the landed commit.
 	moved := commitIn(t, box, "journal.md", "j\n")
 	mustGitT(t, co, "switch", "-q", "-c", "stale")
 	commitIn(t, co, "late.md", "late\n")
-	err := run(t, e, "dev", "brain", "publish")
-	if err == nil || !strings.Contains(err.Error(), "pull") {
-		t.Fatalf("stale publish err = %v", err)
+	if err := run(t, e, "dev", "brain", "publish"); err != nil {
+		t.Fatalf("stale publish: %v", err)
 	}
-	if got := mustGitT(t, box, "rev-parse", "main"); got != moved {
-		t.Fatal("stale publish moved main")
+	landed := mustGitT(t, box, "rev-parse", "main")
+	if mustGitT(t, box, "rev-parse", "main~1") != moved || mustGitT(t, co, "rev-parse", "HEAD") != landed || mustGitT(t, co, "rev-parse", "main") != landed {
+		t.Fatalf("stale publish was not replayed onto %s and refreshed", moved)
 	}
 
 	// pull fast-forwards local main even when another branch is checked out.
+	moved2 := commitIn(t, box, "journal2.md", "j2\n")
 	if err := run(t, e, "dev", "brain", "pull"); err != nil {
 		t.Fatalf("pull: %v", err)
 	}
-	if got := mustGitT(t, co, "rev-parse", "main"); got != moved {
-		t.Fatalf("local main after pull = %s, want %s", got, moved)
-	}
-	mustGitT(t, co, "rebase", "-q", "main")
-	if err := run(t, e, "dev", "brain", "publish"); err != nil {
-		t.Fatalf("publish after rebase: %v", err)
+	if got := mustGitT(t, co, "rev-parse", "main"); got != moved2 {
+		t.Fatalf("local main after pull = %s, want %s", got, moved2)
 	}
 
 	// A local main commit the server lacks is never discarded by pull.
 	mustGitT(t, co, "switch", "-q", "main")
-	mustGitT(t, co, "merge", "-q", "--ff-only", "stale")
 	local := commitIn(t, co, "local.md", "mine\n")
-	commitIn(t, box, "journal2.md", "j2\n")
+	commitIn(t, box, "journal3.md", "j3\n")
 	out.Reset()
 	if err := run(t, e, "dev", "brain", "pull"); err != nil {
 		t.Fatalf("pull with local commits: %v", err)
@@ -383,5 +387,242 @@ func TestBrainBundlePullLeavesMainCheckedOutElsewhere(t *testing.T) {
 	}
 	if status := mustGitT(t, co, "status", "--porcelain", "--untracked-files=no"); status != "" {
 		t.Fatalf("main worktree went stale: %q", status)
+	}
+}
+
+func writeIn(t *testing.T, dir, file, body string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, file), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func isolateCache(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(cache, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
+}
+
+// The throwaway flow on a tenant brain: clone --temp (JSON), dirty push refused, push -m (tenant hint),
+// publish -m --rm lands, verifies and deletes the checkout.
+func TestBrainBundleTempCloneTenantFlow(t *testing.T) {
+	gitIdentityEnv(t)
+	cache := isolateCache(t)
+	f := newFakeBundle(t, "none")
+	t.Chdir(t.TempDir())
+	e, out, _ := newTestEnv(t, f.srv, "json")
+	if err := run(t, e, "dev", "brain", "clone", "alpha", "x", "--tenant", "t1", "--temp"); err == nil || !strings.Contains(err.Error(), "drop the dir") {
+		t.Fatalf("clone --temp with a dir err = %v", err)
+	}
+	if err := run(t, e, "dev", "brain", "clone", "alpha", "--tenant", "t1", "--temp"); err != nil {
+		t.Fatalf("clone --temp: %v", err)
+	}
+	var cl struct {
+		Project, Tenant, Dir, SHA string
+		Temp                      bool
+	}
+	if err := json.Unmarshal(out.Bytes(), &cl); err != nil {
+		t.Fatalf("clone receipt %q: %v", out.String(), err)
+	}
+	oldMain := mustGitT(t, f.tenant, "rev-parse", "main")
+	if !cl.Temp || cl.Tenant != "t1" || cl.SHA != oldMain || !strings.HasPrefix(cl.Dir, filepath.Join(cache, "replypen", "brains", "alpha-t1-")) {
+		t.Fatalf("clone receipt = %+v", cl)
+	}
+	co := cl.Dir
+	t.Chdir(co)
+
+	writeIn(t, co, "tenant.md", "t\n")
+	et, tout, _ := newTestEnv(t, f.srv, "table")
+	if err := run(t, et, "dev", "brain", "push"); err == nil || !strings.Contains(err.Error(), "uncommitted changes") {
+		t.Fatalf("dirty push err = %v", err)
+	}
+	if f.uploads["t1"] != 0 {
+		t.Fatal("a dirty tree was uploaded")
+	}
+	if err := run(t, et, "dev", "brain", "push", "-m", "proof"); err != nil {
+		t.Fatalf("push -m: %v", err)
+	}
+	if !strings.Contains(tout.String(), "Test it with --tenant-brain-ref dev/edit-") {
+		t.Fatalf("tenant push hint = %q", tout.String())
+	}
+	if got := mustGitT(t, co, "log", "-1", "--format=%s"); got != "proof" {
+		t.Fatalf("push -m commit subject = %q", got)
+	}
+
+	writeIn(t, co, "more.md", "m\n")
+	ej, jout, _ := newTestEnv(t, f.srv, "json")
+	if err := run(t, ej, "dev", "brain", "publish", "-m", "what and why", "--rm"); err != nil {
+		t.Fatalf("publish --rm: %v", err)
+	}
+	var rc struct {
+		Project, Tenant, SHA, Dir string
+		PreviousMain              string `json:"previous_main"`
+		DevRef                    string `json:"dev_ref"`
+		Rebased, Removed          bool
+	}
+	if err := json.Unmarshal(jout.Bytes(), &rc); err != nil {
+		t.Fatalf("publish receipt %q: %v", jout.String(), err)
+	}
+	landed := mustGitT(t, f.tenant, "rev-parse", "main")
+	if rc.SHA != landed || rc.PreviousMain != oldMain || rc.Tenant != "t1" || rc.Project != "alpha" || !strings.HasPrefix(rc.DevRef, "dev/edit-") || rc.Rebased || !rc.Removed || rc.Dir != co {
+		t.Fatalf("publish receipt = %+v (landed %s)", rc, landed)
+	}
+	if got := mustGitT(t, f.tenant, "log", "-1", "--format=%s", "main"); got != "what and why" {
+		t.Fatalf("landed commit subject = %q", got)
+	}
+	if _, err := os.Stat(co); !os.IsNotExist(err) {
+		t.Fatalf("checkout still there after --rm: %v", err)
+	}
+
+	t.Chdir(t.TempDir())
+	if err := run(t, et, "dev", "brain", "clone", "alpha", "--tenant", "t1", "--temp"); err != nil {
+		t.Fatalf("second clone: %v", err)
+	}
+	if !strings.Contains(tout.String(), "--tenant-brain-ref dev/<name>") || strings.Contains(tout.String(), "--brain-ref dev/") {
+		t.Fatalf("tenant clone hint = %q", tout.String())
+	}
+}
+
+// main moved upstream: disjoint paths are replayed (rebased: true); overlapping paths are refused with
+// the checkout untouched and nothing landed.
+func TestBrainBundlePublishMovedMain(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	work := t.TempDir()
+	t.Chdir(work)
+	e, _, _ := newTestEnv(t, f.srv, "table")
+	if err := run(t, e, "dev", "brain", "clone", "alpha"); err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+	co := filepath.Join(work, "alpha")
+	t.Chdir(co)
+
+	writeIn(t, co, "skill.md", "mine\n")
+	moved := commitIn(t, f.box, "journal.md", "j\n")
+	ej, jout, _ := newTestEnv(t, f.srv, "json")
+	if err := run(t, ej, "dev", "brain", "publish", "-m", "skill"); err != nil {
+		t.Fatalf("disjoint publish: %v", err)
+	}
+	var rc struct {
+		SHA          string
+		PreviousMain string `json:"previous_main"`
+		Rebased      bool
+	}
+	if err := json.Unmarshal(jout.Bytes(), &rc); err != nil {
+		t.Fatal(err)
+	}
+	if !rc.Rebased || rc.PreviousMain != moved || rc.SHA != mustGitT(t, f.box, "rev-parse", "main") || mustGitT(t, f.box, "rev-parse", "main~1") != moved {
+		t.Fatalf("disjoint publish receipt = %+v", rc)
+	}
+
+	writeIn(t, co, "skill.md", "mine again\n")
+	mustGitT(t, co, "add", "-A")
+	mustGitT(t, co, "commit", "-q", "-m", "local skill")
+	head := mustGitT(t, co, "rev-parse", "HEAD")
+	boxMain := commitIn(t, f.box, "skill.md", "theirs\n")
+	err := run(t, e, "dev", "brain", "publish")
+	if err == nil || !strings.Contains(err.Error(), "skill.md") || !strings.Contains(err.Error(), "unchanged") {
+		t.Fatalf("overlap publish err = %v", err)
+	}
+	if hintFor(err) == "" || exitCodeFor(err) == 0 {
+		t.Fatalf("overlap error lacks a next step or exits 0: %v", err)
+	}
+	var ce *commandError
+	if !errors.As(err, &ce) || ce.name != "BRAIN_MAIN_MOVED_OVERLAP" {
+		t.Fatalf("overlap error is not typed: %#v", err)
+	}
+	if mustGitT(t, co, "rev-parse", "HEAD") != head || mustGitT(t, co, "status", "--porcelain") != "" || mustGitT(t, f.box, "rev-parse", "main") != boxMain {
+		t.Fatal("overlap publish changed the checkout or the box")
+	}
+}
+
+// A main that keeps moving gives up after three land attempts, landing nothing.
+func TestBrainBundlePublishRetryBound(t *testing.T) {
+	gitIdentityEnv(t)
+	f := newFakeBundle(t, "none")
+	work := t.TempDir()
+	t.Chdir(work)
+	e, _, _ := newTestEnv(t, f.srv, "table")
+	if err := run(t, e, "dev", "brain", "clone", "alpha"); err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+	co := filepath.Join(work, "alpha")
+	t.Chdir(co)
+	writeIn(t, co, "skill.md", "mine\n")
+	n := 0
+	f.beforeSync = func(box string) {
+		n++
+		commitIn(t, box, fmt.Sprintf("journal%d.md", n), "j\n")
+	}
+	err := run(t, e, "dev", "brain", "publish", "-m", "skill")
+	if err == nil || !strings.Contains(err.Error(), "after 3 attempts") {
+		t.Fatalf("retry err = %v", err)
+	}
+	if f.syncs != 3 || f.uploads[""] != 3 {
+		t.Fatalf("syncs=%d uploads=%d, want 3 each", f.syncs, f.uploads[""])
+	}
+	if strings.Contains(mustGitT(t, f.box, "log", "--format=%s", "main"), "skill") {
+		t.Fatal("a commit landed despite the refusal")
+	}
+}
+
+// --rm never deletes a checkout rp did not clone, and keeps one that still holds unpublished work.
+func TestBrainBundlePublishRmSafety(t *testing.T) {
+	gitIdentityEnv(t)
+	isolateCache(t)
+	f := newFakeBundle(t, "none")
+	t.Chdir(t.TempDir())
+	ej, jout, _ := newTestEnv(t, f.srv, "json")
+	if err := run(t, ej, "dev", "brain", "clone", "alpha", "--temp"); err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+	var cl struct{ Dir string }
+	if err := json.Unmarshal(jout.Bytes(), &cl); err != nil {
+		t.Fatal(err)
+	}
+	co := cl.Dir
+	t.Chdir(co)
+
+	bundleURL := mustGitT(t, co, "remote", "get-url", "origin")
+	mustGitT(t, co, "remote", "set-url", "origin", "https://github.com/acme/brain.git")
+	writeIn(t, co, "skill.md", "s\n")
+	e, _, _ := newTestEnv(t, f.srv, "table")
+	err := run(t, e, "dev", "brain", "publish", "-m", "skill", "--rm")
+	if err == nil || !strings.Contains(err.Error(), "not one") {
+		t.Fatalf("--rm on a non-bundle checkout err = %v", err)
+	}
+	if _, serr := os.Stat(co); serr != nil || f.uploads[""] != 0 {
+		t.Fatalf("refused --rm touched something: stat=%v uploads=%d", serr, f.uploads[""])
+	}
+
+	mustGitT(t, co, "remote", "set-url", "origin", bundleURL)
+	mustGitT(t, co, "branch", "side")
+	commitIn(t, co, "side.md", "x\n")
+	mustGitT(t, co, "switch", "-q", "side")
+	commitIn(t, co, "side2.md", "y\n")
+	mustGitT(t, co, "switch", "-q", "main")
+	ek, kout, kerr := newTestEnv(t, f.srv, "json")
+	if err := run(t, ek, "dev", "brain", "publish", "-m", "skill", "--rm"); err != nil {
+		t.Fatalf("publish --rm with an unpublished branch: %v", err)
+	}
+	var kept struct{ Removed bool }
+	if err := json.Unmarshal(kout.Bytes(), &kept); err != nil || kept.Removed || !strings.Contains(kerr.String(), co) || !strings.Contains(kerr.String(), "branch side") {
+		t.Fatalf("kept receipt = %q, stderr = %q", kout.String(), kerr.String())
+	}
+	if _, serr := os.Stat(co); serr != nil {
+		t.Fatalf("checkout with unpublished work was deleted: %v", serr)
 	}
 }

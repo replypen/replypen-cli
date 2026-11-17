@@ -341,14 +341,30 @@ in with an authorized project-maintainer login instead. Explicitly narrowed toke
 `brain:promote` OAuth scope in addition to that project-level admin authority.
 
 **A brain without a GitHub repository** (`rp dev brain status` shows `remote_mode: none`) is edited with
-ordinary local git; commits travel as git bundles over the API. `rp dev brain clone <project> [dir]
-[--tenant <slug>]` downloads and clones it (origin is a bundle file in `.git`, the checkout gets its
-`.replypen.toml`). Commit on a branch, then `rp dev brain push [name]` uploads it as `dev/<name>` (default:
-the branch name) for test runs with `--brain-ref dev/<name>`, and `rp dev brain publish` (no `--sha`)
-uploads, fast-forwards the brain's `main` to it after the server's boot check, and with `--channel
-stable|edge` promotes and verifies it. The server only fast-forwards: if `main` moved meanwhile, `rp dev
-brain pull` (refreshes origin, fast-forwards local `main`, never discards local commits), rebase, publish
-again (a `main` checked out in another worktree is left for you to pull there). A tenant checkout
+ordinary local git; commits travel as git bundles over the API. `remote_mode` picks the flow: `none` ⇒ this
+`rp` flow (tenant brains), `github` ⇒ GitHub + `publish --sha` (project brains). The usual edit is a
+throwaway checkout:
+
+```
+D=$(rp dev brain clone <project> --tenant <slug> --temp -o json | jq -r .dir)  # under the user cache dir, on main
+cd "$D"; …edit, run tests…
+rp dev brain push -m "<what and why>"           # optional: commit + upload as dev/edit-<sha>; test with --tenant-brain-ref
+rp dev brain publish -m "<what and why>" --rm   # commit, land on main (boot check), verify, delete the checkout
+```
+
+`clone <project> [dir] [--tenant <slug>]` (or `--temp`) downloads and clones it (origin is a bundle file in
+`.git`, the checkout gets its `.replypen.toml`, which rides along in the first commit). `push [name]`
+uploads the current branch as `dev/<name>` (default: the branch name, `edit-<sha>` on main) for test runs
+with `--brain-ref` (`--tenant-brain-ref` for a tenant brain). `publish` (no `--sha`) uploads,
+fast-forwards the brain's `main` to it after the server's boot check, and with `--channel stable|edge`
+promotes and verifies it. Uncommitted changes are refused unless `-m` commits them (`git add -A`). If
+`main` moved meanwhile, publish replays your commits onto it when the paths changed upstream and locally
+are disjoint (up to 3 attempts; receipt `rebased: true`, and a proof run tested the old base); overlapping
+paths or a rebase conflict stop it (`BRAIN_MAIN_MOVED_OVERLAP`, paths listed, checkout unchanged): redo the
+change on a fresh clone. After a publish the checkout is refreshed to the new `main`. `--rm` deletes the
+checkout only if it is an `rp dev brain clone` checkout, the landed commit is on the downloaded `main`, and
+nothing is uncommitted, stashed or on an unpublished branch; otherwise it is kept and its path printed.
+Publish receipt (`-o json`) adds `previous_main`, `dev_ref`, `rebased`, `removed`, `dir`. A tenant checkout
 publishes only its own brain (`--channel` is refused there), and push/publish refuse when the checkout's
 marker names another brain than the command targets. Uploads are capped at 200 MB. Uploaded `dev/*`
 branches expire after 30 days.

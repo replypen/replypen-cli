@@ -290,10 +290,15 @@ brains only gitignore the legacy `/.rootcause/`.
   makes promotion safe. `consumers` (not `checked`) is the authoritative channel-use count.
   A brain without a GitHub repository (`remote_mode: none`) moves commits as git bundles
   ([brain_bundle.go](internal/cli/brain_bundle.go)): `clone` (origin = a bundle file in `.git`, refreshed by
-  `pull`), `push [name]` → `dev/<name>`, `publish` without `--sha` = push → `sync {"ref"}` (server
-  fast-forwards main, boot-checked) → optional `--channel` promote + verify. The server is the only writer
-  of `main`; `pull` never moves a local `main` that has commits the server lacks. All refuse a `github`
-  brain (its flow is GitHub). Local git runs with hooks disabled.
+  `pull`; `--temp` = throwaway checkout under the user cache dir), `push [name]` → `dev/<name>`, `publish`
+  without `--sha` = push → `sync {"ref"}` (server fast-forwards main, boot-checked) → optional `--channel`
+  promote + verify → refresh the checkout. On 409 `BRAIN_NOT_FAST_FORWARD` publish fetches, rebases only
+  when upstream and local changed paths are disjoint (max 3 lands), else a typed refusal with the checkout
+  untouched. push/publish refuse a dirty tree unless `-m` commits it; `publish --rm` deletes only a
+  checkout whose origin is its own `.git` bundle, after the landed sha is in the refreshed origin/main and
+  nothing is unpublished. The server is the only writer of `main`; `pull` never moves a local `main` that
+  has commits the server lacks. All refuse a `github` brain (its flow is GitHub). Local git runs with hooks
+  disabled.
 - **`rp dev console` principal binding** (`--principal-kind`/`--principal-id` on `bash run`,
   `database query`, `database schema`) reuses `principalFromFlags` from [ask.go](internal/cli/ask.go): the
   pair is all-or-nothing, because half a principal is a silent under- or over-scope. It is **omitempty on
