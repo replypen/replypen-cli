@@ -376,7 +376,7 @@ func coerceValue(key, val string, schema *tenantSchema) (any, error) {
 		return f, nil
 	case prop.types["object"]:
 		// A structured value (e.g. weekly_hours) is passed as JSON; the server validates its shape.
-		var obj map[string]any
+		var obj map[string]json.RawMessage // raw members: no float rounding of nested numbers
 		if err := json.Unmarshal([]byte(val), &obj); err != nil || obj == nil {
 			return nil, fmt.Errorf("%s: expects a JSON object, e.g. %s='{\"tz\":\"Europe/Brussels\",\"week\":{\"mon\":[[\"09:30\",\"12:00\"]]}}'", key, key)
 		}
