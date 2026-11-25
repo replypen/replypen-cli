@@ -374,6 +374,13 @@ func coerceValue(key, val string, schema *tenantSchema) (any, error) {
 			return nil, fmt.Errorf("%s: %q is not a number", key, val)
 		}
 		return f, nil
+	case prop.types["object"]:
+		// A structured value (e.g. weekly_hours) is passed as JSON; the server validates its shape.
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(val), &obj); err != nil || obj == nil {
+			return nil, fmt.Errorf("%s: expects a JSON object, e.g. %s='{\"tz\":\"Europe/Brussels\",\"week\":{\"mon\":[[\"09:30\",\"12:00\"]]}}'", key, key)
+		}
+		return obj, nil
 	case prop.types["array"]:
 		// Comma-separated multi-select; trim members, validate against the item enum when present.
 		// Non-nil initial slice so an emptied value (e.g. `key= ` / `key=,`) marshals to [] (an empty
