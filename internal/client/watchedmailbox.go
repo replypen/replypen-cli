@@ -184,6 +184,51 @@ func (c *Client) ProbeIMAPMailbox(ctx context.Context, id, project, tenant strin
 	return &out, raw, nil
 }
 
+// IMAPFolder is one folder row of GET .../mailboxes/{id}/imap-folders: counts and day-granular dates only.
+type IMAPFolder struct {
+	Name              string   `json:"name"`
+	Attrs             []string `json:"attrs,omitempty"`
+	SentLike          bool     `json:"sent_like,omitempty"`
+	Messages          int      `json:"messages"`
+	Recent            int      `json:"recent_180d"`
+	FromMailbox       int      `json:"from_mailbox"`
+	RecentFromMailbox int      `json:"recent_from_mailbox_180d"`
+	OldestFromMailbox string   `json:"oldest_from_mailbox,omitempty"`
+	OldestDate        string   `json:"oldest_date,omitempty"`
+	NewestDate        string   `json:"newest_date,omitempty"`
+	OldestArrival     string   `json:"oldest_arrival,omitempty"`
+	NewestArrival     string   `json:"newest_arrival,omitempty"`
+	Error             string   `json:"error,omitempty"`
+}
+
+// IMAPFoldersResponse is the GET .../mailboxes/{id}/imap-folders body.
+type IMAPFoldersResponse struct {
+	MailboxID  string       `json:"mailbox_id"`
+	Folders    []IMAPFolder `json:"folders"`
+	Incomplete bool         `json:"incomplete,omitempty"`
+}
+
+// IMAPMailboxFolders lists an IMAP mailbox's folders, read server-side with the stored credential.
+func (c *Client) IMAPMailboxFolders(ctx context.Context, id, project, tenant string) (*IMAPFoldersResponse, json.RawMessage, error) {
+	if project == "" {
+		return nil, nil, &APIError{Status: http.StatusBadRequest, Code: "PROJECT_REQUIRED", Message: "IMAP folders requires a project scope"}
+	}
+	if err := requireTenantProject(project, tenant, "mailboxes"); err != nil {
+		return nil, nil, err
+	}
+	path := watchedProjectPath(project, "/mailboxes/"+url.PathEscape(id)+"/imap-folders")
+	path = collectionScopePath(path, "", tenant)
+	var raw json.RawMessage
+	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+		return nil, nil, err
+	}
+	var out IMAPFoldersResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, nil, err
+	}
+	return &out, raw, nil
+}
+
 // IMAPMailboxEnv fetches the scoped local-harvest env projection from the canonical project tree.
 func (c *Client) IMAPMailboxEnv(ctx context.Context, id, project, tenant string) (*IMAPEnvResponse, json.RawMessage, error) {
 	if project == "" {

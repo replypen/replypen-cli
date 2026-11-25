@@ -1252,6 +1252,7 @@ Available Commands:
   thread        Fetch one mail thread live from the mailbox (read-only) as Markdown
   templates     Export Gmail canned responses as a separate JSON artifact
   imap-env      Write an IMAP mailbox env file for local deep harvest (0600; values never printed)
+  folders       List an IMAP mailbox's folders with message counts and date ranges (read-only)
   settings      Read or edit nested mailbox settings (persona/channel)
   connect       Print the dashboard Connections URL to start a provider's browser OAuth
   connect-imap  Connect a generic IMAP/SMTP mailbox (live-probed before it's saved)
@@ -1382,6 +1383,22 @@ Usage:
 
 Flags:
       --out string   write env file to this path (default .replypen/imap/<mailbox-id>.env)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project mailbox folders --help
+List an IMAP mailbox's folders with message counts and date ranges (read-only)
+
+Usage:
+  rp project mailbox folders <mailbox-id> [flags]
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

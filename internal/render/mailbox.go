@@ -5,6 +5,7 @@ package render
 import (
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/replypen/replypen-cli/internal/client"
@@ -147,4 +148,40 @@ func imapProbeHasWarning(steps []client.IMAPProbeStep) bool {
 		}
 	}
 	return false
+}
+
+// IMAPFolders renders a folder inventory: Sent-like folders marked, dates as written (Date header) and as
+// arrived (INTERNALDATE), so an import or host move shows as arrivals far newer than the mail.
+// FROM SELF counts messages From the mailbox address (total / last 180 days, oldest): where its own
+// replies actually are.
+func IMAPFolders(w io.Writer, resp *client.IMAPFoldersResponse) {
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintln(tw, "FOLDER\tSENT\tMESSAGES\tLAST 180D\tFROM SELF\tWRITTEN\tARRIVED\tATTRS")
+	folders := resp.Folders
+	for _, f := range folders {
+		sent := ""
+		if f.SentLike {
+			sent = "yes"
+		}
+		written, arrived := dateSpan(f.OldestDate, f.NewestDate), dateSpan(f.OldestArrival, f.NewestArrival)
+		if f.Error != "" {
+			written, arrived = f.Error, ""
+		}
+		self := fmt.Sprintf("%d / %d", f.FromMailbox, f.RecentFromMailbox)
+		if f.OldestFromMailbox != "" {
+			self += " since " + f.OldestFromMailbox
+		}
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%s\t%s\t%s\t%s\n", f.Name, sent, f.Messages, f.Recent, self, written, arrived, strings.Join(f.Attrs, " "))
+	}
+	_ = tw.Flush()
+	if resp.Incomplete {
+		_, _ = fmt.Fprintln(w, "\nincomplete: the scan hit its time budget; folders not listed were not reached")
+	}
+}
+
+func dateSpan(from, to string) string {
+	if from == "" && to == "" {
+		return "-"
+	}
+	return from + " .. " + to
 }

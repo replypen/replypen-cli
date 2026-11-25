@@ -31,6 +31,7 @@ func newMailboxCmd(e *env) *cobra.Command {
 		mailboxThreadCmd(e),
 		mailboxTemplatesCmd(e),
 		mailboxIMAPEnvCmd(e),
+		mailboxFoldersCmd(e),
 		newMailboxSettingsCmd(e),
 		mailboxConnectCmd(e),
 		mailboxConnectIMAPCmd(e),
@@ -203,6 +204,35 @@ func mailboxIMAPEnvCmd(e *env) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&out, "out", "", "write env file to this path (default .replypen/imap/<mailbox-id>.env)")
 	return cmd
+}
+
+// mailboxFoldersCmd prints an IMAP mailbox's folder inventory (GET .../imap-folders): names, special-use
+// attributes, message counts and date ranges, read server-side so nobody needs the password. Read-only,
+// unlike `mailbox test`, which places and removes a test draft.
+func mailboxFoldersCmd(e *env) *cobra.Command {
+	return &cobra.Command{
+		Use:   "folders <mailbox-id>",
+		Short: "List an IMAP mailbox's folders with message counts and date ranges (read-only)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, err := e.newClient()
+			if err != nil {
+				return err
+			}
+			if err := e.resolvePinnedProject(c); err != nil {
+				return err
+			}
+			resp, raw, err := c.IMAPMailboxFolders(e.ctx(), strings.TrimSpace(args[0]), e.scopeProject(), e.scopeTenant())
+			if err != nil {
+				return err
+			}
+			if e.jsonOut() {
+				return e.renderJSONInline(raw)
+			}
+			render.IMAPFolders(e.out, resp)
+			return nil
+		},
+	}
 }
 
 // mailboxHarvestCmd starts a local-synthesis harvest of a mailbox (POST /mailboxes/{id}/harvest → a
