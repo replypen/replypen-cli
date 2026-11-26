@@ -73,7 +73,7 @@ func newRunCallsCmd(e *env) *cobra.Command {
 				return err
 			}
 			if e.jsonOut() {
-				return renderPhoneCallsJSON(e, calls, runs, raw)
+				return writePhoneCallsJSON(e, calls, runs, raw)
 			}
 			render.PhoneCalls(e.out, calls, project, time.Local)
 			return nil
@@ -205,9 +205,9 @@ type phoneCallJSON struct {
 	Outcomes  []digest.PhoneOutcome `json:"outcomes"`
 }
 
-// renderPhoneCallsJSON: a computed report (rule b): our rows plus the verbatim list body under raw; each
+// writePhoneCallsJSON: a computed report (rule b): our rows plus the verbatim list body under raw; each
 // run's full events stay one `rp run call <run> -o json` away.
-func renderPhoneCallsJSON(e *env, calls []digest.PhoneCall, runs []client.PhoneLabRun, raw json.RawMessage) error {
+func writePhoneCallsJSON(e *env, calls []digest.PhoneCall, runs []client.PhoneLabRun, raw json.RawMessage) error {
 	rows := make([]phoneCallJSON, 0, len(calls))
 	for i, c := range calls {
 		outcomes := c.Outcomes
