@@ -79,7 +79,7 @@ func SearchReportFrom(l *client.SearchEventList) SearchReport {
 		var a *searchAcc
 		switch e.Kind {
 		case "search":
-			a = bySid[e.Sid]
+			a = get(e.Q) // bySid only attributes clicks: two searches sharing a sid keep their own queries
 			out.Searches++
 			a.Searches++
 			if e.N != nil && *e.N == 0 {
