@@ -579,6 +579,7 @@ help using `go test ./internal/cli -update`.
 | `rp fleet health` | Roll up project health (mirrors, brain boot checks, dead-letters, PII-proxy withheld columns); exits non-zero when unhealthy |
 | `rp fleet patterns` | Cluster recent failures and outbound endpoint patterns |
 | `rp fleet runs` | Fleet digest of recent runs (flags, rates, worst offenders) |
+| `rp fleet value` | Drafted mails and how many got a reply sent afterwards, per tenant, mailbox and month |
 | `rp fleet` | Operate and inspect project health |
 | `rp project action draft approve` | Approve an action draft |
 | `rp project action draft new` | Scaffold a new action draft |

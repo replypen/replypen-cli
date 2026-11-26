@@ -97,7 +97,7 @@ func newDevCmd(e *env, version string) *cobra.Command {
 
 func newFleetSurfaceCmd(e *env) *cobra.Command {
 	cmd := &cobra.Command{Use: "fleet", Short: "Operate and inspect project health"}
-	cmd.AddCommand(newFleetRunsCmd(e), newFleetActionsCmd(e), newHealthCmd(e), newDeployStateCmd(e), newPatternsCmd(e))
+	cmd.AddCommand(newFleetRunsCmd(e), newFleetActionsCmd(e), newFleetValueCmd(e), newHealthCmd(e), newDeployStateCmd(e), newPatternsCmd(e))
 	return cmd
 }
 

@@ -5447,6 +5447,7 @@ Usage:
 Available Commands:
   runs         Fleet digest of recent runs (flags, rates, worst offenders)
   actions      Find actions across recent runs with exact params and run URLs
+  value        Drafted mails and how many got a reply sent afterwards, per tenant, mailbox and month
   health       Roll up project health (mirrors, brain boot checks, dead-letters, PII-proxy withheld columns); exits non-zero when unhealthy
   deploy-state Show the live host, brain, and mirror SHAs with their history
   patterns     Cluster recent failures and outbound endpoint patterns
@@ -5504,6 +5505,32 @@ Flags:
       --days int             lookback window in days (positive; server clamps above 14) (default 14)
       --format string        output style: human|agent (default "human")
       --status stringArray   filter by status: proposed|executing|succeeded|failed|canceled (repeatable; OR)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp fleet value --help
+Per UTC month, tenant and mailbox: real inbound e-mail runs (simulations excluded), runs whose draft reached the mailbox, and how many of those saw the thread continue afterwards — the draft sent as is, edited, rewritten (≈ an own reply), or auto-sent. Thread counts sit next to run counts. Counts only.
+
+Needs --project (or a brain checkout) and a human global-admin login. --tenant narrows to one tenant.
+
+  rp --project kampadmin --tenant lbv fleet value --months 3
+  rp --project kampadmin fleet value --since 2026-09-01 --until 2026-12-01 -o json
+
+Usage:
+  rp fleet value [flags]
+
+Flags:
+      --months int     whole UTC months ending with the current one (default 3)
+      --since string   window start YYYY-MM-DD (instead of --months)
+      --until string   window end YYYY-MM-DD, exclusive (default: tomorrow)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
