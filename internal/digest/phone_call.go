@@ -61,10 +61,11 @@ var phoneScriptOutcome = map[string]string{
 	"book": "booked", "move": "moved", "cancel": "cancelled", "message": "message", "voicemail": "message", "waitlist": "waitlist",
 }
 
-// phoneDoneStatus: stdout statuses that mean the write happened (an idempotent retry counts too). Previews
-// ("confirm"), refusals and errors are not outcomes.
+// phoneDoneStatus: stdout statuses that mean the write happened (an idempotent retry counts too); only read for
+// the scripts above. `pending` = a reservation DentAI books after the call, `sent` = the waitlist SMS. Previews
+// ("confirm"), refusals and errors are not outcomes; `changed` is a REFUSAL (the appointment changed meanwhile).
 var phoneDoneStatus = map[string]bool{
-	"booked": true, "moved": true, "cancelled": true, "noted": true, "done": true, "changed": true, "saved": true,
+	"booked": true, "moved": true, "cancelled": true, "noted": true, "done": true, "saved": true, "pending": true, "sent": true,
 	"already_booked": true, "already_noted": true, "already_saved": true, "already_reserved": true,
 }
 
@@ -114,8 +115,9 @@ func DigestPhoneCall(r *client.PhoneLabRun, steps bool) PhoneCall {
 				c.Lines = append(c.Lines, PhoneLine{T: at, Who: "step", Text: strings.TrimSpace(script + " " + args), Status: status, Failed: failed})
 			}
 		case "voicemail":
-			// A voicemail message left on the line (DentAI transcribes it); the run event carries no label.
-			if ev.Status == "done" && !seen["message|"] {
+			// A voicemail message that reached DentAI. Empty / no_audio = nothing arrived; handed_back = withdrawn
+			// because the practice answered the hand-back (host phonelab voicemailRef).
+			if ev.Status == "done" && ev.Outcome != "" && ev.Outcome != "no_audio" && ev.Outcome != "handed_back" && !seen["message|"] {
 				seen["message|"] = true
 				c.Outcomes = append(c.Outcomes, PhoneOutcome{Kind: "message"})
 			}

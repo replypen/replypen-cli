@@ -2,4 +2,4 @@ WHEN              CALLER  LENGTH  TURNS  OUTCOME        RUN
 Thu 26 Nov 12:56  ***991  2:11    2      moved+message  fd93d291
 Tue 24 Nov 11:41  ***429  live    0      hung up        17dddd4d
 
-Read one: rp run call <run> --project dentai-phone-nl   (--steps: script calls · -o json: raw run)
+Read one: rp run call <run> --project dentai-phone-nl --tenant demo   (--steps: script calls · -o json: raw run)

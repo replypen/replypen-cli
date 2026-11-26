@@ -53,20 +53,22 @@ func TestRunCallsSinceCutsRowsAndRaw(t *testing.T) {
 	}
 	var got struct {
 		Calls []struct {
-			RunID, Caller, Outcome string
-			Turns                  int `json:"caller_turns"`
-			DurationS              int `json:"duration_s"`
+			RunID           string `json:"run_id"`
+			Caller, Outcome string
+			Turns           int `json:"caller_turns"`
+			DurationS       int `json:"duration_s"`
 		} `json:"calls"`
 		Raw struct {
 			Runs struct {
 				Items []map[string]any `json:"items"`
 			} `json:"phone_lab_runs"`
+			Details map[string]map[string]any `json:"phone_lab_run_details"`
 		} `json:"raw"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}
-	if len(got.Calls) != 2 || len(got.Raw.Runs.Items) != 2 {
+	if len(got.Calls) != 2 || len(got.Raw.Runs.Items) != 2 || len(got.Raw.Details) != 2 || got.Raw.Details[got.Calls[0].RunID]["events"] == nil {
 		t.Fatalf("--since must cut both views to the 2 newer calls: %s", out)
 	}
 	c := got.Calls[0]
@@ -90,6 +92,27 @@ func TestRunCallShortIDAndSteps(t *testing.T) {
 	e, _, _ = newTestEnv(t, srv, "table")
 	if err := run(t, e, "run", "call", "fd93", "--project", "dentai-phone-nl", "--tenant", "demo"); err == nil || !strings.Contains(err.Error(), "ambiguous") {
 		t.Fatalf("a shared prefix must refuse, got %v", err)
+	}
+}
+
+func TestRunCallsScopeProjectDropsTenant(t *testing.T) {
+	var tenants []string
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/projects", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"projects":[{"id":"a","name":"dentai-phone-nl"}]}`))
+	})
+	mux.HandleFunc("GET /api/v1/projects/dentai-phone-nl/phone-lab/runs", func(w http.ResponseWriter, r *http.Request) {
+		tenants = append(tenants, r.URL.Query().Get("tenant"))
+		_, _ = w.Write([]byte(`{"items":[],"next_cursor":""}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	e, out, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, "run", "calls", "--project", "dentai-phone-nl", "--tenant", "demo", "--scope", "project"); err != nil {
+		t.Fatal(err)
+	}
+	if len(tenants) != 1 || tenants[0] != "" || !strings.Contains(out.String(), "No calls.") {
+		t.Fatalf("--scope project must list every tenant: %v %s", tenants, out)
 	}
 }
 

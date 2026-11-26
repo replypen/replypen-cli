@@ -88,3 +88,30 @@ func TestMaskPhone(t *testing.T) {
 		}
 	}
 }
+
+func TestDigestPhoneCallStatusEdges(t *testing.T) {
+	tool := func(script, status string) client.PhoneLabEvent {
+		return client.PhoneLabEvent{Kind: "tool", Status: "done", Outcome: "ok", Cmd: "python /brain/skills/phone/scripts/" + script + ".py --yes", Stdout: `{"status": "` + status + `"}`}
+	}
+	for _, tc := range []struct {
+		name string
+		ev   client.PhoneLabEvent
+		want string
+	}{
+		{"move refused: appointment changed", tool("move", "changed"), "no action"},
+		{"cancel refused: appointment changed", tool("cancel", "changed"), "no action"},
+		{"reservation booked after the call", tool("book", "pending"), "booked"},
+		{"retry of that reservation", tool("book", "already_reserved"), "booked"},
+		{"waitlist sms", tool("waitlist", "sent"), "waitlist"},
+		{"fr move done", tool("move", "done"), "moved"},
+		{"voicemail saved", client.PhoneLabEvent{Kind: "voicemail", Status: "done", Outcome: "saved"}, "message"},
+		{"voicemail without audio", client.PhoneLabEvent{Kind: "voicemail", Status: "done", Outcome: "no_audio"}, "no action"},
+		{"voicemail withdrawn", client.PhoneLabEvent{Kind: "voicemail", Status: "done", Outcome: "handed_back"}, "no action"},
+		{"voicemail nothing reached", client.PhoneLabEvent{Kind: "voicemail", Status: "done"}, "no action"},
+	} {
+		r := &client.PhoneLabRun{Events: []client.PhoneLabEvent{{Kind: "transcript", Who: "caller", Text: "ja"}, tc.ev}}
+		if got := DigestPhoneCall(r, false).Outcome(); got != tc.want {
+			t.Errorf("%s: outcome %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

@@ -68,14 +68,14 @@ func newRunCallsCmd(e *env) *cobra.Command {
 				}
 				runs = append(runs, r)
 			}
-			calls, err := fetchPhoneCalls(e, c, project, runs)
+			calls, bodies, err := fetchPhoneCalls(e, c, project, runs)
 			if err != nil {
 				return err
 			}
 			if e.jsonOut() {
-				return writePhoneCallsJSON(e, calls, runs, raw)
+				return writePhoneCallsJSON(e, calls, runs, raw, bodies)
 			}
-			render.PhoneCalls(e.out, calls, project, time.Local)
+			render.PhoneCalls(e.out, calls, project, tenant, time.Local)
 			return nil
 		},
 	}
@@ -130,7 +130,10 @@ func phoneCallScope(e *env) (*client.Client, string, string, error) {
 	}
 	// Explicit tenant is a filter under project developer authority, not a tenant-token route.
 	tenant := e.tenant
-	if e.scope == scopeSelectorTenant {
+	switch e.scope {
+	case scopeSelectorProject:
+		tenant = ""
+	case scopeSelectorTenant:
 		tenant = e.scopeTenant()
 	}
 	return c, project, tenant, nil
@@ -165,8 +168,9 @@ func resolvePhoneRunID(e *env, c *client.Client, project, tenant, id string) (st
 }
 
 // fetchPhoneCalls reads each run's detail (bounded parallelism) and digests it, keeping the list order.
-func fetchPhoneCalls(e *env, c *client.Client, project string, runs []client.PhoneLabRun) ([]digest.PhoneCall, error) {
+func fetchPhoneCalls(e *env, c *client.Client, project string, runs []client.PhoneLabRun) ([]digest.PhoneCall, []json.RawMessage, error) {
 	calls := make([]digest.PhoneCall, len(runs))
+	bodies := make([]json.RawMessage, len(runs))
 	errs := make([]error, len(runs))
 	sem := make(chan struct{}, phoneCallFetches)
 	var wg sync.WaitGroup
@@ -176,21 +180,21 @@ func fetchPhoneCalls(e *env, c *client.Client, project string, runs []client.Pho
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			detail, _, err := c.PhoneLabRunWithRaw(e.ctx(), project, r.RunID, "")
+			detail, body, err := c.PhoneLabRunWithRaw(e.ctx(), project, r.RunID, "")
 			if err != nil {
 				errs[i] = fmt.Errorf("call %s: %w", shortRunID(r.RunID), err)
 				return
 			}
-			calls[i] = digest.DigestPhoneCall(detail, false)
+			calls[i], bodies[i] = digest.DigestPhoneCall(detail, false), body
 		}()
 	}
 	wg.Wait()
 	for _, err := range errs {
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return calls, nil
+	return calls, bodies, nil
 }
 
 type phoneCallJSON struct {
@@ -205,9 +209,9 @@ type phoneCallJSON struct {
 	Outcomes  []digest.PhoneOutcome `json:"outcomes"`
 }
 
-// writePhoneCallsJSON: a computed report (rule b): our rows plus the verbatim list body under raw; each
-// run's full events stay one `rp run call <run> -o json` away.
-func writePhoneCallsJSON(e *env, calls []digest.PhoneCall, runs []client.PhoneLabRun, raw json.RawMessage) error {
+// writePhoneCallsJSON: a computed report (rule b): our rows plus, under raw, the verbatim list body and every
+// run detail body the outcomes were digested from (keyed by run id).
+func writePhoneCallsJSON(e *env, calls []digest.PhoneCall, runs []client.PhoneLabRun, raw json.RawMessage, bodies []json.RawMessage) error {
 	rows := make([]phoneCallJSON, 0, len(calls))
 	for i, c := range calls {
 		outcomes := c.Outcomes
@@ -221,7 +225,11 @@ func writePhoneCallsJSON(e *env, calls []digest.PhoneCall, runs []client.PhoneLa
 	if err != nil {
 		return err
 	}
-	b, err := json.Marshal(map[string]any{"calls": rows, "raw": map[string]json.RawMessage{"phone_lab_runs": raw}})
+	details := make(map[string]json.RawMessage, len(runs))
+	for i, r := range runs {
+		details[r.RunID] = bodies[i]
+	}
+	b, err := json.Marshal(map[string]any{"calls": rows, "raw": map[string]any{"phone_lab_runs": raw, "phone_lab_run_details": details}})
 	if err != nil {
 		return err
 	}

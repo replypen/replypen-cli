@@ -11,7 +11,7 @@ import (
 )
 
 // PhoneCalls is `rp run calls`: one line per call, newest first, times in loc.
-func PhoneCalls(w io.Writer, calls []digest.PhoneCall, project string, loc *time.Location) {
+func PhoneCalls(w io.Writer, calls []digest.PhoneCall, project, tenant string, loc *time.Location) {
 	if len(calls) == 0 {
 		_, _ = fmt.Fprintln(w, "No calls.")
 		return
@@ -22,7 +22,11 @@ func PhoneCalls(w io.Writer, calls []digest.PhoneCall, project string, loc *time
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n", c.StartedAt.In(loc).Format("Mon 02 Jan 15:04"), c.Caller, callLength(c.Duration), c.Turns, c.Outcome(), clipID(c.RunID, 8))
 	}
 	_ = tw.Flush()
-	_, _ = fmt.Fprintf(w, "\nRead one: rp run call <run> --project %s   (--steps: script calls · -o json: raw run)\n", project)
+	scope := "--project " + project
+	if tenant != "" {
+		scope += " --tenant " + tenant
+	}
+	_, _ = fmt.Fprintf(w, "\nRead one: rp run call <run> %s   (--steps: script calls · -o json: raw run)\n", scope)
 }
 
 // PhoneCall is `rp run call <run>`: a header, the dialogue (plus script steps when the digest carries them)

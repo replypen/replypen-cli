@@ -32,6 +32,6 @@ func TestPhoneCallGolden(t *testing.T) {
 func TestPhoneCallsGolden(t *testing.T) {
 	silent := digest.PhoneCall{RunID: "17dddd4d-aced-51d1-bf7b-36e5fc1fbcfc", StartedAt: time.Date(2026, 11, 24, 11, 41, 34, 0, time.UTC), Caller: "***429"}
 	var b bytes.Buffer
-	PhoneCalls(&b, []digest.PhoneCall{phoneCallFixture(), silent}, "dentai-phone-nl", time.UTC)
+	PhoneCalls(&b, []digest.PhoneCall{phoneCallFixture(), silent}, "dentai-phone-nl", "demo", time.UTC)
 	assertGolden(t, "phone_calls.golden", b.String())
 }
