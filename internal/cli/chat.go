@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -712,7 +713,7 @@ type chatDoctorJSON struct {
 }
 
 func chatDoctorCmd(e *env, version string) *cobra.Command {
-	var origin, kind, since string
+	var origin, kind, since, page string
 	var bundle bool
 	cmd := &cobra.Command{Use: "doctor", Short: "Diagnose embedded-chat configuration and recent rejects", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 		if !slices.Contains([]string{"30m", "1h", "24h"}, since) {
@@ -780,6 +781,19 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 		var probeErr error
 		in.WidgetLoaderStatus, probeErr = c.ProbeWidgetLoader(e.ctx())
 		in.WidgetLoaderNetworkError = probeErr != nil
+		if page != "" {
+			in.PageURL, in.ChatOrigin = page, c.BaseURL()
+			if u, perr := url.Parse(c.BaseURL()); perr == nil && u.Host != "" {
+				in.ChatOrigin = u.Scheme + "://" + u.Host
+			}
+			if in.PagePermissionsPolicy, err = c.ProbeHostPage(e.ctx(), page); err != nil {
+				in.PageError = "network error" // a transport error embeds the URL, query included
+				var te *client.TransportError
+				if !errors.As(err, &te) {
+					in.PageError = err.Error() // "HTTP <status>" or a malformed-URL refusal
+				}
+			}
+		}
 
 		report := digest.ChatDoctor(in, now)
 		if bundle || e.jsonOut() {
@@ -803,6 +817,7 @@ func chatDoctorCmd(e *env, version string) *cobra.Command {
 		return nil
 	}}
 	cmd.Flags().StringVar(&origin, "origin", "", "origin to check against the allowlist")
+	cmd.Flags().StringVar(&page, "page", "", "URL of a host page that mounts the chat: checks its Permissions-Policy for microphone/display-capture")
 	cmd.Flags().StringVar(&kind, "principal-kind", "", "principal kind to check")
 	cmd.Flags().BoolVar(&bundle, "bundle", false, "print a compact JSON report for escalation, without raw server bodies")
 	cmd.Flags().StringVar(&since, "since", "24h", "reject warning window: 30m, 1h, or 24h")

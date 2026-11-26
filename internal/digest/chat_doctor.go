@@ -40,9 +40,15 @@ type ChatDoctorInputs struct {
 	// that never got a response.
 	WidgetLoaderStatus       int
 	WidgetLoaderNetworkError bool
-	Origin                   string        // --origin, "" when not given
-	PrincipalKind            string        // --principal-kind, "" when not given
-	Since                    time.Duration // --since: rejects older than now-Since are stale
+	// Host page probe (--page): the page's Permissions-Policy header, or PageError when the fetch failed.
+	// PageURL "" = not probed. ChatOrigin is the ReplyPen origin the panel iframe loads from.
+	PageURL               string
+	PageError             string
+	PagePermissionsPolicy string
+	ChatOrigin            string
+	Origin                string        // --origin, "" when not given
+	PrincipalKind         string        // --principal-kind, "" when not given
+	Since                 time.Duration // --since: rejects older than now-Since are stale
 }
 
 // ChatDoctorFinding is one check result: status "ok" | "warning" | "failed".
@@ -181,6 +187,24 @@ func ChatDoctor(in ChatDoctorInputs, now time.Time) ChatDoctorReport {
 	}
 	add(in.BrandingError == "", "BRANDING_REACHABLE", "BRANDING_UNAVAILABLE", "Check the branding API and project scope.")
 	add(!in.WidgetLoaderNetworkError && in.WidgetLoaderStatus == 200, "WIDGET_LOADER_REACHABLE", "WIDGET_SCRIPT_BLOCKED", "Allow the ReplyPen loader URL through network and CSP policy.")
+	// Warnings, not failures: chat works without them, and a public-website embed may deliberately be
+	// text-only. The panel hides what the host page denies; only the integrator can change the header.
+	if in.PageURL != "" {
+		page := redactPageURL(in.PageURL) // a signed preview URL's query must not reach a shared --bundle
+		switch {
+		case in.PageError != "":
+			warn("HOST_PAGE_UNREACHABLE", fmt.Sprintf("could not fetch %s (%s); its Permissions-Policy was not checked.", page, in.PageError))
+		default:
+			for _, feat := range []struct{ name, code, what string }{
+				{"microphone", "HOST_POLICY_BLOCKS_MICROPHONE", "the chat hides dictation and meeting recording"},
+				{"display-capture", "HOST_POLICY_BLOCKS_DISPLAY_CAPTURE", "screen recording and screenshots of other tabs fail (\"Screenshot this page\" still works)"},
+			} {
+				if !PermissionsPolicyAllows(in.PagePermissionsPolicy, feat.name, in.ChatOrigin) {
+					warn(feat.code, fmt.Sprintf("%s sends a Permissions-Policy that denies %s to %s, so %s. Add it, e.g. %s=(self \"%s\").", page, feat.name, in.ChatOrigin, feat.what, feat.name, in.ChatOrigin))
+				}
+			}
+		}
+	}
 
 	for _, f := range r.Findings {
 		if f.Status == "failed" {
@@ -189,6 +213,75 @@ func ChatDoctor(in ChatDoctorInputs, now time.Time) ChatDoctorReport {
 		}
 	}
 	return r
+}
+
+// PermissionsPolicyAllows reports whether a page's Permissions-Policy header lets a cross-origin iframe
+// from origin use feature (the iframe's allow attribute delegates it; the header is the ceiling). A
+// feature the header does not mention keeps its default allowlist ('self'), which delegation can
+// extend, so it is allowed. Parsing is the structured-field dictionary subset browsers ship:
+// `feature=*`, `feature=()`, `feature=(self "https://x")`, `feature=self`.
+func PermissionsPolicyAllows(header, feature, origin string) bool {
+	allowed := true
+	for _, member := range splitTopLevel(header) {
+		name, value, ok := strings.Cut(strings.TrimSpace(member), "=")
+		if !ok || !strings.EqualFold(strings.TrimSpace(name), feature) {
+			continue
+		}
+		// A duplicate key keeps its LAST value (structured-field dictionary), so keep scanning.
+		allowed = allowlistHas(value, origin)
+	}
+	return allowed
+}
+
+func allowlistHas(value, origin string) bool {
+	value = strings.TrimSpace(value)
+	if i := strings.Index(value, ";"); i >= 0 { // parameters (e.g. ;report-to=x) do not widen the list
+		value = strings.TrimSpace(value[:i])
+	}
+	value = strings.TrimSuffix(strings.TrimPrefix(value, "("), ")")
+	scheme, host, _ := strings.Cut(origin, "://")
+	for _, item := range strings.Fields(value) {
+		item = strings.TrimRight(strings.Trim(item, `"`), "/")
+		if item == "*" || strings.EqualFold(item, origin) {
+			return true
+		}
+		// "https://*.example.com" matches any subdomain of example.com (not the apex).
+		if s, rest, ok := strings.Cut(item, "://*."); ok && strings.EqualFold(s, scheme) &&
+			strings.HasSuffix(strings.ToLower(host), "."+strings.ToLower(rest)) {
+			return true
+		}
+	}
+	return false
+}
+
+// redactPageURL drops the query, fragment and userinfo: what identifies the page, never its credentials.
+func redactPageURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return "the --page URL"
+	}
+	return u.Scheme + "://" + u.Host + u.Path
+}
+
+// splitTopLevel splits a structured-field dictionary on commas outside inner lists and strings.
+func splitTopLevel(s string) []string {
+	var out []string
+	depth, quoted, start := 0, false, 0
+	for i, r := range s {
+		switch {
+		case r == '"':
+			quoted = !quoted
+		case quoted:
+		case r == '(':
+			depth++
+		case r == ')':
+			depth--
+		case r == ',' && depth == 0:
+			out = append(out, s[start:i])
+			start = i + 1
+		}
+	}
+	return append(out, s[start:])
 }
 
 // recentPrincipalRejects returns the DOMINANT (code, principal kind) pair in the recent rejects window

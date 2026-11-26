@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -112,6 +113,25 @@ func (c *Client) ProbeWidgetLoader(ctx context.Context) (int, error) {
 	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 	return resp.StatusCode, nil
+}
+
+// ProbeHostPage fetches an integrator's page that mounts the chat and returns its Permissions-Policy
+// header. A plain GET with NO bearer: the page is third-party, our token must never reach it.
+func (c *Client) ProbeHostPage(ctx context.Context, pageURL string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
+	if err != nil {
+		return "", errors.New("invalid page URL") // the parse error quotes the URL, query included
+	}
+	resp, err := (&http.Client{Timeout: c.http.Timeout}).Do(req)
+	if err != nil {
+		return "", &TransportError{Err: err}
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return strings.Join(resp.Header.Values("Permissions-Policy"), ", "), nil
 }
 
 func (c *Client) ChatOpen(ctx context.Context, project, origin, token string) (string, error) {

@@ -180,3 +180,53 @@ func TestNearMissRejectsNamesTheLikelyTypo(t *testing.T) {
 		t.Fatalf("nearMissRejects = %v", got)
 	}
 }
+
+func TestPermissionsPolicyAllows(t *testing.T) {
+	const rp = "https://app.replypen.com"
+	cases := []struct {
+		header, feature string
+		want            bool
+	}{
+		{"", "microphone", true},
+		{"camera=(), geolocation=()", "microphone", true},
+		{"camera=(), microphone=(), geolocation=()", "microphone", false},
+		{"microphone=(self)", "microphone", false},
+		{"microphone=self", "microphone", false},
+		{`microphone=(self "https://app.replypen.com")`, "microphone", true},
+		{`microphone=(self "https://app.replypen.com/");report-to=x`, "microphone", true},
+		{"microphone=*", "microphone", true},
+		{`display-capture=(self "https://other.example"), microphone=*`, "display-capture", false},
+		{`Microphone=()`, "microphone", false},
+		{`microphone=(self "https://*.replypen.com")`, "microphone", true},
+		{`microphone=(self "https://*.app.replypen.com")`, "microphone", false},
+		{`microphone=*, microphone=()`, "microphone", false},
+		{`microphone=(), microphone=*`, "microphone", true},
+	}
+	for _, c := range cases {
+		if got := PermissionsPolicyAllows(c.header, c.feature, rp); got != c.want {
+			t.Errorf("PermissionsPolicyAllows(%q, %s) = %v, want %v", c.header, c.feature, got, c.want)
+		}
+	}
+}
+
+func TestChatDoctorHostPagePolicyWarns(t *testing.T) {
+	in := healthyDoctorInputs()
+	in.PageURL, in.ChatOrigin = "https://www.example.com/help", "https://app.replypen.com"
+	in.PagePermissionsPolicy = "camera=(), microphone=(), geolocation=()"
+	r := ChatDoctor(in, doctorNow)
+	if r.Failed {
+		t.Fatal("a blocked mic is a warning, never a failure")
+	}
+	if got := findingCodes(r, "warning"); !reflect.DeepEqual(got, []string{"HOST_POLICY_BLOCKS_MICROPHONE"}) {
+		t.Fatalf("warnings = %v", got)
+	}
+	in.PageURL = "https://user:pw@www.example.com/help?sig=zq9sigval#x"
+	in.PageError = "HTTP 404"
+	r = ChatDoctor(in, doctorNow)
+	if got := findingCodes(r, "warning"); !reflect.DeepEqual(got, []string{"HOST_PAGE_UNREACHABLE"}) {
+		t.Fatalf("warnings = %v", got)
+	}
+	if b, _ := json.Marshal(r.Findings); strings.Contains(string(b), "zq9sigval") || strings.Contains(string(b), "pw@") {
+		t.Fatalf("page credentials leaked into findings: %s", b)
+	}
+}
