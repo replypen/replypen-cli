@@ -28,6 +28,11 @@ func TestSearchReportFrom(t *testing.T) {
 		len(q.Revs) != 2 || len(q.Versions) != 2 || q.FirstDay != "2026-11-20" || q.LastDay != "2026-11-25" {
 		t.Fatalf("retention = %+v", q)
 	}
+	// The 👎 on "c" joins the retention search by sid; the 👍 without a search counts only in the article totals.
+	if len(q.Votes) != 1 || q.Votes[0].ID != "c" || q.Votes[0].Down != 1 || len(r.Articles) != 2 ||
+		r.Articles[0].ID != "c" || r.Articles[0].FromSearch != 1 || r.Articles[1].ID != "keep-data" || r.Articles[1].Up != 1 || r.Articles[1].FromSearch != 0 {
+		t.Fatalf("votes = %+v articles = %+v", q.Votes, r.Articles)
+	}
 	// The click beacon may be stored before its search: same result.
 	l.Items[0], l.Items[1] = l.Items[1], l.Items[0]
 	if r2 := SearchReportFrom(&l); len(r2.Queries) != 2 || r2.Queries[0].NoClick != 1 || r2.Queries[0].Clicks[0].ID != "c" {

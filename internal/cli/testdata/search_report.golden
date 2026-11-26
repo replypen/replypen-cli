@@ -16,3 +16,12 @@ SEARCHES  ZERO  NO CLICK  CLICKS (id@rank)  QUERY
 ## Clicked at rank 3 or lower
 SEARCHES  ZERO  NO CLICK  CLICKS (id@rank)  QUERY
 2         0     1         c@3×1             retention
+
+## Article feedback by query (👎 = wrong article for this query)
+UP  DOWN  ARTICLE  QUERY
+0   1     c        retention
+
+## Article feedback totals
+UP  DOWN  FROM SEARCH  ARTICLE
+0   1     1            c
+1   0     0            keep-data

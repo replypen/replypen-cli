@@ -8,7 +8,7 @@ import (
 )
 
 // SearchEvent is one help-center search or click the project's website reported (server:
-// internal/api/search_events.go). Q is stored redacted; Sid joins a click to its search.
+// internal/api/search_events.go). Q is stored redacted; Sid joins a click or a feedback vote to its search.
 type SearchEvent struct {
 	Kind    string   `json:"kind"`
 	Sid     string   `json:"sid"`
@@ -19,6 +19,7 @@ type SearchEvent struct {
 	Rank    *int     `json:"rank"`
 	Rev     string   `json:"rev"`
 	V       *int     `json:"v"`
+	Vote    *int     `json:"vote"` // feedback rows: +1 / -1 on the article in Clicked
 	At      string   `json:"at"`
 }
 

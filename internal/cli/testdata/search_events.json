@@ -2,5 +2,7 @@
 {"kind":"search","sid":"sid-a","q":"Retention","n":3,"shown":["keep-data","b","c"],"clicked":null,"rank":null,"rev":"r1","v":1,"at":"2026-11-20T10:00:00Z"},
 {"kind":"click","sid":"sid-a","q":"","n":null,"shown":[],"clicked":"c","rank":3,"rev":"r1","v":1,"at":"2026-11-20T10:00:05Z"},
 {"kind":"search","sid":"sid-b","q":"retention","n":3,"shown":["keep-data","b","c"],"clicked":null,"rank":null,"rev":"r2","v":2,"at":"2026-11-25T09:00:00Z"},
-{"kind":"search","sid":"sid-c","q":"teams chat","n":0,"shown":[],"clicked":null,"rank":null,"rev":"r2","v":2,"at":"2026-11-25T09:01:00Z"}
+{"kind":"search","sid":"sid-c","q":"teams chat","n":0,"shown":[],"clicked":null,"rank":null,"rev":"r2","v":2,"at":"2026-11-25T09:01:00Z"},
+{"kind":"feedback","sid":"sid-a","q":"","n":null,"shown":[],"clicked":"c","rank":null,"rev":"r1","v":1,"vote":-1,"at":"2026-11-20T10:01:00Z"},
+{"kind":"feedback","sid":"page-z1","q":"","n":null,"shown":[],"clicked":"keep-data","rank":null,"rev":"r2","v":2,"vote":1,"at":"2026-11-25T10:00:00Z"}
 ]}

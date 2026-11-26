@@ -50,6 +50,45 @@ func SearchReport(w io.Writer, r digest.SearchReport, limit int) {
 	section("Zero results", func(q digest.SearchQuery) bool { return q.ZeroResults > 0 }, func(q digest.SearchQuery) int { return q.ZeroResults })
 	section("Results but no click", func(q digest.SearchQuery) bool { return q.NoClick > 0 }, func(q digest.SearchQuery) int { return q.NoClick })
 	section("Clicked at rank 3 or lower", digest.SearchQuery.LowRank, func(q digest.SearchQuery) int { return q.Searches })
+	searchFeedback(w, r, limit)
+}
+
+// searchFeedback lists 👍/👎 per query→article pair (a 👎 = the query landed on the wrong article), then the
+// article totals including votes that came without a search.
+func searchFeedback(w io.Writer, r digest.SearchReport, limit int) {
+	_, _ = fmt.Fprintln(w, "\n## Article feedback by query (👎 = wrong article for this query)")
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	n := 0
+	for _, q := range r.Queries {
+		for _, v := range q.Votes {
+			if limit > 0 && n == limit {
+				break
+			}
+			if n == 0 {
+				_, _ = fmt.Fprintln(tw, "UP\tDOWN\tARTICLE\tQUERY")
+			}
+			_, _ = fmt.Fprintf(tw, "%d\t%d\t%s\t%s\n", v.Up, v.Down, v.ID, q.Q)
+			n++
+		}
+	}
+	if n == 0 {
+		_, _ = fmt.Fprintln(tw, "(none)")
+	}
+	_ = tw.Flush()
+	_, _ = fmt.Fprintln(w, "\n## Article feedback totals")
+	if len(r.Articles) == 0 {
+		_, _ = fmt.Fprintln(w, "(none)")
+		return
+	}
+	tw = tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintln(tw, "UP\tDOWN\tFROM SEARCH\tARTICLE")
+	for i, a := range r.Articles {
+		if limit > 0 && i == limit {
+			break
+		}
+		_, _ = fmt.Fprintf(tw, "%d\t%d\t%d\t%s\n", a.Up, a.Down, a.FromSearch, a.ID)
+	}
+	_ = tw.Flush()
 }
 
 func clickCell(q digest.SearchQuery) string {

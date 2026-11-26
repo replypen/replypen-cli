@@ -21,6 +21,8 @@ type SearchQuery struct {
 	Shown      []string      `json:"shown"`
 	ShownTimes int           `json:"shown_times"`
 	Clicks     []SearchClick `json:"clicks"`
+	// Votes: 👍/👎 on an article opened from this query (feedback joined by sid).
+	Votes []SearchVote `json:"votes"`
 	Revs       []string      `json:"revs"`
 	Versions   []int         `json:"versions"`
 	FirstDay   string        `json:"first_day"`
@@ -33,6 +35,20 @@ type SearchClick struct {
 	Ranks  map[string]int `json:"ranks"` // 1-based rank → clicks
 }
 
+type SearchVote struct {
+	ID   string `json:"id"`
+	Up   int    `json:"up"`
+	Down int    `json:"down"`
+}
+
+// ArticleFeedback totals every vote on an article; FromSearch counts the ones that joined a search.
+type ArticleFeedback struct {
+	ID         string `json:"id"`
+	Up         int    `json:"up"`
+	Down       int    `json:"down"`
+	FromSearch int    `json:"from_search"`
+}
+
 type SearchReport struct {
 	Project   string        `json:"project"`
 	From      string        `json:"from"`
@@ -41,12 +57,15 @@ type SearchReport struct {
 	Searches  int           `json:"searches"`
 	Clicks    int           `json:"clicks"`
 	Queries   []SearchQuery `json:"queries"`
+	// Articles: every rated article, most 👎 first (votes without a search included).
+	Articles []ArticleFeedback `json:"articles"`
 }
 
 type searchAcc struct {
 	*SearchQuery
 	lists      map[string]int
 	clicks     map[string]*SearchClick
+	votes      map[string]*SearchVote
 	clickedSid map[string]bool
 	withSids   []string
 	revs       map[string]bool
@@ -59,11 +78,12 @@ func SearchReportFrom(l *client.SearchEventList) SearchReport {
 	out := SearchReport{Project: l.Project, From: l.From, To: l.To, Truncated: l.Truncated, Queries: []SearchQuery{}}
 	accs := map[string]*searchAcc{}
 	bySid := map[string]*searchAcc{}
+	articles := map[string]*ArticleFeedback{}
 	get := func(q string) *searchAcc {
 		key := strings.ToLower(q)
 		a := accs[key]
 		if a == nil {
-			a = &searchAcc{SearchQuery: &SearchQuery{Q: key}, lists: map[string]int{}, clicks: map[string]*SearchClick{},
+			a = &searchAcc{SearchQuery: &SearchQuery{Q: key}, lists: map[string]int{}, clicks: map[string]*SearchClick{}, votes: map[string]*SearchVote{},
 				clickedSid: map[string]bool{}, revs: map[string]bool{}, versions: map[int]bool{}}
 			accs[key] = a
 		}
@@ -108,6 +128,37 @@ func SearchReportFrom(l *client.SearchEventList) SearchReport {
 			if e.Rank != nil {
 				c.Ranks[strconv.Itoa(*e.Rank)]++
 			}
+		case "feedback":
+			id := ""
+			if e.Clicked != nil {
+				id = *e.Clicked
+			}
+			f := articles[id]
+			if f == nil {
+				f = &ArticleFeedback{ID: id}
+				articles[id] = f
+			}
+			up := e.Vote != nil && *e.Vote > 0
+			if up {
+				f.Up++
+			} else {
+				f.Down++
+			}
+			if a = bySid[e.Sid]; a == nil {
+				continue // rated without a search: article totals only
+			}
+			f.FromSearch++
+			v := a.votes[id]
+			if v == nil {
+				v = &SearchVote{ID: id}
+				a.votes[id] = v
+			}
+			if up {
+				v.Up++
+			} else {
+				v.Down++
+			}
+			continue
 		default:
 			continue
 		}
@@ -162,6 +213,11 @@ func SearchReportFrom(l *client.SearchEventList) SearchReport {
 			a.Versions = append(a.Versions, v)
 		}
 		sort.Ints(a.Versions)
+		a.Votes = []SearchVote{}
+		for _, v := range a.votes {
+			a.Votes = append(a.Votes, *v)
+		}
+		sort.Slice(a.Votes, func(i, j int) bool { return a.Votes[i].ID < a.Votes[j].ID })
 		out.Queries = append(out.Queries, *a.SearchQuery)
 	}
 	sort.Slice(out.Queries, func(i, j int) bool {
@@ -169,6 +225,17 @@ func SearchReportFrom(l *client.SearchEventList) SearchReport {
 			return out.Queries[i].Searches > out.Queries[j].Searches
 		}
 		return out.Queries[i].Q < out.Queries[j].Q
+	})
+	out.Articles = []ArticleFeedback{}
+	for _, f := range articles {
+		out.Articles = append(out.Articles, *f)
+	}
+	sort.Slice(out.Articles, func(i, j int) bool {
+		x, y := out.Articles[i], out.Articles[j]
+		if x.Down != y.Down {
+			return x.Down > y.Down
+		}
+		return x.ID < y.ID
 	})
 	return out
 }
