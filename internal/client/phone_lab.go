@@ -11,8 +11,10 @@ import (
 
 type PhoneLabRun struct {
 	Caller struct {
+		Phone  string `json:"phone"`
 		Status string `json:"status"`
 		Reason string `json:"reason"`
+		Lang   string `json:"lang"`
 	} `json:"caller"`
 
 	RunID        string          `json:"run_id"`
@@ -72,6 +74,7 @@ type PhoneLabEvent struct {
 	Outcome    string `json:"outcome"`
 	Cmd        string `json:"cmd"`
 	ExitCode   *int   `json:"exit_code"`
+	Stdout     string `json:"stdout"`
 }
 
 func (c *Client) PhoneLabRunWithRaw(ctx context.Context, project, id, tenant string) (*PhoneLabRun, json.RawMessage, error) {

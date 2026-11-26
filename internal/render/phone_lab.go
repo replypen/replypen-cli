@@ -19,5 +19,5 @@ func PhoneLabRuns(w io.Writer, resp *client.PhoneLabList, project string) {
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", r.RunID, r.Status, r.TenantID, r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"))
 	}
 	_ = tw.Flush()
-	_, _ = fmt.Fprintf(w, "\nDrill: rp run debug <run_id> --phone-lab --project %s\n", project)
+	_, _ = fmt.Fprintf(w, "\nRead: rp run call <run_id> --project %[1]s · forensic: rp run debug <run_id> --phone-lab --project %[1]s\n", project)
 }

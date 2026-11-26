@@ -28,6 +28,8 @@ func newRunCmd(e *env) *cobra.Command {
 	}
 	cmd.AddCommand(
 		newRunListCmd(e),
+		newRunCallsCmd(e),
+		newRunCallCmd(e),
 		newRunSessionsCmd(e),
 		newRunShowCmd(e),
 		newRunWaitCmd(e),

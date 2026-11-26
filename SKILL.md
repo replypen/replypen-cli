@@ -46,6 +46,15 @@ authoring a skill:
 | bundle | `rp run trace <id>` | `GET /api/v1/runs/{id}/trace` (JSONL in `-o json`) |
 | decompose | `rp run debug <id>` | `/trace` → local jq-able JSONL + thin markdown index |
 
+Phone calls, the review ladder (same developer endpoints as below): `rp run calls` (newest first: local time,
+caller masked to its last 3 digits, length, caller turns, outcome; `--since 24h|7d|YYYY-MM-DD`, `--limit`, `--tenant`)
+→ `rp run call <run|short id>` (the dialogue + outcome; `--steps` interleaves script calls; `-o json` = the raw run)
+→ `rp run debug <run> --phone-lab`. Outcomes are digested client-side (`internal/digest/phone_call.go`) from the
+brain phone scripts' own stdout JSON, keyed on the script verb (book/move/cancel/message/voicemail/waitlist) and a
+done-status set; a preview (`confirm`), refusal or failed exit is never an outcome. The list fetches every listed
+run's detail (6 in parallel); the detail route takes full ids only, so short ids resolve against the newest 100.
+No audio: recordings stay at Twilio (`labs/phone/sip/pull_calls.py` in the host repo).
+
 Phone-lab calls have a separate event store: `rp run list --phone-lab --project <project> --limit N`
 reads `/api/v1/projects/{project}/phone-lab/runs` (`items`, newest first, default 20, max 100).
 Only limit and tenant filtering apply; ordinary run filters are rejected. Requires project developer

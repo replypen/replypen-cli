@@ -108,6 +108,8 @@ Usage:
 
 Available Commands:
   list           List recent runs (filterable)
+  calls          List phone calls, newest first: when, caller, length, outcome (drill: rp run call <run>)
+  call           Read one phone call as a dialogue with its outcome (--steps: script calls)
   sessions       List chat conversations (sessions) with turns, outcome and feedback
   show           Show one run
   wait           Wait for many runs at once (e.g. a batch replay); --once just reads their status
@@ -158,6 +160,55 @@ Flags:
       --since string              runs created at/after this RFC3339 time or YYYY-MM-DD (UTC); overrides --days
       --subject string            thread subject substring (case-insensitive)
       --until string              runs created before this RFC3339 time, or through this YYYY-MM-DD (UTC)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp run calls --help
+List a phone project's calls (phone-lab runs), newest first: local time, caller (last 3 digits), length, caller turns, outcome (booked|moved|cancelled|message|waitlist, else no action or hung up) and the short run id.
+
+Drill down: rp run call <run> reads one call as a dialogue; add --steps for the script calls, -o json for the raw run, rp run debug <run> --phone-lab for the full forensic dump. Needs project developer access; --tenant narrows to one tenant.
+
+Usage:
+  rp run calls [flags]
+
+Examples:
+  rp run calls --project dentai-phone-nl --since 24h
+  rp run call d823f768 --project dentai-phone-nl --steps
+
+Flags:
+      --limit int      max calls (1..100) (default 20)
+      --since string   only calls since: a duration (90m, 24h, 7d), a local date (2026-11-26) or RFC3339
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp run call --help
+Print one call: agent and caller turns with their time into the call, then what the call changed. <run> is the run id or the 8-character short id `rp run calls` prints. --steps interleaves each script call (script, arguments, its stdout status); -o json prints the raw run (all events) for machines. Audio is not on the host: labs/phone/sip/pull_calls.py in the replypen repo pulls the Twilio recording.
+
+Usage:
+  rp run call <run> [flags]
+
+Examples:
+  rp run call d823f768 --project dentai-phone-nl
+  rp run call d823f768 --project dentai-phone-nl --steps
+
+Flags:
+      --steps   interleave the script calls (tool, arguments, stdout status)
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

@@ -764,6 +764,8 @@ help using `go test ./internal/cli -update`.
 | `rp run actions` | Show the safe action lifecycle history |
 | `rp run attachments` | List or download the files in a chat session |
 | `rp run brain-diff` | Show the brain commit written by a run |
+| `rp run call` | Read one phone call as a dialogue with its outcome (--steps: script calls) |
+| `rp run calls` | List phone calls, newest first: when, caller, length, outcome (drill: rp run call <run>) |
 | `rp run debug` | Decompose a run into local debug artifacts |
 | `rp run egress` | Show outbound gateway connections and HTTP attempts |
 | `rp run events` | Show the full per-event trace |
