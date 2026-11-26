@@ -58,7 +58,8 @@ func newSearchReportCmd(e *env) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return e.renderJSON("search-report", b)
+				// Inline, never spilled: a scheduled tune-up parses this stdout as one document.
+				return e.renderJSONInline(b)
 			}
 			render.SearchReport(e.out, rep, limit)
 			return nil

@@ -54,7 +54,7 @@ type searchAcc struct {
 }
 
 // SearchReportFrom aggregates raw events (oldest first) per query, ordered by volume. A click joins its search
-// by sid; when that search fell outside the window, the click's own q is the key.
+// by sid (in either order); when that search fell outside the window, the click's own q is the key.
 func SearchReportFrom(l *client.SearchEventList) SearchReport {
 	out := SearchReport{Project: l.Project, From: l.From, To: l.To, Truncated: l.Truncated, Queries: []SearchQuery{}}
 	accs := map[string]*searchAcc{}
@@ -69,12 +69,17 @@ func SearchReportFrom(l *client.SearchEventList) SearchReport {
 		}
 		return a
 	}
+	// Searches first: a click and its search are independent beacons, so a click may be stored first.
+	for _, e := range l.Items {
+		if e.Kind == "search" {
+			bySid[e.Sid] = get(e.Q)
+		}
+	}
 	for _, e := range l.Items {
 		var a *searchAcc
 		switch e.Kind {
 		case "search":
-			a = get(e.Q)
-			bySid[e.Sid] = a
+			a = bySid[e.Sid]
 			out.Searches++
 			a.Searches++
 			if e.N != nil && *e.N == 0 {

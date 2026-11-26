@@ -28,6 +28,11 @@ func TestSearchReportFrom(t *testing.T) {
 		len(q.Revs) != 2 || len(q.Versions) != 2 || q.FirstDay != "2026-11-20" || q.LastDay != "2026-11-25" {
 		t.Fatalf("retention = %+v", q)
 	}
+	// The click beacon may be stored before its search: same result.
+	l.Items[0], l.Items[1] = l.Items[1], l.Items[0]
+	if r2 := SearchReportFrom(&l); len(r2.Queries) != 2 || r2.Queries[0].NoClick != 1 || r2.Queries[0].Clicks[0].ID != "c" {
+		t.Fatalf("click-first = %+v", r2.Queries)
+	}
 	if z := r.Queries[1]; z.Q != "teams chat" || z.ZeroResults != 1 || z.NoClick != 0 || z.LowRank() {
 		t.Fatalf("zero = %+v", z)
 	}
