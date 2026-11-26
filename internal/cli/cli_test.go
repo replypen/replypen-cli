@@ -1744,6 +1744,14 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(fixture(t, "admin_projects.json"))
 	})
+	mux.HandleFunc("GET /api/v1/projects/{project}/search-events", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		if r.PathValue("project") != "alpha" {
+			t.Errorf("search events project = %q", r.PathValue("project"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(fixture(t, "search_events.json"))
+	})
 	mux.HandleFunc("GET /api/v1/admin/projects/{project}/identity-failures", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		if r.PathValue("project") != "alpha" {

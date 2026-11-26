@@ -55,6 +55,7 @@ func TestTableGolden(t *testing.T) {
 		{"AdminUserAddTable", []string{"admin", "user", "add", "email=dana@acme.test", "admin=true"}, "admin_user_add.golden"},
 		{"AdminProjectListTable", []string{"admin", "project", "ls"}, "admin_project_ls.golden"},
 		{"IdentityFailuresTable", []string{"admin", "project", "identity-failures", "alpha"}, "identity_failures.golden"},
+		{"SearchReportTable", []string{"--project", "alpha", "project", "search", "report"}, "search_report.golden"},
 		{"AdminCatalogUpsertTable", []string{"admin", "catalog", "upsert", "key=podio", "kind=api_key"}, "admin_catalog_upsert.golden"},
 		// DeployStateTable pins the three-plane render: host release + brain channels/promotions +
 		// mirrors with the refresh timeline (fixture uses canned timestamps).
@@ -206,6 +207,7 @@ func TestJSONPassthrough(t *testing.T) {
 	}{
 		{"RepoListJSONPassthrough", []string{"project", "repo", "ls"}, "repos.json"},
 		{"IdentityFailuresJSONPassthrough", []string{"admin", "project", "identity-failures", "alpha"}, "identity_failures.json"},
+		{"SearchEventsJSONPassthrough", []string{"--project", "alpha", "project", "search", "events"}, "search_events.json"},
 		{"TenantGetJSONPassthrough", []string{"project", "tenant", "get", "acme"}, "tenant_item.json"},
 		{"ConnectionListJSONPassthrough", []string{"project", "connection", "ls"}, "connections.json"},
 		{"ConnectionProbeJSONPassthrough", []string{"project", "connection", "probe", "notion.write"}, "connection_probe.json"},
@@ -342,6 +344,7 @@ func TestRejectsBeforeRequest(t *testing.T) {
 		{"TenantSettingsGetMissingTenant", []string{"project", "tenant", "settings", "get"}, "arg"},
 		{"IdentityFailuresMissingProject", []string{"admin", "project", "identity-failures"}, "arg"},
 		{"IdentityFailuresRejectsProjectFlag", []string{"admin", "project", "identity-failures", "alpha", "--project", "beta"}, "--project is not supported"},
+		{"SearchReportRejectsTenant", []string{"--project", "alpha", "--tenant", "north", "project", "search", "report"}, "--tenant is not supported"},
 		{"IdentityFailuresRejectsTenant", []string{"admin", "project", "identity-failures", "alpha", "--tenant", "north"}, "--tenant is not supported"},
 		// The console principal pair: half a principal is a scoping mistake (silent under- or over-scope),
 		// so each console verb refuses before the request instead of binding a partial identity.

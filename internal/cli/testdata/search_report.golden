@@ -1,0 +1,18 @@
+Search report alpha  2026-11-01 → 2026-11-27  (3 searches, 1 clicks, 2 distinct queries)
+
+## Top queries
+SEARCHES  ZERO  NO CLICK  CLICKS (id@rank)  QUERY
+2         0     1         c@3×1             retention
+1         1     0         -                 teams chat
+
+## Zero results
+SEARCHES  ZERO  NO CLICK  CLICKS (id@rank)  QUERY
+1         1     0         -                 teams chat
+
+## Results but no click
+SEARCHES  ZERO  NO CLICK  CLICKS (id@rank)  QUERY
+2         0     1         c@3×1             retention
+
+## Clicked at rank 3 or lower
+SEARCHES  ZERO  NO CLICK  CLICKS (id@rank)  QUERY
+2         0     1         c@3×1             retention

@@ -56,6 +56,7 @@ func newProjectSurfaceCmd(e *env, version string) *cobra.Command {
 		newPrincipalsCmd(e),
 		newProjectEgressCmd(e),
 		newReviewCmd(e),
+		newSearchCmd(e),
 	)
 	return cmd
 }

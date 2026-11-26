@@ -588,6 +588,7 @@ Available Commands:
   principals      Read or replace the project principal manifest
   egress          Inspect outbound endpoints, volume, and unattributed traffic
   review          Work the review queue: list, show, decide, close or finish cards (like the Review page)
+  search          Read what visitors searched in the project's website help center
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews
@@ -4156,6 +4157,70 @@ Global Flags:
       --raw-output        disable progressive output spill and print full payloads to stdout
       --scope string      force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
       --tenant string     override the login tenant where supported (default: RC_TENANT)
+
+$ rp project search --help
+Read what visitors searched in the project's website help center
+
+Usage:
+  rp project search [flags]
+  rp project search [command]
+
+Available Commands:
+  report      Help-center searches per query: zero results, no click, clicks by rank
+  events      Raw help-center search and click events, oldest first
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+Use "rp project search [command] --help" for more information about a command.
+
+$ rp project search report --help
+Aggregate the project's help-center search events per distinct query (case-folded, redacted on the server): searches, zero results, searches with results but no click, the result list most often shown, clicks per article and rank, site revisions and ranker versions seen, first and last day. -o json emits that digest; `rp project search events -o json` gives the raw rows.
+
+Usage:
+  rp project search report [flags]
+
+Flags:
+      --from string   first day, YYYY-MM-DD (default: 30 days before --to)
+      --limit int     rows per list in the table (0 = all) (default 25)
+      --to string     day after the last, YYYY-MM-DD (default: tomorrow, UTC)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project search events --help
+Raw help-center search and click events, oldest first
+
+Usage:
+  rp project search events [flags]
+
+Flags:
+      --from string   first day, YYYY-MM-DD (default: 30 days before --to)
+      --to string     day after the last, YYYY-MM-DD (default: tomorrow, UTC)
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
 
 $ rp dev --help
 Develop and inspect project behavior

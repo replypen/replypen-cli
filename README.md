@@ -700,6 +700,9 @@ help using `go test ./internal/cli -update`.
 | `rp project review ls` | List open review cards of one audience |
 | `rp project review show` | Show one review card (also once applied or closed) with its options and review-page link |
 | `rp project review` | Work the review queue: list, show, decide, close or finish cards (like the Review page) |
+| `rp project search events` | Raw help-center search and click events, oldest first |
+| `rp project search report` | Help-center searches per query: zero results, no click, clicks by rank |
+| `rp project search` | Read what visitors searched in the project's website help center |
 | `rp project senders allow` | Never treat mail from <pattern> as spam |
 | `rp project senders block` | Always treat mail from <pattern> as spam |
 | `rp project senders ls` | List the spam allow and block rules |

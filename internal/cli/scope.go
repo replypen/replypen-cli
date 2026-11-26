@@ -136,6 +136,9 @@ func commandScope(path string) scopeSpec {
 	switch {
 	case path == "project rename", strings.HasPrefix(path, "project settings "):
 		return projectOnly
+	// Help-center search events belong to the project's own website, never a tenant.
+	case strings.HasPrefix(path, "project search "):
+		return projectOnly
 	case strings.HasPrefix(path, "project tenant "):
 		return projectOnly
 	case strings.HasPrefix(path, "project mailbox settings "):
