@@ -20,6 +20,9 @@ func SearchReport(w io.Writer, r digest.SearchReport, limit int) {
 	}
 	if len(r.Queries) == 0 {
 		_, _ = fmt.Fprintln(w, "No searches in this window.")
+		if len(r.Articles) > 0 { // votes on articles reached without a search still count
+			searchFeedback(w, r, limit)
+		}
 		return
 	}
 	section := func(title string, keep func(digest.SearchQuery) bool, by func(digest.SearchQuery) int) {
