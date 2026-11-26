@@ -37,7 +37,7 @@ func TestTenantSettingsSetNestedBody(t *testing.T) {
 		"persona.tone=tenant crisp",
 		"channel.labeling_enabled=true",
 		"persona.signature=",
-		"--unset", "persona.guidance",
+		"--unset", "persona.language",
 	)
 	if err != nil {
 		t.Fatalf("set: %v", err)
@@ -51,7 +51,7 @@ func TestTenantSettingsSetNestedBody(t *testing.T) {
 		"persona": {
 			"tone":      "tenant crisp",
 			"signature": nil,
-			"guidance":  nil,
+			"language":  nil,
 		},
 		"channel": {
 			"labeling_enabled": true,

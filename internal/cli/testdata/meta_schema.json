@@ -46,13 +46,12 @@
     },
     "persona": {
       "settable_at": ["project", "tenant", "mailbox"],
-      "fields": ["signature", "tone", "language", "formality", "guidance"],
+      "fields": ["signature", "tone", "language", "note_language"],
       "field_schemas": [
         { "key": "persona.signature", "scope": "project", "group": "persona", "type": "text", "scopes": ["config:write"], "settable_at": ["project", "tenant", "mailbox"], "help": "Sign-off the reply uses." },
-        { "key": "persona.tone", "scope": "project", "group": "persona", "type": "text", "scopes": ["config:write"], "settable_at": ["project", "tenant", "mailbox"], "help": "Voice for replies." },
+        { "key": "persona.tone", "scope": "project", "group": "persona", "type": "text", "scopes": ["config:write"], "settable_at": ["project", "tenant", "mailbox"], "help": "The tone guide drafts follow." },
         { "key": "persona.language", "scope": "project", "group": "persona", "type": "text", "scopes": ["config:write"], "settable_at": ["project", "tenant", "mailbox"], "help": "Main language for customer-facing output." },
-        { "key": "persona.formality", "scope": "project", "group": "persona", "type": "text", "scopes": ["config:write"], "settable_at": ["project", "tenant", "mailbox"], "help": "Formality register." },
-        { "key": "persona.guidance", "scope": "project", "group": "persona", "type": "text", "scopes": ["config:write"], "settable_at": ["project", "tenant", "mailbox"], "help": "Extra voice/wording guidance." }
+        { "key": "persona.note_language", "scope": "project", "group": "persona", "type": "text", "scopes": ["config:write"], "settable_at": ["project", "tenant", "mailbox"], "help": "Language for internal reviewer output." }
       ]
     }
   },
