@@ -31,6 +31,11 @@ func (c *Client) rawScoped(ctx context.Context, method, path string, body any, p
 // SetBrandingLogo uploads the logo binary as multipart `file` with its MIME type (PUT). Returns the
 // verbatim response body for the -o json path.
 func (c *Client) SetBrandingLogo(ctx context.Context, filename, contentType string, data []byte, project string) (json.RawMessage, error) {
+	return c.putFile(ctx, "/api/v1/branding/logo"+collectionScope(project, ""), filename, contentType, data)
+}
+
+// putFile PUTs one file as the multipart `file` field with its MIME type, returning the verbatim body.
+func (c *Client) putFile(ctx context.Context, path, filename, contentType string, data []byte) (json.RawMessage, error) {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	h := make(map[string][]string)
@@ -46,7 +51,16 @@ func (c *Client) SetBrandingLogo(ctx context.Context, filename, contentType stri
 	if err := mw.Close(); err != nil {
 		return nil, fmt.Errorf("close multipart: %w", err)
 	}
-	return c.doRaw(ctx, http.MethodPut, "/api/v1/branding/logo"+collectionScope(project, ""), mw.FormDataContentType(), buf.Bytes())
+	return c.doRaw(ctx, http.MethodPut, path, mw.FormDataContentType(), buf.Bytes())
+}
+
+// --- Tenant profile image (PUT multipart at /api/v1/tenants/{slug}/profile/assets/{key}) ---
+
+// UploadTenantProfileAsset stores the image behind one x-widget:image profile key; the server mints
+// the public /tenant-assets/{id} URL, points the key at it and answers {"key","url"}.
+func (c *Client) UploadTenantProfileAsset(ctx context.Context, slug, key, filename, contentType string, data []byte, project string) (json.RawMessage, error) {
+	path := "/api/v1/tenants/" + url.PathEscape(slug) + "/profile/assets/" + url.PathEscape(key) + tenantProfileScope(project)
+	return c.putFile(ctx, path, filename, contentType, data)
 }
 
 // ClearBrandingLogo removes the stored logo (DELETE).

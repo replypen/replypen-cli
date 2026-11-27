@@ -161,6 +161,23 @@ func TestBrandingLogoSetTable(t *testing.T) {
 	}
 }
 
+func TestTenantProfileUploadTable(t *testing.T) {
+	srv := stubServer(t)
+	defer srv.Close()
+	path := filepath.Join(t.TempDir(), "signature.png")
+	if err := os.WriteFile(path, []byte("\x89PNG\r\n\x1a\n"), 0o644); err != nil {
+		t.Fatalf("write image: %v", err)
+	}
+	e, out, _ := newTestEnv(t, srv, "table")
+	if err := run(t, e, "project", "tenant", "profile", "upload", "evident", "schoolattest_signature", path); err != nil {
+		t.Fatalf("tenant profile upload: %v", err)
+	}
+	want := "evident.schoolattest_signature = https://app.example.test/tenant-assets/abc123?slug=evident (8 bytes)\n"
+	if out.String() != want {
+		t.Errorf("tenant profile upload output = %q, want %q", out.String(), want)
+	}
+}
+
 // --- dev brain status / sync / edit / consolidate / developer access ---
 
 // A 409 BRAIN_BOOT_CHECK_FAILED is terminal, not a transient sync failure: `rp dev brain sync` must

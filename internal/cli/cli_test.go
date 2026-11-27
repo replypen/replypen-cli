@@ -1367,6 +1367,20 @@ func registerConfigSurfaceStubs(t *testing.T, mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"logo":"stored","content_type":"image/png"}`))
 	})
+	// tenant profile image: PUT multipart at the key; echoes the minted public URL.
+	mux.HandleFunc("PUT /api/v1/tenants/{slug}/profile/assets/{key}", func(w http.ResponseWriter, r *http.Request) {
+		requireAuth(t, r)
+		f, hdr, err := r.FormFile("file")
+		if err != nil {
+			t.Fatalf("profile asset PUT missing file part: %v", err)
+		}
+		defer func() { _ = f.Close() }()
+		if ct := hdr.Header.Get("Content-Type"); ct != "image/png" {
+			t.Fatalf("profile asset part content-type = %q, want image/png", ct)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"key":%q,"url":"https://app.example.test/tenant-assets/abc123?slug=%s"}`, r.PathValue("key"), r.PathValue("slug"))
+	})
 	mux.HandleFunc("DELETE /api/v1/branding/logo", func(w http.ResponseWriter, r *http.Request) {
 		requireAuth(t, r)
 		w.WriteHeader(http.StatusNoContent)

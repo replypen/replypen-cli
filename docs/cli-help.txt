@@ -1064,6 +1064,7 @@ Usage:
 Available Commands:
   get         Show a tenant's projection/profile values
   set         Edit tenant projection/profile values
+  upload      Upload an image for an image profile key and set the key to its URL
   schema      Dump the tenant profile JSON schema
 
 Global Flags:
@@ -1102,6 +1103,22 @@ Usage:
 
 Flags:
       --unset stringArray   unconfigure a key (sends explicit null); repeatable
+
+Global Flags:
+      --no-preview       write large output artifacts but omit head/tail previews
+      --out-dir string   directory for large output artifacts (default: RC_OUTPUT_DIR or .replypen/output)
+  -o, --output string    output format: json|table (default: auto-detect)
+      --profile string   token profile to use (default: RC_PROFILE, else auto — the brain in the current directory, else "default")
+      --project string   scope the request to one project by name or id (default: RC_PROJECT; requires an all-projects token, unless the checkout's .replypen.toml binds that project via [[also]])
+      --raw-output       disable progressive output spill and print full payloads to stdout
+      --scope string     force request routing: project|tenant. "project" clears any resolved tenant (--tenant, a brain checkout, or a tenant-bound login) so a tenant-capable command hits the project route; "tenant" requires a resolvable tenant. With a tenant-pinned token, --scope project routes to the project and the server returns 403 — the flag controls routing, not authorization.
+      --tenant string    override the login tenant where supported (default: RC_TENANT)
+
+$ rp project tenant profile upload --help
+Upload an image for an image profile key and set the key to its URL
+
+Usage:
+  rp project tenant profile upload <slug> <key> <file> [flags]
 
 Global Flags:
       --no-preview       write large output artifacts but omit head/tail previews

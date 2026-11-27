@@ -3,6 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,6 +58,7 @@ func newTenantProfileCmd(e *env) *cobra.Command {
 	cmd.AddCommand(
 		newTenantProfileGetCmd(e),
 		newTenantProfileSetCmd(e),
+		newTenantProfileUploadCmd(e),
 		newTenantProfileSchemaCmd(e),
 	)
 	return cmd
@@ -136,6 +139,41 @@ func newTenantProfileSetCmd(e *env) *cobra.Command {
 	}
 	cmd.Flags().StringArrayVar(&unset, "unset", nil, "unconfigure a key (sends explicit null); repeatable")
 	return cmd
+}
+
+// newTenantProfileUploadCmd uploads an image for an x-widget:image profile key (PNG/JPEG, the web
+// widget's size cap and validation, all enforced server-side) and points the key at the minted public
+// URL in one step. Unconfigure a key with `set <slug> --unset <key>`.
+func newTenantProfileUploadCmd(e *env) *cobra.Command {
+	return &cobra.Command{
+		Use:   "upload <slug> <key> <file>",
+		Short: "Upload an image for an image profile key and set the key to its URL",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(_ *cobra.Command, args []string) error {
+			tenant, key, path := args[0], args[1], args[2]
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("read %s: %w", path, err)
+			}
+			c, err := e.newClient()
+			if err != nil {
+				return err
+			}
+			raw, err := c.UploadTenantProfileAsset(e.ctx(), tenant, key, filepath.Base(path), logoContentType(path, data), data, e.scopeProject())
+			if err != nil {
+				return err
+			}
+			if e.jsonOut() {
+				return e.renderJSONInline(raw)
+			}
+			var res struct {
+				URL string `json:"url"`
+			}
+			_ = json.Unmarshal(raw, &res)
+			_, _ = fmt.Fprintf(e.out, "%s.%s = %s (%d bytes)\n", tenant, key, res.URL, len(data))
+			return nil
+		},
+	}
 }
 
 func newTenantSettingsSchemaCmd(e *env) *cobra.Command {

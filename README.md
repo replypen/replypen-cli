@@ -739,6 +739,7 @@ help using `go test ./internal/cli -update`.
 | `rp project tenant profile get` | Show a tenant's projection/profile values |
 | `rp project tenant profile schema` | Dump the tenant profile JSON schema |
 | `rp project tenant profile set` | Edit tenant projection/profile values |
+| `rp project tenant profile upload` | Upload an image for an image profile key and set the key to its URL |
 | `rp project tenant profile` | Read or edit tenant projection/profile values |
 | `rp project tenant set` | Update a tenant |
 | `rp project tenant settings get` | Show settings with resolved provenance |
